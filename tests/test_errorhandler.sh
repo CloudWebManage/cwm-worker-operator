@@ -55,3 +55,19 @@ tests/assert_error_domain.sh "${INVALID_ZONE_DOMAIN2}" &&\
 tests/assert_error_domain.sh "${FAIL_TO_DEPLOY_DOMAIN}" &&\
 tests/assert_error_domain.sh "${TIMEOUT_DEPLOY_DOMAIN}" &&\
 [ "$(redis-cli --raw get "worker:error_attempt_number:${INVALID_ZONE_DOMAIN2}")" == "2" ]
+if [ "$?" == "0" ]; then
+  exit 0
+else
+  kubectl get ns
+  for NS in differentvolume--domain example007--com failtodeploy--domain timeoutdeploy--domain; do
+    echo "--- $NS ---"
+    kubectl -n $NS get deployment minio
+    POD="$(kubectl -n $NS get pods | tee /dev/stderr | grep minio | cut -d" " -f1)"
+    kubectl -n $NS describe pod $POD
+    for C in http https; do
+      echo "- container: $C -"
+      kubectl -n $NS logs $POD -c $C
+    done
+  done
+  exit 1
+fi

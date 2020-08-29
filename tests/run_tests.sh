@@ -13,3 +13,4 @@ for TEST in tests/test_*.sh; do
     fi
 done
 [ "${ALL_RES}" != "0" ] && exit 1
+exit 0
