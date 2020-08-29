@@ -1,0 +1,2 @@
+-r requirements-cwm-worker-deployment.txt
+redis==3.5.3

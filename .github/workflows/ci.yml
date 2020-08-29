@@ -1,0 +1,89 @@
+name: CI
+on:
+  push:
+jobs:
+  ci:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PACKAGES_READER_GITHUB_TOKEN: ${{ secrets.PACKAGES_READER_GITHUB_TOKEN }}
+        PACKAGES_READER_GITHUB_USER: ${{ secrets.PACKAGES_READER_GITHUB_USER }}
+        CWM_WORKER_HELM_DEPLOY_KEY: ${{ secrets.CWM_WORKER_HELM_DEPLOY_KEY }}
+        CWM_API_URL: ${{ secrets.CWM_API_URL }}
+      run: |
+        curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" &&\
+        chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl &&\
+        kubectl version --client &&\
+        curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 &&\
+        chmod +x minikube && sudo mv minikube /usr/local/bin/minikube &&\
+        minikube version &&\
+        curl -Ls https://get.helm.sh/helm-v3.2.4-linux-amd64.tar.gz -ohelm.tar.gz &&\
+        tar -xzvf helm.tar.gz && sudo mv linux-amd64/helm /usr/local/bin/helm &&\
+        sudo chmod +x /usr/local/bin/helm &&\
+        rm -rf linux-amd64 && rm helm.tar.gz &&\
+        helm version &&\
+        minikube start --driver=docker --kubernetes-version=v1.16.14 &&\
+        kubectl get nodes &&\
+        sudo apt-get install -y python3-venv redis-tools &&\
+        python3 -m venv venv &&\
+        . venv/bin/activate &&\
+        python -m pip install --upgrade pip &&\
+        python -m pip install --upgrade setuptools wheel &&\
+        python -m pip install -r requirements.txt &&\
+        python -m pip install -e . &&\
+        docker run -d --rm --name redis -p 6379:6379 redis
+        [ "$?" != "0" ] && exit 1
+        while ! redis-cli ping; do sleep 1; done
+        export DEBUG=yes
+        export REDIS_HOST=172.17.0.1
+        export CWM_ZONE=EU
+        ! tests/run_tests.sh && echo tests failed && exit 1
+        echo "${GITHUB_TOKEN}" | docker login https://docker.pkg.github.com -u cloudwebmanage --password-stdin &&\
+        docker build -t cwm_worker_operator .
+        DOMAIN=example007.com
+        tests/redis_clear.sh "${DOMAIN}"
+        kubectl delete ns example007--com
+        docker run -d \
+            -v "${HOME}/.kube/config:/root/.kube/config" \
+            -v "${HOME}/.minikube:${HOME}/.minikube" \
+            -e CWM_API_URL \
+            -e CWM_ZONE \
+            -e PACKAGES_READER_GITHUB_USER \
+            -e PACKAGES_READER_GITHUB_TOKEN \
+            -e REDIS_HOST \
+            cwm_worker_operator deployer start &&\
+        sleep 5
+        redis-cli set "worker:initialize:${DOMAIN}" ""
+        sleep 5
+        [ "$(redis-cli --raw exists "worker:available:${DOMAIN}")" == "1" ] &&\
+        [ "$(redis-cli --raw get "worker:ingress:hostname:${DOMAIN}")" == "minio.example007--com.svc.cluster.local" ]
+        [ "$?" != "0" ] && echo failed to validate docker test valid domain && exit 1
+        DOMAIN=invalid.domain
+        tests/redis_clear.sh "${DOMAIN}"
+        kubectl delete ns invalid--domain
+        sleep 5
+        redis-cli set "worker:initialize:${DOMAIN}" ""
+        sleep 5
+        ! [ "$(redis-cli --raw exists "worker:error:${DOMAIN}")" == "1" ] && echo failed to validate docker test invalid domain && exit 1
+        redis-cli set "worker:volume:config:${DOMAIN}" '{"hostname":"invalid.domain","zone":"EU"}'
+        docker run -d \
+            -v "${HOME}/.kube/config:/root/.kube/config" \
+            -v "${HOME}/.minikube:${HOME}/.minikube" \
+            -e CWM_API_URL \
+            -e CWM_ZONE \
+            -e PACKAGES_READER_GITHUB_USER \
+            -e PACKAGES_READER_GITHUB_TOKEN \
+            -e REDIS_HOST \
+            cwm_worker_operator errorhandler start
+        sleep 5
+        [ "$(redis-cli --raw exists "worker:available:${DOMAIN}")" == "1" ] &&\
+        [ "$(redis-cli --raw get "worker:ingress:hostname:${DOMAIN}")" == "minio.invalid--domain.svc.cluster.local" ]
+        [ "$?" != "0" ] && echo failed to validate docker errorhandler domain && exit 1
+        docker tag cwm_worker_operator docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
+        docker push docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
+        if [ "${GITHUB_REF}" == "refs/heads/master" ]; then
+          docker tag cwm_worker_operator docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
+          docker push docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest
+        fi
