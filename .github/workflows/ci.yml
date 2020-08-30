@@ -43,7 +43,8 @@ jobs:
         export ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0"
         ! tests/run_tests.sh && echo tests failed && exit 1
         echo "${GITHUB_TOKEN}" | docker login https://docker.pkg.github.com -u cloudwebmanage --password-stdin &&\
-        docker build -t cwm_worker_operator . &&\
+        docker pull docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
+        docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest -t cwm_worker_operator . &&\
         tests/docker_tests.sh &&\
         docker tag cwm_worker_operator docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
         docker push docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
@@ -52,13 +53,33 @@ jobs:
           docker push docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
           HELMARGS="--set cwm_api_url=$CWM_API_URL,packages_reader_github_user=$PACKAGES_READER_GITHUB_USER,packages_reader_github_token=$PACKAGES_READER_GITHUB_TOKEN" &&\
           echo '{"auths":{"docker.pkg.github.com":{"auth":"'"$(echo -n "${PACKAGES_READER_GITHUB_USER}:${PACKAGES_READER_GITHUB_TOKEN}" | base64 -w0)"'"}}}' | kubectl create secret generic github --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin &&\
+          sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
           helm upgrade --install cwm-worker-operator ./helm $HELMARGS &&\
           tests/wait_for.sh "
-            kubectl get pods | grep cwm-worker-operator | grep 'Running' | grep ' 3/3 ' &&\
-            kubectl exec deployment/cwm-worker-operator -c deployer -- sh -c 'cat .metrics.deployer | tail -1' &&\
-            kubectl exec deployment/cwm-worker-operator -c errorhandler -- sh -c 'cat .metrics.errorhandler | tail -1'
-          " "30" "waited too long for cwm-worker-operator to be deployed"
-          [ "$?" != "0" ] && exit 1
+            ( kubectl get pods | grep cwm-worker-operator | grep 'Running' | grep ' 3/3 ' &&\
+              kubectl exec deployment/cwm-worker-operator -c deployer -- tail -1 .metrics.deployer &&\
+              kubectl exec deployment/cwm-worker-operator -c errorhandler -- tail -1 .metrics.errorhandler )
+          " "120" "waited too long for cwm-worker-operator to be deployed"
+          if [ "$?" != "0" ]; then
+            kubectl get pods
+            kubectl describe pod cwm-worker-operator
+            kubectl logs deployment/cwm-worker-operator -c deployer | tail
+            kubectl logs deployment/cwm-worker-operator -c errorhandler | tail
+            exit 1
+          fi
           kubectl port-forward service/cwm-worker-operator-redis 6379 &
-          tests/k8s_tests.sh
+          tests/k8s_tests.sh &&\
+          echo "${CWM_WORKER_HELM_DEPLOY_KEY}" > cwm_worker_helm_deploy_key &&\
+          chmod 400 cwm_worker_helm_deploy_key &&\
+          export GIT_SSH_COMMAND="ssh -i $(pwd)/cwm_worker_helm_deploy_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" &&\
+          git clone git@github.com:CloudWebManage/cwm-worker-helm.git &&\
+          git config --global user.name "cwm-worker-operator CI" &&\
+          git config --global user.email "cwm-worker-operator-ci@localhost" &&\
+          mkdir -p cwm-worker-helm/cwm-worker-operator &&\
+          helm package ./helm --version "0.0.0-$(date +%Y%m%dT%H%M%S)" --destination ./cwm-worker-helm/cwm-worker-operator &&\
+          helm repo index --url "https://raw.githubusercontent.com/CloudWebManage/cwm-worker-helm/master/cwm-worker-operator/" ./cwm-worker-helm/cwm-worker-operator &&\
+          cd cwm-worker-helm &&\
+          git add cwm-worker-operator &&\
+          git commit -m "automatic update of cwm-worker-operator" &&\
+          git push origin master
         fi
