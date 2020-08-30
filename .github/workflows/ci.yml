@@ -43,58 +43,8 @@ jobs:
         export ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0"
         ! tests/run_tests.sh && echo tests failed && exit 1
         echo "${GITHUB_TOKEN}" | docker login https://docker.pkg.github.com -u cloudwebmanage --password-stdin &&\
-        docker build -t cwm_worker_operator .
-        DOMAIN=example007.com
-        tests/redis_clear.sh "${DOMAIN}"
-        kubectl delete ns example007--com
-        docker run -d \
-            -v "${HOME}/.kube/config:/root/.kube/config" \
-            -v "${HOME}/.minikube:${HOME}/.minikube" \
-            -e CWM_API_URL \
-            -e CWM_ZONE \
-            -e PACKAGES_READER_GITHUB_USER \
-            -e PACKAGES_READER_GITHUB_TOKEN \
-            -e REDIS_HOST \
-            -e DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
-            -e ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
-            cwm_worker_operator deployer start &&\
-        sleep 5
-        redis-cli set "worker:initialize:${DOMAIN}" ""
-        ELAPSED_SECONDS=0
-        while ! ( [ "$(redis-cli --raw exists "worker:available:${DOMAIN}")" == "1" ] &&\
-                  [ "$(redis-cli --raw get "worker:ingress:hostname:${DOMAIN}")" == "minio.example007--com.svc.cluster.local" ] )
-        do
-          sleep 1; ELAPSED_SECONDS="$(expr $ELAPSED_SECONDS + 1)"
-          [ "${ELAPSED_SECONDS}" == "30" ] && echo waited too long for docker test valid domain to be available && exit 1
-        done
-        DOMAIN=invalid.domain
-        tests/redis_clear.sh "${DOMAIN}"
-        kubectl delete ns invalid--domain
-        sleep 5
-        redis-cli set "worker:initialize:${DOMAIN}" ""
-        ELAPSED_SECONDS=0
-        while ! [ "$(redis-cli --raw exists "worker:error:${DOMAIN}")" == "1" ]; do
-          sleep 1; ELAPSED_SECONDS="$(expr $ELAPSED_SECONDS + 1)"
-          [ "${ELAPSED_SECONDS}" == "30" ] && echo waited too long for docker test invalid domain to be errored && exit 1
-        done
-        redis-cli set "worker:volume:config:${DOMAIN}" '{"hostname":"invalid.domain","zone":"EU"}'
-        docker run -d \
-            -v "${HOME}/.kube/config:/root/.kube/config" \
-            -v "${HOME}/.minikube:${HOME}/.minikube" \
-            -e CWM_API_URL \
-            -e CWM_ZONE \
-            -e PACKAGES_READER_GITHUB_USER \
-            -e PACKAGES_READER_GITHUB_TOKEN \
-            -e REDIS_HOST \
-            -e DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
-            -e ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
-            cwm_worker_operator errorhandler start
-        while ! ( [ "$(redis-cli --raw exists "worker:available:${DOMAIN}")" == "1" ] &&\
-                  [ "$(redis-cli --raw get "worker:ingress:hostname:${DOMAIN}")" == "minio.invalid--domain.svc.cluster.local" ] )
-        do
-          sleep 1; ELAPSED_SECONDS="$(expr $ELAPSED_SECONDS + 1)"
-          [ "${ELAPSED_SECONDS}" == "30" ] && echo waited too long fordocker errorhandler domain to be available && exit 1
-        done
+        docker build -t cwm_worker_operator . &&\
+        tests/docker_tests.sh &&\
         docker tag cwm_worker_operator docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
         docker push docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
         if [ "${GITHUB_REF}" == "refs/heads/master" ]; then
