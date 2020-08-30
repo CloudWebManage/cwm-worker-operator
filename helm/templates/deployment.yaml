@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cwm-worker-operator
+spec:
+  replicas: 1
+  revisionHistoryLimit: {{ $.Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      app: cwm-worker-operator
+  strategy:
+{{ $.Values.strategy | indent 4 }}
+  template:
+    metadata:
+      labels:
+        app: cwm-worker-operator
+    spec:
+      imagePullSecrets:
+      {{ $.Values.imagePullSecrets | indent 6 }}
+      terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
+      serviceAccountName: cwm-worker-operator
+      containers:
+      - name: redis
+        image: {{ $.Values.redis.image }}
+        imagePullPolicy: {{ $.Values.redis.imagePullPolicy }}
+        resources:
+{{ $.Values.redis.resources | indent 10 }}
+{{ range $.Values.operator.daemons }}
+      - name: {{ . }}
+        {{ if eq . "debug" }}
+        command: ["sleep", "86400"]
+        {{ else }}
+        args: [{{ . | quote }}, "start"]
+        {{ end }}
+        image: {{ $.Values.operator.image }}:{{ $.Values.operator.tag | default $.Chart.AppVersion }}
+        imagePullPolicy: {{ $.Values.operator.imagePullPolicy }}
+        env:
+        - name: CWM_API_URL
+          valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"CWM_API_URL"}}
+        - name: PACKAGES_READER_GITHUB_USER
+          valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"PACKAGES_READER_GITHUB_USER"}}
+        - name: PACKAGES_READER_GITHUB_TOKEN
+          valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"PACKAGES_READER_GITHUB_TOKEN"}}
+        {{ if $.Values.debug }}
+        - name: DEBUG
+          value: "yes"
+        {{ end }}
+        - name: REDIS_HOST
+          value: "localhost"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: CWM_ZONE
+          value: {{ $.Values.cwm_zone | quote }}
+{{ $.Values.operator.env | indent 8 }}
+        resources:
+{{ $.Values.operator.resources | indent 10 }}
+{{ end }}

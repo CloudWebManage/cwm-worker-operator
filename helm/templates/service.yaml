@@ -1,0 +1,12 @@
+{{ if .Values.redis.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cwm-worker-operator-redis
+spec:
+  ports:
+  - name: "6379"
+    port: 6379
+  selector:
+    app: cwm-worker-operator
+{{ end }}

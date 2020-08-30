@@ -1,0 +1,44 @@
+debug: true
+revisionHistoryLimit: 2
+terminationGracePeriodSeconds: 30
+strategy: |
+  type: Recreate
+imagePullSecrets: |
+  - name: github
+cwm_api_url: ""
+cwm_zone: "EU"
+packages_reader_github_user: ""
+packages_reader_github_token: ""
+
+redis:
+  image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
+  imagePullPolicy: IfNotPresent
+  service:
+    enabled: true
+  resources: |
+    requests:
+      cpu: .2
+      memory: 50Mi
+    limits:
+      memory: 200Mi
+
+operator:
+  daemons: ["deployer", "errorhandler"]
+  image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
+  tag: ""
+  imagePullPolicy: IfNotPresent
+  env: |
+    - name: DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
+      value: "30"
+    - name: ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
+      value: "30"
+    - name: ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+      value: "2.0"
+    - name: DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+      value: "2.0"
+  resources: |
+    requests:
+      cpu: .4
+      memory: 400Mi
+    limits:
+      memory: 800Mi

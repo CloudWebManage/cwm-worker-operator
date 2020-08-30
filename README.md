@@ -173,3 +173,61 @@ After a couple of seconds, check it's availability
 [ "$(redis-cli --raw exists "worker:available:${DOMAIN}")" == "1" ] &&\
 [ "$(redis-cli --raw get "worker:ingress:hostname:${DOMAIN}")" == "minio.invalid--domain.svc.cluster.local" ]
 ```
+
+## Helm chart development
+
+Create a cluster
+
+```
+minikube start --driver=docker --kubernetes-version=v1.16.14
+```
+
+Verify connection to the cluster
+
+```
+kubectl get nodes
+```
+
+Set helm arguments
+
+```
+HELMARGS="--set cwm_api_url=$CWM_API_URL,packages_reader_github_user=$PACKAGES_READER_GITHUB_USER,packages_reader_github_token=$PACKAGES_READER_GITHUB_TOKEN"
+```
+
+Deploy using one of the following options:
+
+* Use the published Docker images:
+  * Create a docker pull secret
+    * `echo '{"auths":{"docker.pkg.github.com":{"auth":"'"$(echo -n "${PACKAGES_READER_GITHUB_USER}:${PACKAGES_READER_GITHUB_TOKEN}" | base64 -w0)"'"}}}' | kubectl create secret generic github --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin`
+
+* Build your own Docker images:
+  * Switch Docker daemon to use the minikube Docker daemon: `eval $(minikube -p minikube docker-env)`
+  * Build the image: `docker build -t docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest .`
+  
+Deploy
+
+```
+helm upgrade --install cwm-worker-operator ./helm $HELMARGS
+```
+
+Verify metrics
+
+```
+while ! ( kubectl exec deployment/cwm-worker-operator -c deployer -- sh -c "cat .metrics.deployer | tail -1" &&\
+          kubectl exec deployment/cwm-worker-operator -c errorhandler -- sh -c "cat .metrics.errorhandler | tail -1" )
+do
+    sleep 1
+done
+```
+
+Start a port-forward to the redis
+
+```
+kubectl port-forward service/cwm-worker-operator-redis 6379
+```
+
+Run k8s tests
+
+```
+tests/k8s_tests.sh
+```
