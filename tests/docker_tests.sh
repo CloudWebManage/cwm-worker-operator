@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 echo starting docker tests &&\
+tests/clear_deployments.sh &&\
 tests/redis_start.sh &&\
 echo testing deployer - valid domain &&\
 DOMAIN=example007.com &&\

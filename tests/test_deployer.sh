@@ -10,10 +10,7 @@ DIFFERENT_VOLUME_CONFIG_DOMAIN2=differentvolume2.domain
 FAIL_TO_DEPLOY_DOMAIN=failtodeploy.domain
 TIMEOUT_DEPLOY_DOMAIN=timeoutdeploy.domain
 
-cwm_worker_deployment delete example007--com minio >/dev/null 2>&1
-cwm_worker_deployment delete differentvolume1--domain minio >/dev/null 2>&1
-cwm_worker_deployment delete differentvolume2--domain minio >/dev/null 2>&1
-cwm_worker_deployment delete timeoutdeploy--domain minio >/dev/null 2>&1
+tests/clear_deployments.sh &&\
 tests/redis_clear.sh "${VALID_DOMAIN}" &&\
 tests/redis_clear.sh "${MISSING_DOMAIN1}" &&\
 tests/redis_clear.sh "${MISSING_DOMAIN2}" &&\

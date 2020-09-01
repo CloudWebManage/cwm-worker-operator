@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 echo starting k8s tests &&\
+tests/clear_deployments.sh &&\
 echo testing deployer - valid domain &&\
 DOMAIN=example007.com &&\
 NAMESPACE=example007--com &&\
