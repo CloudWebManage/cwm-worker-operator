@@ -13,11 +13,12 @@ jobs:
         CWM_WORKER_HELM_DEPLOY_KEY: ${{ secrets.CWM_WORKER_HELM_DEPLOY_KEY }}
         CWM_API_URL: ${{ secrets.CWM_API_URL }}
       run: |
-        sudo bin/install_kubectl.sh &&\
-        sudo bin/install_minikube.sh &&\
+        sudo bin/install_minikube.sh && minikube version &&\
         bin/minikube_start.sh &&\
-        sudo bin/install_helm.sh &&\
-        sudo apt-get install -y python3-venv redis-tools &&\
+        sudo bin/install_kubectl.sh && kubectl version --client &&\
+        sudo bin/install_helm.sh && helm version &&\
+        sudo bin/install_python.sh &&\
+        sudo bin/install_redis_cli.sh &&\
         bin/python_init_venv_requirements_module.sh &&\
         bin/redis_start_wait.sh &&\
         bin/minikube_wait.sh &&\
