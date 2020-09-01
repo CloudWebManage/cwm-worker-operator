@@ -17,7 +17,7 @@ redis:
     enabled: true
   resources: |
     requests:
-      cpu: .2
+      cpu: .05
       memory: 50Mi
     limits:
       memory: 200Mi
@@ -38,7 +38,7 @@ operator:
       value: "2.0"
   resources: |
     requests:
-      cpu: .4
-      memory: 400Mi
+      cpu: .1
+      memory: 100Mi
     limits:
       memory: 800Mi
