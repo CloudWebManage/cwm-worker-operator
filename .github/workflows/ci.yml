@@ -13,73 +13,30 @@ jobs:
         CWM_WORKER_HELM_DEPLOY_KEY: ${{ secrets.CWM_WORKER_HELM_DEPLOY_KEY }}
         CWM_API_URL: ${{ secrets.CWM_API_URL }}
       run: |
-        curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" &&\
-        chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl &&\
-        kubectl version --client &&\
-        curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 &&\
-        chmod +x minikube && sudo mv minikube /usr/local/bin/minikube &&\
-        minikube version &&\
-        curl -Ls https://get.helm.sh/helm-v3.2.4-linux-amd64.tar.gz -ohelm.tar.gz &&\
-        tar -xzvf helm.tar.gz && sudo mv linux-amd64/helm /usr/local/bin/helm &&\
-        sudo chmod +x /usr/local/bin/helm &&\
-        rm -rf linux-amd64 && rm helm.tar.gz &&\
-        helm version &&\
-        minikube start --driver=docker --kubernetes-version=v1.16.14 &&\
-        kubectl get nodes &&\
+        sudo bin/install_kubectl.sh &&\
+        sudo bin/install_minikube.sh &&\
+        bin/minikube_start.sh &&\
+        sudo bin/install_helm.sh &&\
         sudo apt-get install -y python3-venv redis-tools &&\
-        python3 -m venv venv &&\
+        bin/python_init_venv_requirements_module.sh &&\
+        bin/redis_start_wait.sh &&\
+        bin/minikube_wait.sh &&\
         . venv/bin/activate &&\
-        python -m pip install --upgrade pip &&\
-        python -m pip install --upgrade setuptools wheel &&\
-        python -m pip install -r requirements.txt &&\
-        python -m pip install -e . &&\
-        docker run -d --rm --name redis -p 6379:6379 redis
-        [ "$?" != "0" ] && exit 1
-        while ! redis-cli ping; do sleep 1; done
-        export DEBUG=yes
-        export REDIS_HOST=172.17.0.1
-        export CWM_ZONE=EU
-        export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0"
-        export ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0"
-        ! tests/run_tests.sh && echo tests failed && exit 1
-        echo "${GITHUB_TOKEN}" | docker login https://docker.pkg.github.com -u cloudwebmanage --password-stdin &&\
-        docker pull docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
-        docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest -t cwm_worker_operator . &&\
+        export DEBUG=yes &&\
+        export REDIS_HOST=172.17.0.1 &&\
+        export CWM_ZONE=EU &&\
+        export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0" &&\
+        export ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0" &&\
+        echo running python tests &&\
+        tests/run_tests.sh &&\
+        bin/docker_login.sh &&\
+        bin/docker_build.sh &&\
+        echo running docker tests &&\
         tests/docker_tests.sh &&\
-        docker tag cwm_worker_operator docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
-        docker push docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:$GITHUB_SHA &&\
+        bin/docker_push_sha.sh &&\
         if [ "${GITHUB_REF}" == "refs/heads/master" ]; then
-          docker tag cwm_worker_operator docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
-          docker push docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
-          HELMARGS="--set cwm_api_url=$CWM_API_URL,packages_reader_github_user=$PACKAGES_READER_GITHUB_USER,packages_reader_github_token=$PACKAGES_READER_GITHUB_TOKEN" &&\
-          echo '{"auths":{"docker.pkg.github.com":{"auth":"'"$(echo -n "${PACKAGES_READER_GITHUB_USER}:${PACKAGES_READER_GITHUB_TOKEN}" | base64 -w0)"'"}}}' | kubectl create secret generic github --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin &&\
-          sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
-          helm upgrade --install cwm-worker-operator ./helm $HELMARGS &&\
-          tests/wait_for.sh "
-            ( kubectl get pods | grep cwm-worker-operator | grep 'Running' | grep ' 3/3 ' &&\
-              kubectl exec deployment/cwm-worker-operator -c deployer -- tail -1 .metrics.deployer &&\
-              kubectl exec deployment/cwm-worker-operator -c errorhandler -- tail -1 .metrics.errorhandler )
-          " "120" "waited too long for cwm-worker-operator to be deployed"
-          if [ "$?" != "0" ]; then
-            kubectl get pods
-            kubectl describe pod cwm-worker-operator
-            kubectl logs deployment/cwm-worker-operator -c deployer | tail
-            kubectl logs deployment/cwm-worker-operator -c errorhandler | tail
-            exit 1
-          fi
-          kubectl port-forward service/cwm-worker-operator-redis 6379 &
+          bin/docker_push_latest.sh &&\
+          bin/helm_init_deploy.sh &&\
           tests/k8s_tests.sh &&\
-          echo "${CWM_WORKER_HELM_DEPLOY_KEY}" > cwm_worker_helm_deploy_key &&\
-          chmod 400 cwm_worker_helm_deploy_key &&\
-          export GIT_SSH_COMMAND="ssh -i $(pwd)/cwm_worker_helm_deploy_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" &&\
-          git clone git@github.com:CloudWebManage/cwm-worker-helm.git &&\
-          git config --global user.name "cwm-worker-operator CI" &&\
-          git config --global user.email "cwm-worker-operator-ci@localhost" &&\
-          mkdir -p cwm-worker-helm/cwm-worker-operator &&\
-          helm package ./helm --version "0.0.0-$(date +%Y%m%dT%H%M%S)" --destination ./cwm-worker-helm/cwm-worker-operator &&\
-          helm repo index --url "https://raw.githubusercontent.com/CloudWebManage/cwm-worker-helm/master/cwm-worker-operator/" ./cwm-worker-helm/cwm-worker-operator &&\
-          cd cwm-worker-helm &&\
-          git add cwm-worker-operator &&\
-          git commit -m "automatic update of cwm-worker-operator" &&\
-          git push origin master
+          bin/helm_publish.sh
         fi
