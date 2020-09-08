@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
-cwm_worker_deployment delete example007--com minio --delete-namespace >/dev/null 2>&1
-cwm_worker_deployment delete differentvolume1--domain minio --delete-namespace >/dev/null 2>&1
-cwm_worker_deployment delete differentvolume2--domain minio --delete-namespace >/dev/null 2>&1
-cwm_worker_deployment delete timeoutdeploy--domain minio --delete-namespace >/dev/null 2>&1
-cwm_worker_deployment delete invalid--domain minio --delete-namespace >/dev/null 2>&1
-sleep 5
+for NAMESPACE in example007--com differentvolume1--domain differentvolume2--domain timeoutdeploy--domain invalid--domain; do
+  cwm_worker_deployment delete $NAMESPACE minio --delete-namespace --timeout 1m0s
+  while kubectl get ns $NAMESPACE; do sleep 1; done
+done
 exit 0
