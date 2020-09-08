@@ -47,6 +47,7 @@ WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG = "FAILED_TO_GET_VOLUME_CONFIG"
 
 WORKER_ERROR_MAX_ATTEMPTS = int(os.environ.get("WORKER_ERROR_MAX_ATTEMPTS", "5"))
 
+
 def get_redis_pool():
     print("REDIS_HOST={} REDIS_PORT={}".format(REDIS_HOST, REDIS_PORT))
     pool = redis.BlockingConnectionPool(
@@ -117,11 +118,7 @@ def set_worker_error(redis_pool, domain_name, error_msg, metrics, error_attempt_
     metrics.send("error: {}".format(error_msg))
     r = redis.Redis(connection_pool=redis_pool)
     r.set(REDIS_KEY_WORKER_ERROR.format(domain_name), error_msg)
-    r.delete(
-        "{}:{}".format(REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name),
-        REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name),
-        REDIS_KEY_WORKER_AVAILABLE.format(domain_name)
-    )
+    del_worker_keys(r, domain_name, with_error=False)
     if error_attempt_number:
         r.set(REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name), str(error_attempt_number+1))
     r.close()
@@ -145,3 +142,12 @@ def get_worker_error_attempt_number(redis_pool, domain_name):
     attempt_number = int(attempt_number) if attempt_number else 1
     r.close()
     return attempt_number
+
+
+def del_worker_keys(redis_connection, domain_name, with_error=True):
+    redis_connection.delete(
+        "{}:{}".format(REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name),
+        REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name),
+        REDIS_KEY_WORKER_AVAILABLE.format(domain_name),
+        *([REDIS_KEY_WORKER_ERROR.format(domain_name)] if with_error else [])
+    )
