@@ -51,6 +51,14 @@ spec:
           value: "6379"
         - name: CWM_ZONE
           value: {{ $.Values.cwm_zone | quote }}
+        - name: DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
+          value: {{ $.Values.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS | quote }}
+        - name: ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
+          value: {{ $.Values.ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS | quote }}
+        - name: ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ $.Values.operator.resources | indent 10 }}

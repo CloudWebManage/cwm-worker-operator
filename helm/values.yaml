@@ -27,15 +27,11 @@ operator:
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
-  env: |
-    - name: DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
-      value: "30"
-    - name: ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
-      value: "30"
-    - name: ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
-      value: "2.0"
-    - name: DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
-      value: "2.0"
+  DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS: "30"
+  ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS: "30"
+  ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "2.0"
+  DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "2.0"
+  env: ""
   resources: |
     requests:
       cpu: .1
