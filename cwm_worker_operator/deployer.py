@@ -48,8 +48,14 @@ def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, nam
     certificate_pem = "\n".join(certificate_pem) if certificate_pem else None
     client_id = volume_config.get("client_id")
     secret = volume_config.get("secret")
-    minio_extra_configs = volume_config.get("minio_extra_configs", {})
-    cwm_worker_deployment_extra_configs = volume_config.get("cwm_worker_deployment_extra_configs", {})
+    minio_extra_configs = {
+        **config.MINIO_EXTRA_CONFIG,
+        **volume_config.get("minio_extra_configs", {})
+    }
+    cwm_worker_deployment_extra_configs = {
+        **config.CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG,
+        **volume_config.get("cwm_worker_deployment_extra_configs", {})
+    }
     minio = {"createPullSecret": config.PULL_SECRET}
     if protocol == "https" and certificate_key and certificate_pem:
         minio["enabledProtocols"] = ["http", "https"]
