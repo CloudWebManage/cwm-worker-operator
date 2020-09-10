@@ -13,8 +13,6 @@ packages_reader_github_token: ""
 redis:
   image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
   imagePullPolicy: IfNotPresent
-  service:
-    enabled: true
   resources: |
     requests:
       cpu: .05
@@ -31,6 +29,8 @@ operator:
   ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS: "30"
   ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "2.0"
   DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "2.0"
+  CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON: "{}"
+  MINIO_EXTRA_CONFIG_JSON: "{}"
   env: ""
   resources: |
     requests:

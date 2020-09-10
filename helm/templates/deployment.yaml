@@ -20,11 +20,6 @@ spec:
       terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
       serviceAccountName: cwm-worker-operator
       containers:
-      - name: redis
-        image: {{ $.Values.redis.image }}
-        imagePullPolicy: {{ $.Values.redis.imagePullPolicy }}
-        resources:
-{{ $.Values.redis.resources | indent 10 }}
 {{ range $.Values.operator.daemons }}
       - name: {{ . }}
         {{ if eq . "debug" }}
@@ -46,7 +41,7 @@ spec:
           value: "yes"
         {{ end }}
         - name: REDIS_HOST
-          value: "localhost"
+          value: "cwm-worker-operator-redis"
         - name: REDIS_PORT
           value: "6379"
         - name: CWM_ZONE
@@ -59,6 +54,10 @@ spec:
           value: {{ $.Values.ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON
+          value: {{ $.Values.CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON | quote }}
+        - name: MINIO_EXTRA_CONFIG_JSON
+          value: {{ $.Values.MINIO_EXTRA_CONFIG_JSON | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ $.Values.operator.resources | indent 10 }}
