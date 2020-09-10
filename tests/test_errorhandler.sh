@@ -10,16 +10,15 @@ DIFFERENT_VOLUME_CONFIG_DOMAIN2=differentvolume2.domain
 FAIL_TO_DEPLOY_DOMAIN=failtodeploy.domain
 TIMEOUT_DEPLOY_DOMAIN=timeoutdeploy.domain
 
-tests/clear_deployments.sh &&\
-tests/redis_clear.sh "${VALID_DOMAIN}" &&\
-tests/redis_clear.sh "${MISSING_DOMAIN1}" &&\
-tests/redis_clear.sh "${MISSING_DOMAIN2}" &&\
-tests/redis_clear.sh "${INVALID_ZONE_DOMAIN1}" &&\
-tests/redis_clear.sh "${INVALID_ZONE_DOMAIN2}" &&\
-tests/redis_clear.sh "${DIFFERENT_VOLUME_CONFIG_DOMAIN1}" &&\
-tests/redis_clear.sh "${DIFFERENT_VOLUME_CONFIG_DOMAIN2}" &&\
-tests/redis_clear.sh "${FAIL_TO_DEPLOY_DOMAIN}" &&\
-tests/redis_clear.sh "${TIMEOUT_DEPLOY_DOMAIN}" &&\
+for DOMAIN in "${VALID_DOMAIN}" "${MISSING_DOMAIN1}" "${MISSING_DOMAIN2}" "${INVALID_ZONE_DOMAIN1}" "${INVALID_ZONE_DOMAIN2}"  \
+              "${DIFFERENT_VOLUME_CONFIG_DOMAIN1}" "${DIFFERENT_VOLUME_CONFIG_DOMAIN2}" "${FAIL_TO_DEPLOY_DOMAIN}" "${TIMEOUT_DEPLOY_DOMAIN}"
+do
+  if ! DELETER_OUTPUT="$( (cwm_worker_operator deleter delete "${DOMAIN}") 2>&1 )"; then
+    echo "${DELETER_OUTPUT}"
+    echo failed to delete domain "${DOMAIN}"
+    exit 1
+  fi
+done &&\
 cwm_worker_operator errorhandler start --once >/dev/null &&\
 sleep 2 &&\
 redis-cli set "worker:error:${VALID_DOMAIN}" "" &&\
