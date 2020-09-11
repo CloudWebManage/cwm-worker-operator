@@ -88,6 +88,8 @@ def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, nam
     if debug:
         print(deployment_config_json, flush=True)
     deployment_config = json.loads(deployment_config_json)
+    if debug:
+        cwm_worker_deployment.deployment.deploy(deployment_config, dry_run=True)
     try:
         cwm_worker_deployment.deployment.deploy(deployment_config)
     except Exception:
@@ -155,6 +157,7 @@ def debug_deployment(domain_name):
     namespaces_deployed = set()
     for namespace_name, namespace_config in namespaces.items():
         print("Deploying namespace {}".format(namespace_name), flush=True)
+        namespace_config["domain_names"] = list(namespace_config["domain_names"])
         print(json.dumps(namespace_config), flush=True)
         deploy_namespace(redis_pool, namespace_name, namespace_config, deployer_metrics, namespaces_deployed, debug=True)
     wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, deployer_metrics, config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS)
