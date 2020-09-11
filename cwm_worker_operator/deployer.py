@@ -1,6 +1,7 @@
 import time
 import traceback
 import datetime
+import json
 
 import cwm_worker_deployment.deployment
 
@@ -56,6 +57,10 @@ def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, nam
         **config.CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG,
         **volume_config.get("cwm_worker_deployment_extra_configs", {})
     }
+    extra_objects = [
+        *config.CWM_WORKER_EXTRA_OBJECTS,
+        *volume_config.get("cwm_worker_extra_objects", [])
+    ]
     minio = {"createPullSecret": config.PULL_SECRET}
     if protocol == "https" and certificate_key and certificate_pem:
         minio["enabledProtocols"] = ["http", "https"]
@@ -68,18 +73,20 @@ def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, nam
     if client_id and secret:
         minio["access_key"] = client_id
         minio["secret_key"] = secret
+    deployment_config = json.loads(json.dumps({
+        "cwm-worker-deployment": {
+            "type": "minio",
+            "namespace": namespace_name,
+            **cwm_worker_deployment_extra_configs
+        },
+        "minio": {
+            **minio,
+            **minio_extra_configs
+        },
+        "extraObjects": extra_objects
+    }).replace("__NAMESPACE_NAME__", namespace_name))
     try:
-        cwm_worker_deployment.deployment.deploy({
-            "cwm-worker-deployment": {
-                "type": "minio",
-                "namespace": namespace_name,
-                **cwm_worker_deployment_extra_configs
-            },
-            "minio": {
-                **minio,
-                **minio_extra_configs
-            }
-        })
+        cwm_worker_deployment.deployment.deploy(deployment_config)
     except Exception:
         traceback.print_exc()
         print("ERROR! Failed to deploy (namespace={})".format(namespace_name))

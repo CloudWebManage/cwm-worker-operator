@@ -52,6 +52,7 @@ WORKER_ERROR_MAX_ATTEMPTS = int(os.environ.get("WORKER_ERROR_MAX_ATTEMPTS", "5")
 
 CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG = json.loads(os.environ.get("CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON") or '{}')
 MINIO_EXTRA_CONFIG = json.loads(os.environ.get("MINIO_EXTRA_CONFIG_JSON") or '{}')
+CWM_WORKER_EXTRA_OBJECTS = json.loads(os.environ.get("CWM_WORKER_EXTRA_OBJECTS_JSON") or '[]')
 
 def get_redis_pool():
     print("REDIS_HOST={} REDIS_PORT={}".format(REDIS_HOST, REDIS_PORT))
