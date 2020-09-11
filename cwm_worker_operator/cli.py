@@ -10,6 +10,9 @@ def main():
         if sys.argv[2] == "start":
             once = '--once' in sys.argv
             deployer.start(once=once)
+        elif sys.argv[2] == "debug-deployment":
+            domain_name = sys.argv[3] if len(sys.argv) >= 4 else None
+            deployer.debug_deployment(domain_name)
         else:
             raise Exception("Invalid deployer command: {}".format(" ".join(sys.argv[2:])))
     elif sys.argv[1] == "errorhandler":

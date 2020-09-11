@@ -39,7 +39,7 @@ def init_domain_waiting_for_deploy(redis_pool, domain_name, _metrics, namespaces
     _metrics.send("domains ready for init", domain_name=domain_name)
 
 
-def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, namespaces_deployed, domains_error_attempt_numbers=None):
+def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, namespaces_deployed, domains_error_attempt_numbers=None, debug=False):
     _metrics.send("namespaces waiting for deploy", namespace_name=namespace_name)
     volume_config = namespace_config["volume_config"]
     protocol = volume_config.get("protocol", "http")
@@ -73,7 +73,7 @@ def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, nam
     if client_id and secret:
         minio["access_key"] = client_id
         minio["secret_key"] = secret
-    deployment_config = json.loads(json.dumps({
+    deployment_config_json = json.dumps({
         "cwm-worker-deployment": {
             "type": "minio",
             "namespace": namespace_name,
@@ -84,7 +84,10 @@ def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, nam
             **minio_extra_configs
         },
         "extraObjects": extra_objects
-    }).replace("__NAMESPACE_NAME__", namespace_name))
+    }).replace("__NAMESPACE_NAME__", namespace_name)
+    if debug:
+        print(deployment_config_json, flush=True)
+    deployment_config = json.loads(deployment_config_json)
     try:
         cwm_worker_deployment.deployment.deploy(deployment_config)
     except Exception:
@@ -142,3 +145,16 @@ def start(once=False):
             break
         deployer_metrics.save()
         time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+
+
+def debug_deployment(domain_name):
+    redis_pool = config.get_redis_pool()
+    deployer_metrics = metrics.Metrics(config.METRICS_GROUP_DEPLOYER_PATH_SUFFIX, is_dummy=True)
+    namespaces = {}
+    init_domain_waiting_for_deploy(redis_pool, domain_name, deployer_metrics, namespaces)
+    namespaces_deployed = set()
+    for namespace_name, namespace_config in namespaces.items():
+        print("Deploying namespace {}".format(namespace_name), flush=True)
+        print(json.dumps(namespace_config), flush=True)
+        deploy_namespace(redis_pool, namespace_name, namespace_config, deployer_metrics, namespaces_deployed, debug=True)
+    wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, deployer_metrics, config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS)
