@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+export DEBUG=
+
 echo starting k8s tests &&\
 tests/clear_deployments.sh &&\
 echo testing deployer - valid domain &&\
@@ -33,6 +35,7 @@ fi
 echo Testing errorhandler daemon &&\
 echo setting volume config for invalid domain &&\
 redis-cli set "worker:volume:config:${DOMAIN}" '{"hostname":"invalid.domain","zone":"EU"}' &&\
+redis-cli del "worker:error_attempt_number:${DOMAIN}" &&\
 echo Waiting for invalid domain to be available &&\
 tests/wait_for.sh "
   [ \"\$(redis-cli --raw exists \"worker:available:${DOMAIN}\")\" == \"1\" ] &&\
