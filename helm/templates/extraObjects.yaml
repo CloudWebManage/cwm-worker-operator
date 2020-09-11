@@ -1,0 +1,9 @@
+{{ range .Values.extraObjects }}
+apiVersion: {{ .apiVersion }}
+kind: {{ .kind }}
+metadata:
+  name: {{ .name }}
+spec:
+{{ .spec | indent 2 }}
+---
+{{ end }}

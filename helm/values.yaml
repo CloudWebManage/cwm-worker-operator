@@ -19,6 +19,10 @@ redis:
       memory: 50Mi
     limits:
       memory: 200Mi
+  persistence:
+    enabled: true
+    volume: |
+      emptyDir: {}
 
 operator:
   daemons: ["deployer", "errorhandler"]
@@ -38,3 +42,6 @@ operator:
       memory: 100Mi
     limits:
       memory: 800Mi
+
+# each object have required attributes: apiVersion, kind, name, spec
+extraObjects: []

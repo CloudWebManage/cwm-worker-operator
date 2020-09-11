@@ -20,5 +20,16 @@ spec:
       - name: redis
         image: {{ $.Values.redis.image }}
         imagePullPolicy: {{ $.Values.redis.imagePullPolicy }}
+        {{ if $.Values.redis.persistence.enabled }}
+        args: ["redis-server", "--appendonly", "yes"]
+        {{ end }}
         resources:
 {{ $.Values.redis.resources | indent 10 }}
+        {{ if $.Values.redis.persistence.enabled }}
+        volumeMounts:
+        - mountPath: "/data"
+          name: "data"
+        {{ end }}
+      volumes:
+      - name: data
+{{ $.Values.redis.persistence.volume | indent 8 }}
