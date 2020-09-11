@@ -39,6 +39,8 @@ spec:
         {{ if $.Values.debug }}
         - name: DEBUG
           value: "yes"
+        - name: DEBUG_VERBOSITY
+          value: {{ $.Values.debugVerbosity | quote }}
         {{ end }}
         - name: REDIS_HOST
           value: "cwm-worker-operator-redis"

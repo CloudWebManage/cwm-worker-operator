@@ -120,7 +120,7 @@ def start(once=False):
     redis_pool = config.get_redis_pool()
     deployer_metrics = metrics.Metrics(config.METRICS_GROUP_DEPLOYER_PATH_SUFFIX)
     while True:
-        deployer_metrics.send("iterations started")
+        deployer_metrics.send("iterations started", debug_verbosity=8)
         domains_waiting_for_initialization = config.get_worker_domains_waiting_for_initlization(redis_pool)
         namespaces = {}
         for domain_name in domains_waiting_for_initialization:
@@ -129,7 +129,7 @@ def start(once=False):
         for namespace_name, namespace_config in namespaces.items():
             deploy_namespace(redis_pool, namespace_name, namespace_config, deployer_metrics, namespaces_deployed)
         wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, deployer_metrics, config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS)
-        deployer_metrics.send("iterations ended")
+        deployer_metrics.send("iterations ended", debug_verbosity=8)
         if once:
             deployer_metrics.save(force=True)
             break

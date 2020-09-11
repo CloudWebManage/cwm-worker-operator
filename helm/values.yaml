@@ -1,4 +1,5 @@
 debug: true
+debugVerbosity: 10
 revisionHistoryLimit: 2
 terminationGracePeriodSeconds: 30
 strategy: |

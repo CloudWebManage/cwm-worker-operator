@@ -13,9 +13,9 @@ class Metrics:
         self.is_dummy = is_dummy
         self.last_save_time = self.start_time = datetime.datetime.now()
 
-    def send(self, metric, **debug_data):
+    def send(self, metric, debug_verbosity=None, **debug_data):
         self.metrics[metric] += 1
-        if config.DEBUG:
+        if config.DEBUG and (not debug_verbosity or debug_verbosity <= config.DEBUG_VERBOSITY):
             print("{}: {}".format(metric, debug_data), flush=True)
 
     def save(self, force=False):

@@ -9,7 +9,7 @@ def start(once=False):
     redis_pool = config.get_redis_pool()
     errorhandler_metrics = metrics.Metrics(config.METRICS_GROUP_ERRORHANDLER_PATH_SUFFIX)
     while True:
-        errorhandler_metrics.send("iterations started")
+        errorhandler_metrics.send("iterations started", debug_verbosity=8)
         error_domain_names = config.get_error_worker_domains(redis_pool)
         namespaces = {}
         domains_error_attempt_numbers = {}
@@ -22,7 +22,7 @@ def start(once=False):
         for namespace_name, namespace_config in namespaces.items():
             deployer.deploy_namespace(redis_pool, namespace_name, namespace_config, errorhandler_metrics, namespaces_deployed, domains_error_attempt_numbers)
         deployer.wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, errorhandler_metrics, config.ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS, domains_error_attempt_numbers)
-        errorhandler_metrics.send("iterations ended")
+        errorhandler_metrics.send("iterations ended", debug_verbosity=8)
         if once:
             errorhandler_metrics.save(force=True)
             break

@@ -8,6 +8,9 @@ import traceback
 
 DEBUG = os.environ.get("DEBUG") == "yes"
 
+# higher numbers = more debug logs
+DEBUG_VERBOSITY = int(os.environ.get("DEBUG_VERBOSITY") or "10")
+
 METRICS_SAVE_PATH_PREFIX = os.environ.get("METRICS_SAVE_PATH_PREFIX", ".metrics")
 METRICS_GROUP_DEPLOYER_PATH_SUFFIX = os.environ.get("METRICS_GROUP_DEPLOYER_PATH_SUFFIX", "deployer")
 METRICS_GROUP_ERRORHANDLER_PATH_SUFFIX = os.environ.get("METRICS_GROUP_ERRORHANDLER_PATH_SUFFIX", "errorhandler")
