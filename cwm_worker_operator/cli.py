@@ -20,7 +20,10 @@ def main():
             raise Exception("Invalid errorhandler command: {}".format(" ".join(sys.argv[2:])))
     elif sys.argv[1] == "deleter":
         if sys.argv[2] == "delete":
-            deleter.delete(*sys.argv[3:])
+            domain_name = sys.argv[3] if len(sys.argv) >= 4 else None
+            deployment_timeout_string = sys.argv[4] if len(sys.argv) >= 5 else None
+            delete_namespace = "--delete-namespace" in sys.argv
+            deleter.delete(domain_name, deployment_timeout_string=deployment_timeout_string, delete_namespace=delete_namespace)
         else:
             raise Exception("Invalid deleter command: {}".format(" ".join(sys.argv[2:])))
     else:
