@@ -29,6 +29,7 @@ jobs:
         export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0" &&\
         export ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0" &&\
         export CWM_WORKER_DEPLOYMENT_HELM_CACHE_DIR="$(pwd)/.cwm_worker_deployment_helm_cache" &&\
+        export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633 &&\
         echo running python tests &&\
         tests/run_tests.sh &&\
         bin/docker_login.sh &&\

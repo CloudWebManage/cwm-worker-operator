@@ -6,6 +6,7 @@ from cwm_worker_operator import deployer
 
 
 def start(once=False):
+    deployer.init_cache()
     redis_pool = config.get_redis_pool()
     errorhandler_metrics = metrics.Metrics(config.METRICS_GROUP_ERRORHANDLER_PATH_SUFFIX)
     while True:

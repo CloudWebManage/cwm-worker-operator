@@ -30,6 +30,8 @@ operator:
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
+  # comma-separated list of minio versions to ensure cache exists for on startup
+  CACHE_MINIO_VERSIONS: ""
   DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS: "30"
   ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS: "30"
   ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "2.0"

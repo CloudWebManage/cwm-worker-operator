@@ -9,6 +9,16 @@ from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 
 
+def init_cache():
+    for version in config.CACHE_MINIO_VERSIONS:
+        try:
+            chart_path = cwm_worker_deployment.deployment.chart_cache_init("cwm-worker-deployment-minio", version, "minio")
+            print("Initialized chart cache: {}".format(chart_path), flush=True)
+        except Exception:
+            traceback.print_exc()
+            print("Failed to initialize chart cache for version {}".format(version))
+
+
 def init_domain_waiting_for_deploy(redis_pool, domain_name, _metrics, namespaces, error_attempt_number=None):
     _metrics.send("domains waiting for init", domain_name=domain_name)
     try:
@@ -150,6 +160,7 @@ def start(once=False):
 
 
 def debug_deployment(domain_name):
+    init_cache()
     redis_pool = config.get_redis_pool()
     deployer_metrics = metrics.Metrics(config.METRICS_GROUP_DEPLOYER_PATH_SUFFIX, is_dummy=True)
     namespaces = {}

@@ -62,6 +62,8 @@ spec:
           value: {{ $.Values.operator.MINIO_EXTRA_CONFIG_JSON | quote }}
         - name: CWM_WORKER_EXTRA_OBJECTS_JSON
           value: {{ $.Values.operator.CWM_WORKER_EXTRA_OBJECTS_JSON | quote }}
+        - name: CACHE_MINIO_VERSIONS
+          value: {{ $.Values.operator.CACHE_MINIO_VERSIONS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ $.Values.operator.resources | indent 10 }}
