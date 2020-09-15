@@ -129,7 +129,7 @@ def wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, _m
                     _metrics.send("domain is available", namespace_name=namespace_name, domain_name=domain_name)
         if (datetime.datetime.now() - start_time).total_seconds() > wait_deployment_ready_max_seconds:
             break
-        time.sleep(0.1)
+        time.sleep(config.DEPLOYER_WAIT_DEPLOYMENT_READY_SLEEP_TIME)
     for namespace_name in namespaces_deployed:
         if namespace_name not in namespaces_ready:
             print("ERROR! Timeout waiting for deployment (namespace={})".format(namespace_name))
