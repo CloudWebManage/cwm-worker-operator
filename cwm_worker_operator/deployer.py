@@ -17,7 +17,7 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     if not namespace_name:
         deployer_metrics.failed_to_get_volume_config(domain_name, start_time)
         if config.DEBUG:
-            print("Failed to get volume config (domain={})".format(domain_name))
+            print("Failed to get volume config (domain={})".format(domain_name), flush=True)
         return
     protocol = volume_config.get("protocol", "http")
     certificate_key = volume_config.get("certificate_key")
@@ -72,18 +72,18 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     except Exception:
         if debug or (config.DEBUG and config.DEBUG_VERBOSITY > 5):
             traceback.print_exc()
-            print("ERROR! Failed to deploy (namespace={})".format(namespace_name))
+            print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
         config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_DEPLOY)
         deployer_metrics.deploy_failed(domain_name, start_time)
         if config.DEBUG:
-            print("Failed to deploy (domain={})".format(domain_name))
+            print("Failed to deploy (domain={})".format(domain_name), flush=True)
         return
     if config.DEBUG and config.DEBUG_VERBOSITY > 5:
-        print(deploy_output)
+        print(deploy_output, flush=True)
     deployer_metrics.deploy_success(domain_name, start_time)
     config.set_worker_waiting_for_deployment(redis_pool, domain_name)
     if config.DEBUG:
-        print("Deploy success (domain={})".format(domain_name))
+        print("Deploy success (domain={})".format(domain_name), flush=True)
 
 
 def run_single_iteration(redis_pool, deployer_metrics):

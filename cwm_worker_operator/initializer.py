@@ -22,19 +22,19 @@ def initialize_domain(redis_pool, initializer_metrics, domain_name):
         if error_attempt_number >= config.WORKER_ERROR_MAX_ATTEMPTS:
             config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
         if config.DEBUG:
-            print("Failed to get volume config (domain={})".format(domain_name))
+            print("Failed to get volume config (domain={})".format(domain_name), flush=True)
         return
     if volume_zone != config.CWM_ZONE:
         if config.DEBUG and config.DEBUG_VERBOSITY > 5:
-            print("ERROR! Invalid volume zone (domain={} volume_zone={} CWM_ZONE={})".format(domain_name, volume_zone, config.CWM_ZONE))
+            print("ERROR! Invalid volume zone (domain={} volume_zone={} CWM_ZONE={})".format(domain_name, volume_zone, config.CWM_ZONE), flush=True)
         config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_INVALID_VOLUME_ZONE)
         initializer_metrics.invalid_volume_zone(domain_name, start_time)
         if config.DEBUG:
-            print("Invalid volume zone (domain={})".format(domain_name))
+            print("Invalid volume zone (domain={})".format(domain_name), flush=True)
         return
     initializer_metrics.initialized(domain_name, start_time)
     config.set_worker_ready_for_deployment(redis_pool, domain_name)
-    print("Ready for deployment (domain={})".format(domain_name))
+    print("Ready for deployment (domain={})".format(domain_name), flush=True)
 
 
 def run_single_iteration(redis_pool, initializer_metrics):

@@ -14,16 +14,21 @@ def check_deployment_complete(redis_pool, waiter_metrics, domain_name):
     volume_config, namespace_name = common.get_volume_config_namespace_from_domain(redis_pool, waiter_metrics, domain_name)
     if not namespace_name:
         waiter_metrics.failed_to_get_volume_config(domain_name, start_time)
-        return
-    if cwm_worker_deployment.deployment.is_ready(namespace_name, "minio"):
+        if config.DEBUG:
+            print("Failed to get volume config (domain={})".format(domain_name), flush=True)
+    elif cwm_worker_deployment.deployment.is_ready(namespace_name, "minio"):
         config.set_worker_available(
             redis_pool, domain_name,
             cwm_worker_deployment.deployment.get_hostname(namespace_name, "minio")
         )
         waiter_metrics.deployment_success(domain_name, start_time)
+        if config.DEBUG:
+            print("success (domain={})".format(domain_name), flush=True)
     elif (datetime.datetime.now() - start_time).total_seconds() > config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS:
         config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT)
         waiter_metrics.deployment_timeout(domain_name, start_time)
+        if config.DEBUG:
+            print("timeout (domain={})".format(domain_name), flush=True)
 
 
 def run_single_iteration(redis_pool, waiter_metrics):
