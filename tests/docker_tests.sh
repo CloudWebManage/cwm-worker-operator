@@ -42,6 +42,7 @@ docker run -d --name waiter --rm \
     -e PACKAGES_READER_GITHUB_TOKEN \
     -e REDIS_HOST \
     -e DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
+    -e WAITER_VERIFY_WORKER_ACCESS=no \
     -p 8083:8083 \
     cwm_worker_operator waiter start_daemon &&\
 echo Requesting initialization of valid domain "${DOMAIN}" &&\
