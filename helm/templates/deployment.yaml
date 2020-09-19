@@ -25,7 +25,7 @@ spec:
         {{ if eq . "debug" }}
         command: ["sleep", "86400"]
         {{ else }}
-        args: [{{ . | quote }}, "start"]
+        args: [{{ . | quote }}, "start_daemon"]
         {{ end }}
         image: {{ $.Values.operator.image }}:{{ $.Values.operator.tag | default $.Chart.AppVersion }}
         imagePullPolicy: {{ $.Values.operator.imagePullPolicy }}
@@ -48,12 +48,10 @@ spec:
           value: "6379"
         - name: CWM_ZONE
           value: {{ $.Values.cwm_zone | quote }}
+        - name: INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
           value: {{ $.Values.operator.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS | quote }}
-        - name: ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS
-          value: {{ $.Values.operator.ERRORHANDLER_WAIT_DEPLOYMENT_READY_MAX_SECONDS | quote }}
-        - name: ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
-          value: {{ $.Values.operator.ERRORHANDLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.operator.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON
@@ -64,8 +62,16 @@ spec:
           value: {{ $.Values.operator.CWM_WORKER_EXTRA_OBJECTS_JSON | quote }}
         - name: CACHE_MINIO_VERSIONS
           value: {{ $.Values.operator.CACHE_MINIO_VERSIONS | quote }}
-        - name: DEPLOYER_WAIT_DEPLOYMENT_READY_SLEEP_TIME
-          value: {{ $.Values.operator.DEPLOYER_WAIT_DEPLOYMENT_READY_SLEEP_TIME | quote }}
+        - name: PROMETHEUS_METRICS_PORT_INITIALIZER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_INITIALIZER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_DEPLOYER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DEPLOYER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_WAITER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_WAITER | quote }}
+        {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL }}
+        - name: PROMETHEUS_METRICS_WITH_DOMAIN_LABEL
+          value: "yes"
+        {{ end }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ $.Values.operator.resources | indent 10 }}

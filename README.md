@@ -67,28 +67,12 @@ redis-cli set "worker:initialize:invalid.domain" "" &&\
 redis-cli set "worker:initialize:invalid.domain2" ""
 ```
 
-Run a single iteration of deployer
+Run a single iteration of initializer, deployer, waiter
 
 ```
-cwm_worker_operator deployer start --once
-```
-
-Check the metrics
-
-```
-tail -1 .metrics.deployer
-```
-
-Run a single iteration of errorhandler
-
-```
-cwm_worker_operator errorhandler start --once
-```
-
-Check the metrics
-
-```
-tail -1 .metrics.errorhdnaler
+cwm_worker_operator initializer start_daemon --once &&\
+cwm_worker_operator deployer start_daemon --once &&\
+cwm_worker_operator waiter start_daemon --once
 ```
 
 Run tests
@@ -99,7 +83,7 @@ tests/run_tests.sh
 
 ## Docker image development
 
-Build and start the deployer daemon, using env vars from the local dev + minikube:
+Build and start the initializer, deployer and waiter daemons, using env vars from the local dev + minikube:
 
 ```
 docker build -t cwm_worker_operator . &&\
@@ -111,7 +95,28 @@ docker run -d \
     -e PACKAGES_READER_GITHUB_USER \
     -e PACKAGES_READER_GITHUB_TOKEN \
     -e REDIS_HOST \
-    cwm_worker_operator deployer start
+    -p 8081:8081 \
+    cwm_worker_operator initializer start_daemon &&\
+docker run -d \
+    -v "${HOME}/.kube/config:/root/.kube/config" \
+    -v "${HOME}/.minikube:${HOME}/.minikube" \
+    -e CWM_API_URL \
+    -e CWM_ZONE \
+    -e PACKAGES_READER_GITHUB_USER \
+    -e PACKAGES_READER_GITHUB_TOKEN \
+    -e REDIS_HOST \
+    -p 8082:8082 \
+    cwm_worker_operator deployer start_daemon &&\
+docker run -d \
+    -v "${HOME}/.kube/config:/root/.kube/config" \
+    -v "${HOME}/.minikube:${HOME}/.minikube" \
+    -e CWM_API_URL \
+    -e CWM_ZONE \
+    -e PACKAGES_READER_GITHUB_USER \
+    -e PACKAGES_READER_GITHUB_TOKEN \
+    -e REDIS_HOST \
+    -p 8083:8083 \
+    cwm_worker_operator waiter start_daemon
 ```
 
 Test a valid domain
@@ -153,26 +158,11 @@ Set a volume config for this domain
 redis-cli set "worker:volume:config:${DOMAIN}" '{"hostname":"invalid.domain","zone":"EU"}'
 ```
 
-Run the errorhandler
+Check metrics
 
-```
-docker run -d \
-    -v "${HOME}/.kube/config:/root/.kube/config" \
-    -v "${HOME}/.minikube:${HOME}/.minikube" \
-    -e CWM_API_URL \
-    -e CWM_ZONE \
-    -e PACKAGES_READER_GITHUB_USER \
-    -e PACKAGES_READER_GITHUB_TOKEN \
-    -e REDIS_HOST \
-    cwm_worker_operator errorhandler start
-```
-
-After a couple of seconds, check it's availability
-
-```
-[ "$(redis-cli --raw exists "worker:available:${DOMAIN}")" == "1" ] &&\
-[ "$(redis-cli --raw get "worker:ingress:hostname:${DOMAIN}")" == "minio.invalid--domain.svc.cluster.local" ]
-```
+* http://localhost:8081
+* http://localhost:8082
+* http://localhost:8083
 
 ## Helm chart development
 
@@ -208,16 +198,6 @@ Deploy
 
 ```
 helm upgrade --install cwm-worker-operator ./helm $HELMARGS
-```
-
-Verify metrics
-
-```
-while ! ( kubectl exec deployment/cwm-worker-operator -c deployer -- sh -c "cat .metrics.deployer | tail -1" &&\
-          kubectl exec deployment/cwm-worker-operator -c errorhandler -- sh -c "cat .metrics.errorhandler | tail -1" )
-do
-    sleep 1
-done
 ```
 
 Start a port-forward to the redis

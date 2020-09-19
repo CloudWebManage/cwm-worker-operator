@@ -1,31 +1,80 @@
-import json
 import datetime
-from collections import defaultdict
+
+from prometheus_client import Histogram
 
 from cwm_worker_operator import config
 
 
-class Metrics:
+class BaseMetrics:
 
-    def __init__(self, group, is_dummy=False):
-        self.metrics = defaultdict(int)
-        self.group = group
-        self.is_dummy = is_dummy
-        self.last_save_time = self.start_time = datetime.datetime.now()
+    def __init__(self):
+        self._volume_config_fetch = Histogram('volume_config_fetch_latency', 'volume config fetch latency', ["domain", "status"])
 
-    def send(self, metric, debug_verbosity=None, **debug_data):
-        self.metrics[metric] += 1
-        if config.DEBUG and (not debug_verbosity or debug_verbosity <= config.DEBUG_VERBOSITY):
-            print("{}: {}".format(metric, debug_data), flush=True)
+    def cwm_api_volume_config_success_from_api(self, domain_name, start_time):
+        self._volume_config_fetch.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                         "success").observe((datetime.datetime.now() - start_time).total_seconds())
 
-    def save(self, force=False):
-        if not self.is_dummy:
-            now = datetime.datetime.now()
-            if force or (now - self.last_save_time).total_seconds() >= config.METRICS_SAVE_INTERVAL_SECONDS:
-                self.last_save_time = now
-                with open("{}.{}".format(config.METRICS_SAVE_PATH_PREFIX, self.group), "a") as f:
-                    json.dump({
-                        "uptime": (datetime.datetime.now() - self.start_time).total_seconds(),
-                        **dict(self.metrics)
-                    }, f)
-                    f.write("\n")
+    def cwm_api_volume_config_error_from_api(self, domain_name, start_time):
+        self._volume_config_fetch.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                         "error").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def cwm_api_volume_config_success_from_cache(self, domain_name, start_time):
+        self._volume_config_fetch.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                         "success_cache").observe((datetime.datetime.now() - start_time).total_seconds())
+
+
+class InitializerMetrics(BaseMetrics):
+
+    def __init__(self):
+        super(InitializerMetrics, self).__init__()
+        self._initializer_request = Histogram('initializer_request_latency', 'initializer request latency', ["domain", "status"])
+
+    def invalid_volume_zone(self, domain_name, start_time):
+        self._initializer_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                         "invalid_volume_zone").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def failed_to_get_volume_config(self, domain_name, start_time):
+        self._initializer_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                         "failed_to_get_volume_config").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def initialized(self, domain_name, start_time):
+        self._initializer_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                         "initialized").observe((datetime.datetime.now() - start_time).total_seconds())
+
+
+class DeployerMetrics(BaseMetrics):
+
+    def __init__(self):
+        super(DeployerMetrics, self).__init__()
+        self._deployer_request = Histogram('deployer_request_latency', 'deployer request latency', ["domain", "status"])
+
+    def deploy_success(self, domain_name, start_time):
+        self._deployer_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                      "success").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def deploy_failed(self, domain_name, start_time):
+        self._deployer_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                      "failed").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def failed_to_get_volume_config(self, domain_name, start_time):
+        self._deployer_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                      "failed_to_get_volume_config").observe((datetime.datetime.now() - start_time).total_seconds())
+
+
+class WaiterMetrics(BaseMetrics):
+
+    def __init__(self):
+        super(WaiterMetrics, self).__init__()
+        self._waiter_request = Histogram('waiter_request_latency', 'waiter request latency', ["domain", "status"])
+
+    def failed_to_get_volume_config(self, domain_name, start_time):
+        self._waiter_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                    "failed_to_get_volume_config").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def deployment_success(self, domain_name, start_time):
+        self._waiter_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                    "success").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def deployment_timeout(self, domain_name, start_time):
+        self._waiter_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                    "timeout").observe((datetime.datetime.now() - start_time).total_seconds())

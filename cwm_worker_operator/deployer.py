@@ -1,57 +1,24 @@
 import time
-import traceback
-import datetime
 import json
+import traceback
+
+import prometheus_client
 
 import cwm_worker_deployment.deployment
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
+from cwm_worker_operator import common
 
 
-def init_cache():
-    for version in config.CACHE_MINIO_VERSIONS:
-        try:
-            chart_path = cwm_worker_deployment.deployment.chart_cache_init("cwm-worker-deployment-minio", version, "minio")
-            print("Initialized chart cache: {}".format(chart_path), flush=True)
-        except Exception:
-            traceback.print_exc()
-            print("Failed to initialize chart cache for version {}".format(version))
-
-
-def init_domain_waiting_for_deploy(redis_pool, domain_name, _metrics, namespaces, error_attempt_number=None):
-    _metrics.send("domains waiting for init", domain_name=domain_name)
-    try:
-        volume_config = config.get_cwm_api_volume_config(redis_pool, domain_name, _metrics)
-        namespace_name = volume_config["hostname"].replace(".", "--")
-        volume_zone = volume_config["zone"]
-    except Exception:
-        traceback.print_exc()
-        print("ERROR! Failed to get volume config (domain={})".format(domain_name))
-        config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG, _metrics, error_attempt_number)
+def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
+    start_time = config.get_worker_ready_for_deployment_start_time(redis_pool, domain_name)
+    volume_config, namespace_name = common.get_volume_config_namespace_from_domain(redis_pool, deployer_metrics, domain_name)
+    if not namespace_name:
+        deployer_metrics.failed_to_get_volume_config(domain_name, start_time)
+        if config.DEBUG:
+            print("Failed to get volume config (domain={})".format(domain_name))
         return
-    if volume_zone != config.CWM_ZONE:
-        print("ERROR! Invalid volume zone (domain={} volume_zone={} CWM_ZONE={})".format(domain_name, volume_zone, config.CWM_ZONE))
-        config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_INVALID_VOLUME_ZONE, _metrics, error_attempt_number)
-        return
-    if namespace_name in namespaces:
-        if namespaces[namespace_name]["volume_config"] != volume_config:
-            print("ERROR! Different volume configs for same namespace (domain={} namespace={})".format(domain_name, namespace_name))
-            config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_DIFFERENT_VOLUME_CONFIGS, _metrics, error_attempt_number)
-            return
-        else:
-            namespaces[namespace_name]["domain_names"].add(domain_name)
-    else:
-        namespaces[namespace_name] = {
-            "domain_names": {domain_name},
-            "volume_config": volume_config
-        }
-    _metrics.send("domains ready for init", domain_name=domain_name)
-
-
-def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, namespaces_deployed, domains_error_attempt_numbers=None, debug=False):
-    _metrics.send("namespaces waiting for deploy", namespace_name=namespace_name)
-    volume_config = namespace_config["volume_config"]
     protocol = volume_config.get("protocol", "http")
     certificate_key = volume_config.get("certificate_key")
     certificate_key = "\n".join(certificate_key) if certificate_key else None
@@ -101,74 +68,38 @@ def deploy_namespace(redis_pool, namespace_name, namespace_config, _metrics, nam
     if debug:
         cwm_worker_deployment.deployment.deploy(deployment_config, dry_run=True)
     try:
-        cwm_worker_deployment.deployment.deploy(deployment_config)
+        deploy_output = cwm_worker_deployment.deployment.deploy(deployment_config)
     except Exception:
-        traceback.print_exc()
-        print("ERROR! Failed to deploy (namespace={})".format(namespace_name))
-        for domain_name in namespace_config["domain_names"]:
-            error_attempt_number = domains_error_attempt_numbers[domain_name] if domains_error_attempt_numbers else None
-            config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_DEPLOY, _metrics, error_attempt_number)
+        if debug or (config.DEBUG and config.DEBUG_VERBOSITY > 5):
+            traceback.print_exc()
+            print("ERROR! Failed to deploy (namespace={})".format(namespace_name))
+        config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_DEPLOY)
+        deployer_metrics.deploy_failed(domain_name, start_time)
+        if config.DEBUG:
+            print("Failed to deploy (domain={})".format(domain_name))
         return
-    _metrics.send("namespaces deployed", namespace_name=namespace_name)
-    namespaces_deployed.add(namespace_name)
+    if config.DEBUG and config.DEBUG_VERBOSITY > 5:
+        print(deploy_output)
+    deployer_metrics.deploy_success(domain_name, start_time)
+    config.set_worker_waiting_for_deployment(redis_pool, domain_name)
+    if config.DEBUG:
+        print("Deploy success (domain={})".format(domain_name))
 
 
-def wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, _metrics, wait_deployment_ready_max_seconds, domains_error_attempt_numbers=None):
-    start_time = datetime.datetime.now()
-    namespaces_ready = set()
-    while len(namespaces_ready) != len(namespaces_deployed):
-        for namespace_name in namespaces_deployed:
-            namespace_config = namespaces[namespace_name]
-            if namespace_name not in namespaces_ready and cwm_worker_deployment.deployment.is_ready(namespace_name, "minio"):
-                namespaces_ready.add(namespace_name)
-                for domain_name in namespace_config["domain_names"]:
-                    config.set_worker_available(redis_pool, domain_name)
-                    config.set_worker_ingress_hostname(redis_pool, domain_name, cwm_worker_deployment.deployment.get_hostname(namespace_name, "minio"))
-                    config.del_worker_error(redis_pool, domain_name)
-                    config.del_worker_initialize(redis_pool, domain_name)
-                    _metrics.send("domain is available", namespace_name=namespace_name, domain_name=domain_name)
-        if (datetime.datetime.now() - start_time).total_seconds() > wait_deployment_ready_max_seconds:
-            break
-        time.sleep(config.DEPLOYER_WAIT_DEPLOYMENT_READY_SLEEP_TIME)
-    for namespace_name in namespaces_deployed:
-        if namespace_name not in namespaces_ready:
-            print("ERROR! Timeout waiting for deployment (namespace={})".format(namespace_name))
-            for domain_name in namespaces[namespace_name]["domain_names"]:
-                error_attempt_number = domains_error_attempt_numbers[domain_name] if domains_error_attempt_numbers else None
-                config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT, _metrics, error_attempt_number)
+def run_single_iteration(redis_pool, deployer_metrics):
+    domain_names_waiting_for_deployment_complete = config.get_worker_domains_waiting_for_deployment_complete(redis_pool)
+    for domain_name in config.get_worker_domains_ready_for_deployment(redis_pool):
+        if domain_name not in domain_names_waiting_for_deployment_complete:
+            deploy_worker(redis_pool, deployer_metrics, domain_name)
 
 
-def start(once=False):
+def start_daemon(once=False):
+    prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DEPLOYER)
+    common.init_cache()
+    deployer_metrics = metrics.DeployerMetrics()
     redis_pool = config.get_redis_pool()
-    deployer_metrics = metrics.Metrics(config.METRICS_GROUP_DEPLOYER_PATH_SUFFIX)
     while True:
-        deployer_metrics.send("iterations started", debug_verbosity=8)
-        domains_waiting_for_initialization = config.get_worker_domains_waiting_for_initlization(redis_pool)
-        namespaces = {}
-        for domain_name in domains_waiting_for_initialization:
-            init_domain_waiting_for_deploy(redis_pool, domain_name, deployer_metrics, namespaces)
-        namespaces_deployed = set()
-        for namespace_name, namespace_config in namespaces.items():
-            deploy_namespace(redis_pool, namespace_name, namespace_config, deployer_metrics, namespaces_deployed)
-        wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, deployer_metrics, config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS)
-        deployer_metrics.send("iterations ended", debug_verbosity=8)
+        run_single_iteration(redis_pool, deployer_metrics)
         if once:
-            deployer_metrics.save(force=True)
             break
-        deployer_metrics.save()
         time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
-
-
-def debug_deployment(domain_name):
-    init_cache()
-    redis_pool = config.get_redis_pool()
-    deployer_metrics = metrics.Metrics(config.METRICS_GROUP_DEPLOYER_PATH_SUFFIX, is_dummy=True)
-    namespaces = {}
-    init_domain_waiting_for_deploy(redis_pool, domain_name, deployer_metrics, namespaces)
-    namespaces_deployed = set()
-    for namespace_name, namespace_config in namespaces.items():
-        print("Deploying namespace {}".format(namespace_name), flush=True)
-        namespace_config["domain_names"] = list(namespace_config["domain_names"])
-        print(json.dumps(namespace_config), flush=True)
-        deploy_namespace(redis_pool, namespace_name, namespace_config, deployer_metrics, namespaces_deployed, debug=True)
-    wait_for_namespaces_deployed(redis_pool, namespaces_deployed, namespaces, deployer_metrics, config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS)

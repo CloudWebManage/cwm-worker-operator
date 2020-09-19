@@ -28,21 +28,15 @@ tests/wait_for.sh "
   [ \"\$(redis-cli --raw exists \"worker:error:${DOMAIN}\")\" == \"1\" ]
 " "30" "waited too long for domain to be errored"
 if [ "$?" != "0" ]; then
+  echo failed
+  echo "------ start logs ------"
+  echo initializer logs
+  kubectl logs deployment/cwm-worker-operator -c initializer
+  echo deployer logs
   kubectl logs deployment/cwm-worker-operator -c deployer
-  exit 1
-fi
-
-echo Testing errorhandler daemon &&\
-echo setting volume config for invalid domain &&\
-redis-cli set "worker:volume:config:${DOMAIN}" '{"hostname":"invalid.domain","zone":"EU"}' &&\
-redis-cli del "worker:error_attempt_number:${DOMAIN}" &&\
-echo Waiting for invalid domain to be available &&\
-tests/wait_for.sh "
-  [ \"\$(redis-cli --raw exists \"worker:available:${DOMAIN}\")\" == \"1\" ] &&\
-  [ \"\$(redis-cli --raw get \"worker:ingress:hostname:${DOMAIN}\")\" == \"minio.${NAMESPACE}.svc.cluster.local\" ]
-" "30" "waited too long for domain to be available"
-if [ "$?" != "0" ]; then
-  kubectl logs deployment/cwm-worker-operator -c errorhandler
+  echo waiter logs
+  kubectl logs deployment/cwm-worker-operator -c waiter
+  echo "------ end logs ------"
   exit 1
 fi
 

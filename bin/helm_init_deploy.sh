@@ -11,15 +11,14 @@ sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
 helm upgrade --install cwm-worker-operator ./helm $HELMARGS &&\
 if ! tests/wait_for.sh "
   kubectl get pods | grep cwm-worker-operator-redis | grep 'Running' | grep '1/1' &&\
-  kubectl get pods | grep cwm-worker-operator | grep -v cwm-worker-operator-redis | grep 'Running' | grep '2/2' &&\
-  kubectl exec deployment/cwm-worker-operator -c deployer -- tail -1 .metrics.deployer &&\
-  kubectl exec deployment/cwm-worker-operator -c errorhandler -- tail -1 .metrics.errorhandler
+  kubectl get pods | grep cwm-worker-operator | grep -v cwm-worker-operator-redis | grep 'Running' | grep '3/3'
   " "120" "waited too long for cwm-worker-operator to be deployed"
 then
   kubectl get pods
   kubectl describe pod cwm-worker-operator
+  kubectl logs deployment/cwm-worker-operator -c initializer | tail
   kubectl logs deployment/cwm-worker-operator -c deployer | tail
-  kubectl logs deployment/cwm-worker-operator -c errorhandler | tail
+  kubectl logs deployment/cwm-worker-operator -c waiter | tail
   exit 1
 else
   sleep 5
