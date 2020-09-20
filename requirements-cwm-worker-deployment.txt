@@ -1,4 +1,4 @@
 ruamel.yaml==0.16.10
 requests==2.24.0
 kubernetes==11.0.0
--e "git+https://github.com/CloudWebManage/cwm-worker-deployment.git@f903bb5550e0f53e7cd488ee383e1a8669f6d88a#egg=cwm-worker-deployment"
+-e "git+https://github.com/CloudWebManage/cwm-worker-deployment.git@f99db054c1324377245e5e45a5e94760fdd10b26#egg=cwm-worker-deployment"
