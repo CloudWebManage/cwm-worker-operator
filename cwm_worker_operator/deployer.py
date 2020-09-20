@@ -9,15 +9,16 @@ import cwm_worker_deployment.deployment
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 from cwm_worker_operator import common
+from cwm_worker_operator import logs
 
 
 def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     start_time = config.get_worker_ready_for_deployment_start_time(redis_pool, domain_name)
+    log_kwargs = {"domain_name": domain_name, "start_time": start_time}
     volume_config, namespace_name = common.get_volume_config_namespace_from_domain(redis_pool, deployer_metrics, domain_name)
     if not namespace_name:
         deployer_metrics.failed_to_get_volume_config(domain_name, start_time)
-        if config.DEBUG:
-            print("Failed to get volume config (domain={})".format(domain_name), flush=True)
+        logs.debug_info("Failed to get volume config", **log_kwargs)
         return
     protocol = volume_config.get("protocol", "http")
     certificate_key = volume_config.get("certificate_key")
@@ -75,15 +76,13 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
             print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
         config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_DEPLOY)
         deployer_metrics.deploy_failed(domain_name, start_time)
-        if config.DEBUG:
-            print("Failed to deploy (domain={})".format(domain_name), flush=True)
+        logs.debug_info("failed to deploy", **log_kwargs)
         return
     if config.DEBUG and config.DEBUG_VERBOSITY > 5:
         print(deploy_output, flush=True)
     deployer_metrics.deploy_success(domain_name, start_time)
     config.set_worker_waiting_for_deployment(redis_pool, domain_name)
-    if config.DEBUG:
-        print("Deploy success (domain={})".format(domain_name), flush=True)
+    logs.debug_info("success", **log_kwargs)
 
 
 def run_single_iteration(redis_pool, deployer_metrics):

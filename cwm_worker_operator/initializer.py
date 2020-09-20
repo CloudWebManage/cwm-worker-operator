@@ -6,10 +6,12 @@ import prometheus_client
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
+from cwm_worker_operator import logs
 
 
 def initialize_domain(redis_pool, initializer_metrics, domain_name):
     start_time = datetime.datetime.now()
+    log_kwargs = {"domain_name": domain_name, "start_time": start_time}
     try:
         volume_config = config.get_cwm_api_volume_config(redis_pool, domain_name, initializer_metrics)
         namespace_name = volume_config["hostname"].replace(".", "--")
@@ -21,20 +23,18 @@ def initialize_domain(redis_pool, initializer_metrics, domain_name):
         error_attempt_number = config.increment_worker_error_attempt_number(redis_pool, domain_name)
         if error_attempt_number >= config.WORKER_ERROR_MAX_ATTEMPTS:
             config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
-        if config.DEBUG:
-            print("Failed to get volume config (domain={})".format(domain_name), flush=True)
+        logs.debug_info("Failed to get volume config", **log_kwargs)
         return
     if volume_zone != config.CWM_ZONE:
         if config.DEBUG and config.DEBUG_VERBOSITY > 5:
             print("ERROR! Invalid volume zone (domain={} volume_zone={} CWM_ZONE={})".format(domain_name, volume_zone, config.CWM_ZONE), flush=True)
         config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_INVALID_VOLUME_ZONE)
         initializer_metrics.invalid_volume_zone(domain_name, start_time)
-        if config.DEBUG:
-            print("Invalid volume zone (domain={})".format(domain_name), flush=True)
+        logs.debug_info("Invalid volume zone", **log_kwargs)
         return
     initializer_metrics.initialized(domain_name, start_time)
     config.set_worker_ready_for_deployment(redis_pool, domain_name)
-    print("Ready for deployment (domain={})".format(domain_name), flush=True)
+    logs.debug_info("Ready for deployment", **log_kwargs)
 
 
 def run_single_iteration(redis_pool, initializer_metrics):
