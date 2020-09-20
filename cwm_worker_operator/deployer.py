@@ -51,6 +51,10 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     if client_id and secret:
         minio["access_key"] = client_id
         minio["secret_key"] = secret
+    if config.DEPLOYER_USE_EXTERNAL_SERVICE:
+        minio["service"] = {
+            "enabled": False
+        }
     deployment_config_json = json.dumps({
         "cwm-worker-deployment": {
             "type": "minio",
@@ -66,10 +70,13 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     if debug:
         print(deployment_config_json, flush=True)
     deployment_config = json.loads(deployment_config_json)
+    cwm_worker_deployment.deployment.init(deployment_config)
+    if config.DEPLOYER_USE_EXTERNAL_SERVICE:
+        cwm_worker_deployment.deployment.deploy_external_service(deployment_config)
     if debug:
-        cwm_worker_deployment.deployment.deploy(deployment_config, dry_run=True)
+        cwm_worker_deployment.deployment.deploy(deployment_config, dry_run=True, with_init=False)
     try:
-        deploy_output = cwm_worker_deployment.deployment.deploy(deployment_config)
+        deploy_output = cwm_worker_deployment.deployment.deploy(deployment_config, with_init=False)
     except Exception:
         if debug or (config.DEBUG and config.DEBUG_VERBOSITY > 5):
             traceback.print_exc()

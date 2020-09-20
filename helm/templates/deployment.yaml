@@ -72,6 +72,12 @@ spec:
         - name: PROMETHEUS_METRICS_WITH_DOMAIN_LABEL
           value: "yes"
         {{ end }}
+        - name: DELETER_DEFAULT_DELETE_NAMESPACE
+          value: {{ if $.Values.operator.DELETER_DEFAULT_DELETE_NAMESPACE }}"yes"{{ else }}"no"{{ end }}
+        - name: DELETER_DEFAULT_DELETE_HELM
+          value: {{ if $.Values.operator.DELETER_DEFAULT_DELETE_HELM }}"yes"{{ else }}"no"{{ end }}
+        - name: DEPLOYER_USE_EXTERNAL_SERVICE
+          value: {{ if $.Values.operator.DEPLOYER_USE_EXTERNAL_SERVICE }}"yes"{{ else }}"no"{{ end }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ $.Values.operator.resources | indent 10 }}
