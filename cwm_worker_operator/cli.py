@@ -26,9 +26,7 @@ def main():
         if sys.argv[2] == "delete":
             domain_name = sys.argv[3] if len(sys.argv) >= 4 else None
             deployment_timeout_string = sys.argv[4] if len(sys.argv) >= 5 else None
-            delete_namespace = "--delete-namespace" in sys.argv
-            delete_helm = "--no-delete-helm" not in sys.argv
-            deleter.delete(domain_name, deployment_timeout_string=deployment_timeout_string, delete_namespace=delete_namespace, delete_helm=delete_helm)
+            deleter.delete(domain_name, deployment_timeout_string=deployment_timeout_string)
         else:
             raise Exception("Invalid deleter command: {}".format(" ".join(sys.argv[2:])))
     else:
