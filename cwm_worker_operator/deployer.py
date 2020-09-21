@@ -1,3 +1,4 @@
+import sys
 import time
 import json
 import traceback
@@ -78,8 +79,8 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     try:
         deploy_output = cwm_worker_deployment.deployment.deploy(deployment_config, with_init=False)
     except Exception:
-        if debug or (config.DEBUG and config.DEBUG_VERBOSITY > 5):
-            traceback.print_exc()
+        if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
+            traceback.print_exc(file=sys.stdout)
             print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
         config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_DEPLOY)
         deployer_metrics.deploy_failed(domain_name, start_time)
