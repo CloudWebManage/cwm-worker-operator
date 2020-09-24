@@ -15,8 +15,10 @@ spec:
       labels:
         app: cwm-worker-operator
     spec:
+      {{ if $.Values.imagePullSecrets }}
       imagePullSecrets:
       {{ $.Values.imagePullSecrets | indent 6 }}
+      {{ end }}
       terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
       serviceAccountName: cwm-worker-operator
       containers:
