@@ -45,6 +45,7 @@ operator:
   DELETER_DEFAULT_DELETE_NAMESPACE: false
   DELETER_DEFAULT_DELETE_HELM: true
   DEPLOYER_USE_EXTERNAL_SERVICE: false
+  DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS: false
   env: ""
   resources: |
     requests:
