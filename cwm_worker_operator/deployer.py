@@ -16,11 +16,13 @@ from cwm_worker_operator import logs
 def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     start_time = config.get_worker_ready_for_deployment_start_time(redis_pool, domain_name)
     log_kwargs = {"domain_name": domain_name, "start_time": start_time}
+    logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
     volume_config, namespace_name = common.get_volume_config_namespace_from_domain(redis_pool, deployer_metrics, domain_name)
     if not namespace_name:
         deployer_metrics.failed_to_get_volume_config(domain_name, start_time)
         logs.debug_info("Failed to get volume config", **log_kwargs)
         return
+    logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
     protocol = volume_config.get("protocol", "http")
     certificate_key = volume_config.get("certificate_key")
     certificate_key = "\n".join(certificate_key) if certificate_key else None
@@ -68,16 +70,21 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
             **minio,
             **minio_extra_configs
         },
-        "extraObjects": extra_objects
+        "extraObjects": [] if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS else extra_objects
     }).replace("__NAMESPACE_NAME__", namespace_name)
     if debug:
         print(deployment_config_json, flush=True)
     deployment_config = json.loads(deployment_config_json)
     cwm_worker_deployment.deployment.init(deployment_config)
+    logs.debug("initialized deployment", debug_verbosity=4, **log_kwargs)
     if config.DEPLOYER_USE_EXTERNAL_SERVICE:
         cwm_worker_deployment.deployment.deploy_external_service(deployment_config)
+        logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
+    if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
+        cwm_worker_deployment.deployment.deploy_extra_objects(deployment_config, extra_objects)
     if debug:
         cwm_worker_deployment.deployment.deploy(deployment_config, dry_run=True, with_init=False)
+        logs.debug("deployed dry run", debug_verbosity=4, **log_kwargs)
     try:
         deploy_output = cwm_worker_deployment.deployment.deploy(deployment_config, with_init=False)
     except Exception:
@@ -88,6 +95,7 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
         deployer_metrics.deploy_failed(domain_name, start_time)
         logs.debug_info("failed to deploy", **log_kwargs)
         return
+    logs.debug("deployed", debug_verbosity=4, **log_kwargs)
     if config.DEBUG and config.DEBUG_VERBOSITY > 5:
         print(deploy_output, flush=True)
     deployer_metrics.deploy_success(domain_name, start_time)
