@@ -70,11 +70,14 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
             **minio,
             **minio_extra_configs
         },
-        "extraObjects": [] if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS else extra_objects
+        "extraObjects": extra_objects
     }).replace("__NAMESPACE_NAME__", namespace_name)
     if debug:
         print(deployment_config_json, flush=True)
     deployment_config = json.loads(deployment_config_json)
+    if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS:
+        extra_objects = deployment_config.pop('extraObjects')
+        deployment_config['extraObjects'] = []
     cwm_worker_deployment.deployment.init(deployment_config)
     logs.debug("initialized deployment", debug_verbosity=4, **log_kwargs)
     if config.DEPLOYER_USE_EXTERNAL_SERVICE:
