@@ -85,6 +85,7 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
         logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
     if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
         cwm_worker_deployment.deployment.deploy_extra_objects(deployment_config, extra_objects)
+        logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
     if debug:
         cwm_worker_deployment.deployment.deploy(deployment_config, dry_run=True, with_init=False)
         logs.debug("deployed dry run", debug_verbosity=4, **log_kwargs)

@@ -72,5 +72,19 @@ echo docker tests completed successfully &&\
 docker rm -f initializer &&\
 docker rm -f deployer &&\
 docker rm -f waiter &&\
-docker rm -f redis &&\
-exit 0
+docker rm -f redis
+RES="$?"
+if [ "${RES}" != "0" ]; then
+  echo docker tests failed
+  echo "----------"
+  echo
+  echo "----- initializer logs"
+  docker logs initializer
+  echo "----- deployer logs"
+  docker logs deployer
+  echo "----- waiter logs"
+  docker logs waiter
+  echo
+  echo "----------"
+fi
+exit $RES
