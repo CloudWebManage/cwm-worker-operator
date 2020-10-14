@@ -78,6 +78,7 @@ def deploy_worker(redis_pool, deployer_metrics, domain_name, debug=False):
     if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS:
         extra_objects = deployment_config.pop('extraObjects')
         deployment_config['extraObjects'] = []
+    logs.debug("initializing deployment", debug_verbosity=4, **log_kwargs)
     cwm_worker_deployment.deployment.init(deployment_config)
     logs.debug("initialized deployment", debug_verbosity=4, **log_kwargs)
     if config.DEPLOYER_USE_EXTERNAL_SERVICE:

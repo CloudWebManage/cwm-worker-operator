@@ -51,10 +51,13 @@ docker run -d --name waiter --rm \
 echo Requesting initialization of valid domain "${DOMAIN}" &&\
 redis-cli set "worker:initialize:${DOMAIN}" "" &&\
 echo Waiting for domain to be available &&\
+sleep 10 &&\
 tests/wait_for.sh "
+  kubectl -n ${NAMESPACE} describe pods &&\
+  kubectl -n ${NAMESPACE} describe services &&\
   [ \"\$(redis-cli --raw exists \"worker:available:${DOMAIN}\")\" == \"1\" ] &&\
   [ \"\$(redis-cli --raw get \"worker:ingress:hostname:${DOMAIN}\")\" == \"minio.${NAMESPACE}.svc.cluster.local\" ]
-" "30" "waited too long for domain to be available" &&\
+" "50" "waited too long for domain to be available" &&\
 echo testing deployer - invalid domain &&\
 DOMAIN=invalid.domain &&\
 NAMESPACE=invalid--domain &&\
