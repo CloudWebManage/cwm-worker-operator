@@ -18,6 +18,7 @@ docker run -d --name initializer --rm \
     -e PACKAGES_READER_GITHUB_TOKEN \
     -e REDIS_HOST \
     -e DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
+    -e DEBUG -e DEBUG_VERBOSITY \
     -p 8081:8081 \
     cwm_worker_operator initializer start_daemon &&\
 echo Starting deployer daemon &&\
@@ -30,6 +31,7 @@ docker run -d --name deployer --rm \
     -e PACKAGES_READER_GITHUB_TOKEN \
     -e REDIS_HOST \
     -e DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
+    -e DEBUG -e DEBUG_VERBOSITY \
     -p 8082:8082 \
     cwm_worker_operator deployer start_daemon &&\
 echo Starting waiter daemon &&\
@@ -43,6 +45,7 @@ docker run -d --name waiter --rm \
     -e REDIS_HOST \
     -e DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS \
     -e WAITER_VERIFY_WORKER_ACCESS=no \
+    -e DEBUG -e DEBUG_VERBOSITY \
     -p 8083:8083 \
     cwm_worker_operator waiter start_daemon &&\
 echo Requesting initialization of valid domain "${DOMAIN}" &&\

@@ -50,7 +50,7 @@ WORKER_ERROR_MAX_ATTEMPTS = int(os.environ.get("WORKER_ERROR_MAX_ATTEMPTS", "5")
 
 WAITER_VERIFY_WORKER_ACCESS = (os.environ.get("WAITER_VERIFY_WORKER_ACCESS") or "yes") == "yes"
 
-CACHE_MINIO_VERSIONS = [v.strip() for v in (os.environ.get("CACHE_MINIO_VERSIONS") or "").split(",")]
+CACHE_MINIO_VERSIONS = [v.strip() for v in (os.environ.get("CACHE_MINIO_VERSIONS") or "").split(",") if v and v.strip()]
 CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG = json.loads(os.environ.get("CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON") or '{}')
 MINIO_EXTRA_CONFIG = json.loads(os.environ.get("MINIO_EXTRA_CONFIG_JSON") or '{}')
 CWM_WORKER_EXTRA_OBJECTS = json.loads(os.environ.get("CWM_WORKER_EXTRA_OBJECTS_JSON") or '[]')

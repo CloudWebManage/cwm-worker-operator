@@ -24,7 +24,7 @@ jobs:
         bin/minikube_wait.sh &&\
         . venv/bin/activate &&\
         export DEBUG=yes &&\
-        export DEBUG_VERBOSITY=1 &&\
+        export DEBUG_VERBOSITY=10 &&\
         export REDIS_HOST=172.17.0.1 &&\
         export CWM_ZONE=EU &&\
         export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0" &&\
