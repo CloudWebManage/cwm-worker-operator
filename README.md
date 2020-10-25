@@ -22,15 +22,15 @@ Install the Python module
 venv/bin/python -m pip install -e .
 ```
 
-### Usage
+### Start infrastructure
 
-Activate the virtualenv
+start a Minikube cluster
 
 ```
-. venv/bin/activate
-```
+bin/minikube_start.sh && bin/minikube_wait.sh
+``` 
 
-Make sure you are connected to a local / testing Kubernetes cluster
+Make sure you are connected to the minikube cluster
 
 ```
 kubectl get nodes
@@ -47,132 +47,57 @@ Set env vars
 ```
 export DEBUG=yes
 export REDIS_HOST=172.17.0.1
-export CWM_API_URL=
 export CWM_ZONE=EU
+```
+
+Set secret env vars (you can get them from Jenkins):
+
+```
+export CWM_API_URL=
 export PACKAGES_READER_GITHUB_USER=
 export PACKAGES_READER_GITHUB_TOKEN=
 ```
 
-Set a real worker domain for testing
+### Build Docker image
+
+The docker image should be built to be available in the minikube environment
 
 ```
-DOMAIN=example007.com
+eval $(minikube -p minikube docker-env) &&\
+docker build -t docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest .
 ```
 
-Set the real domains and some invalid domains to initialize
+### Run tests
+
+Activate the virtualenv
 
 ```
-redis-cli set "worker:initialize:${DOMAIN}" "" &&\
-redis-cli set "worker:initialize:invalid.domain" "" &&\
-redis-cli set "worker:initialize:invalid.domain2" ""
+. venv/bin/activate
 ```
 
-Run a single iteration of initializer, deployer, waiter
+Run all tests
 
 ```
-cwm_worker_operator initializer start_daemon --once &&\
-cwm_worker_operator deployer start_daemon --once &&\
-cwm_worker_operator waiter start_daemon --once
+pytest
 ```
 
-Run tests
+Run a tests with full output, by specifying part of the test method name
 
 ```
-tests/run_tests.sh
+pytest -sk "invalid_volume_config"
 ```
 
-## Docker image development
-
-Build and start the initializer, deployer and waiter daemons, using env vars from the local dev + minikube:
+Or by specifying the specific test file name:
 
 ```
-docker build -t cwm_worker_operator . &&\
-docker run -d \
-    -v "${HOME}/.kube/config:/root/.kube/config" \
-    -v "${HOME}/.minikube:${HOME}/.minikube" \
-    -e CWM_API_URL \
-    -e CWM_ZONE \
-    -e PACKAGES_READER_GITHUB_USER \
-    -e PACKAGES_READER_GITHUB_TOKEN \
-    -e REDIS_HOST \
-    -p 8081:8081 \
-    cwm_worker_operator initializer start_daemon &&\
-docker run -d \
-    -v "${HOME}/.kube/config:/root/.kube/config" \
-    -v "${HOME}/.minikube:${HOME}/.minikube" \
-    -e CWM_API_URL \
-    -e CWM_ZONE \
-    -e PACKAGES_READER_GITHUB_USER \
-    -e PACKAGES_READER_GITHUB_TOKEN \
-    -e REDIS_HOST \
-    -p 8082:8082 \
-    cwm_worker_operator deployer start_daemon &&\
-docker run -d \
-    -v "${HOME}/.kube/config:/root/.kube/config" \
-    -v "${HOME}/.minikube:${HOME}/.minikube" \
-    -e CWM_API_URL \
-    -e CWM_ZONE \
-    -e PACKAGES_READER_GITHUB_USER \
-    -e PACKAGES_READER_GITHUB_TOKEN \
-    -e REDIS_HOST \
-    -p 8083:8083 \
-    cwm_worker_operator waiter start_daemon
+pytest -s tests/test_initializer.py
 ```
 
-Test a valid domain
-
-```
-DOMAIN=example007.com
-kubectl delete ns example007--com;
-sleep 2
-tests/redis_clear.sh "${DOMAIN}" &&\
-redis-cli set "worker:initialize:${DOMAIN}" ""
-```
-
-After a couple of seconds, check it's status and get the internal hostname
-
-```
-[ "$(redis-cli --raw exists "worker:available:${DOMAIN}")" == "1" ] &&\
-[ "$(redis-cli --raw get "worker:ingress:hostname:${DOMAIN}")" == "minio.example007--com.svc.cluster.local" ]
-```
-
-Test an invalid domain
-
-```
-DOMAIN=invalid.domain
-kubectl delete ns invalid--domain;
-sleep 2
-tests/redis_clear.sh "${DOMAIN}" &&\
-redis-cli set "worker:initialize:${DOMAIN}" ""
-```
-
-After a couple of seconds, check it's error status
-
-```
-[ "$(redis-cli --raw exists "worker:error:${DOMAIN}")" == "1" ]
-```
-
-Set a volume config for this domain
-
-```
-redis-cli set "worker:volume:config:${DOMAIN}" '{"hostname":"invalid.domain","zone":"EU"}'
-```
-
-Check metrics
-
-* http://localhost:8081
-* http://localhost:8082
-* http://localhost:8083
+Pytest has many options, check the help message or [pytest documentation](https://docs.pytest.org/en/latest/) for details
 
 ## Helm chart development
 
-Create a cluster
-
-```
-minikube start --driver=docker --kubernetes-version=v1.16.14
-```
-
-Verify connection to the cluster
+Verify connection to the minikube cluster
 
 ```
 kubectl get nodes
@@ -204,10 +129,4 @@ Start a port-forward to the redis
 
 ```
 kubectl port-forward service/cwm-worker-operator-redis 6379
-```
-
-Run k8s tests
-
-```
-tests/k8s_tests.sh
 ```

@@ -22,6 +22,11 @@ jobs:
         bin/python_init_venv_requirements_module.sh &&\
         bin/redis_start_wait.sh &&\
         bin/minikube_wait.sh &&\
+        bin/docker_login.sh &&\
+        eval $(minikube -p minikube docker-env) &&\
+        docker pull docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
+        docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest\
+                     -t docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest . &&\
         . venv/bin/activate &&\
         export DEBUG=yes &&\
         export DEBUG_VERBOSITY=10 &&\
@@ -31,16 +36,10 @@ jobs:
         export CWM_WORKER_DEPLOYMENT_HELM_CACHE_DIR="$(pwd)/.cwm_worker_deployment_helm_cache" &&\
         export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633 &&\
         export WAITER_VERIFY_WORKER_ACCESS=no &&\
-        echo running python tests &&\
-        tests/run_tests.sh &&\
-        bin/docker_login.sh &&\
-        bin/docker_build.sh &&\
-        echo running docker tests &&\
-        tests/docker_tests.sh &&\
+        echo running tests &&\
+        pytest &&\
         bin/docker_push_sha.sh &&\
         if [ "${GITHUB_REF}" == "refs/heads/master" ]; then
           bin/docker_push_latest.sh &&\
-          bin/helm_init_deploy.sh &&\
-          tests/k8s_tests.sh &&\
           bin/helm_publish.sh
         fi

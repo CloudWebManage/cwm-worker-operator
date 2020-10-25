@@ -12,12 +12,3 @@ def init_cache():
         except Exception:
             traceback.print_exc()
             print("Failed to initialize chart cache for version {}".format(version))
-
-
-def get_volume_config_namespace_from_domain(redis_pool, metrics, domain_name):
-    volume_config = config.get_cwm_api_volume_config(redis_pool, domain_name, metrics)
-    if volume_config.get("hostname"):
-        return volume_config, volume_config["hostname"].replace(".", "--")
-    else:
-        config.set_worker_error(redis_pool, domain_name, config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
-        return volume_config, None
