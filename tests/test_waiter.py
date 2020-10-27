@@ -1,6 +1,6 @@
 import datetime
 
-from cwm_worker_operator import waiter
+from cwm_worker_operator import waiter, config
 
 
 def assert_domain_waiter_metrics(waiter_metrics, observation):
@@ -44,6 +44,7 @@ def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployment
 
 
 def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
+    config.WAITER_VERIFY_WORKER_ACCESS = True
     domain_name = 'deployment.timeout'
     namespace_name = domain_name.replace('.', '--')
     internal_hostname = 'internal.hostname'

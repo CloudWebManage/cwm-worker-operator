@@ -6,13 +6,14 @@ import datetime
 import subprocess
 
 from cwm_worker_operator.deployments_manager import DeploymentsManager
+from cwm_worker_operator import config
 
 
 def test_init_cache():
     cache_minio_version = '0.0.0-20200829T091900'
     helm_cache_dir = os.environ.get("CWM_WORKER_DEPLOYMENT_HELM_CACHE_DIR") or "/var/cache/cwm-worker-deployment-helm-cache"
     cache_dir = os.path.join(helm_cache_dir, 'cwm-worker-deployment-minio', cache_minio_version)
-    shutil.rmtree(cache_dir)
+    shutil.rmtree(cache_dir, ignore_errors=True)
     with pytest.raises(FileNotFoundError):
         os.stat(os.path.join(cache_dir, 'cwm-worker-deployment-minio'))
     DeploymentsManager(cache_minio_versions=[cache_minio_version]).init_cache()
@@ -34,6 +35,7 @@ def test_deploy():
             'namespace': namespace_name
         },
         'minio': {
+            'createPullSecret': config.PULL_SECRET,
             'service': {
                 'enabled': False
             }
@@ -62,7 +64,8 @@ def test_deploy():
     assert returncode == 0
     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
     assert returncode == 1
-    deployments_manager.deploy(deployment_config, with_init=False, atomic_timeout_string='5m')
+    print("Deploying...")
+    deployments_manager.deploy(deployment_config, with_init=False, atomic_timeout_string='2m')
     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
     assert returncode == 0
     start_time = datetime.datetime.now()

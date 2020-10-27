@@ -23,10 +23,6 @@ jobs:
         bin/redis_start_wait.sh &&\
         bin/minikube_wait.sh &&\
         bin/docker_login.sh &&\
-        eval $(minikube -p minikube docker-env) &&\
-        docker pull docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
-        docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest\
-                     -t docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest . &&\
         . venv/bin/activate &&\
         export DEBUG=yes &&\
         export DEBUG_VERBOSITY=10 &&\
@@ -38,6 +34,9 @@ jobs:
         export WAITER_VERIFY_WORKER_ACCESS=no &&\
         echo running tests &&\
         pytest &&\
+        docker pull docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
+        docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest\
+                     -t cwm_worker_operator . &&\
         bin/docker_push_sha.sh &&\
         if [ "${GITHUB_REF}" == "refs/heads/master" ]; then
           bin/docker_push_latest.sh &&\

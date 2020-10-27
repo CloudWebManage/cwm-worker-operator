@@ -8,7 +8,7 @@ ORDERED_TESTS = [
     'tests/test_domains_config.py',
     'tests/test_deployments_manager.py',
     'tests/test_deploy_e2e.py',
-    'tests/test_deploy_k8s.py',
+    'tests/test_k8s.py',
 ]
 
 
