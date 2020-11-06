@@ -8,14 +8,18 @@ from cwm_worker_operator import config
 
 
 REDIS_KEY_PREFIX_WORKER_INITIALIZE = "worker:initialize"
-REDIS_KEY_WORKER_AVAILABLE = "worker:available:{}"
+REDIS_KEY_PREFIX_WORKER_AVAILABLE = "worker:available"
+REDIS_KEY_WORKER_AVAILABLE = REDIS_KEY_PREFIX_WORKER_AVAILABLE + ":{}"
 REDIS_KEY_WORKER_INGRESS_HOSTNAME = "worker:ingress:hostname:{}"
 REDIS_KEY_WORKER_ERROR = "worker:error:{}"
 REDIS_KEY_PREFIX_WORKER_ERROR = "worker:error"
 REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER = "worker:error_attempt_number:{}"
-REDIS_KEY_VOLUME_CONFIG = "worker:volume:config:{}"
+REDIS_KEY_PREFIX_VOLUME_CONFIG = "worker:volume:config"
+REDIS_KEY_VOLUME_CONFIG = REDIS_KEY_PREFIX_VOLUME_CONFIG + ":{}"
 REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT = "worker:opstatus:ready_for_deployment"
 REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE = "worker:opstatus:waiting_for_deployment"
+REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE = "worker:force_update"
+REDIS_KEY_PREFIX_WORKER_FORCE_DELETE = "worker:force_delete"
 
 
 class DomainsConfig(object):
@@ -61,11 +65,14 @@ class DomainsConfig(object):
         r.close()
         return worker_names
 
-    def get_cwm_api_volume_config(self, domain_name, metrics=None):
+    def get_cwm_api_volume_config(self, domain_name, metrics=None, force_update=False):
         start_time = datetime.datetime.now()
-        r = redis.Redis(connection_pool=self.redis_pool)
-        val = r.get(REDIS_KEY_VOLUME_CONFIG.format(domain_name))
-        r.close()
+        if force_update:
+            val = None
+        else:
+            r = redis.Redis(connection_pool=self.redis_pool)
+            val = r.get(REDIS_KEY_VOLUME_CONFIG.format(domain_name))
+            r.close()
         if val is None:
             try:
                 volume_config = requests.get("{}/volume/{}".format(config.CWM_API_URL, domain_name)).json()
@@ -156,7 +163,37 @@ class DomainsConfig(object):
             ] if with_error else []),
             *([
                 REDIS_KEY_VOLUME_CONFIG.format(domain_name)
-            ] if with_volume_config else [])
+            ] if with_volume_config else []),
+            "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE, domain_name),
+            "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name),
         )
         if not redis_connection:
             r.close()
+
+    def set_worker_force_update(self, domain_name):
+        r = redis.Redis(connection_pool=self.redis_pool)
+        r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE, domain_name), "")
+        r.close()
+
+    def set_worker_force_delete(self, domain_name):
+        r = redis.Redis(connection_pool=self.redis_pool)
+        r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name), "")
+        r.close()
+
+    def iterate_domains_to_delete(self):
+        r = redis.Redis(connection_pool=self.redis_pool)
+        worker_names = [
+            key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE), "")
+            for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE))
+        ]
+        r.close()
+        return worker_names
+
+    def get_domains_force_update(self):
+        r = redis.Redis(connection_pool=self.redis_pool)
+        worker_names = [
+            key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE), "")
+            for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE))
+        ]
+        r.close()
+        return worker_names

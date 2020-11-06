@@ -45,7 +45,6 @@ docker run -d --rm --name redis -p 6379:6379 redis
 Set env vars
 
 ```
-export DEBUG=yes
 export REDIS_HOST=172.17.0.1
 export CWM_ZONE=EU
 ```
@@ -58,13 +57,10 @@ export PACKAGES_READER_GITHUB_USER=
 export PACKAGES_READER_GITHUB_TOKEN=
 ```
 
-### Build Docker image
-
-The docker image should be built to be available in the minikube environment
+Deploy a testing instance of Prometheus on the minikube cluster and wait for it to be ready 
 
 ```
-eval $(minikube -p minikube docker-env) &&\
-docker build -t docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest .
+bin/prometheus_deploy_wait.sh
 ```
 
 ### Run tests

@@ -1,6 +1,6 @@
 import pytest
 from .mocks.domains_config import MockDomainsConfig
-from .mocks.metrics import MockInitializerMetrics, MockDeployerMetrics, MockWaiterMetrics
+from .mocks.metrics import MockInitializerMetrics, MockDeployerMetrics, MockWaiterMetrics, MockDeleterMetrics, MockUpdaterMetrics
 from .mocks.deployments_manager import MockDeploymentsManager
 
 
@@ -46,3 +46,13 @@ def deployer_metrics():
 @pytest.fixture()
 def waiter_metrics():
     return MockWaiterMetrics()
+
+
+@pytest.fixture()
+def deleter_metrics():
+    return MockDeleterMetrics()
+
+
+@pytest.fixture()
+def updater_metrics():
+    return MockUpdaterMetrics()

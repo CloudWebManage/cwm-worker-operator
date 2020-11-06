@@ -10,11 +10,11 @@ from cwm_worker_operator import logs
 from cwm_worker_operator.domains_config import DomainsConfig
 
 
-def initialize_domain(domains_config, initializer_metrics, domain_name):
+def initialize_domain(domains_config, initializer_metrics, domain_name, force_update=False):
     start_time = datetime.datetime.now()
     log_kwargs = {"domain_name": domain_name, "start_time": start_time}
     try:
-        volume_config = domains_config.get_cwm_api_volume_config(domain_name, initializer_metrics)
+        volume_config = domains_config.get_cwm_api_volume_config(domain_name, initializer_metrics, force_update=force_update)
         namespace_name = volume_config["hostname"].replace(".", "--")
         volume_zone = volume_config["zone"]
     except Exception:
@@ -41,9 +41,15 @@ def initialize_domain(domains_config, initializer_metrics, domain_name):
 def run_single_iteration(domains_config, initializer_metrics):
     domain_names_ready_for_deployment = domains_config.get_worker_domains_ready_for_deployment()
     domain_names_waiting_for_deployment_complete = domains_config.get_worker_domains_waiting_for_deployment_complete()
-    for domain_name in domains_config.get_worker_domains_waiting_for_initlization():
+    domains_waiting_for_initialization = domains_config.get_worker_domains_waiting_for_initlization()
+    domains_force_update = domains_config.get_domains_force_update()
+    for domain_name in domains_force_update:
         if domain_name not in domain_names_ready_for_deployment and domain_name not in domain_names_waiting_for_deployment_complete:
+            initialize_domain(domains_config, initializer_metrics, domain_name, force_update=True)
+    for domain_name in domains_waiting_for_initialization:
+        if domain_name not in domain_names_ready_for_deployment and domain_name not in domain_names_waiting_for_deployment_complete and domain_name not in domains_force_update:
             initialize_domain(domains_config, initializer_metrics, domain_name)
+
 
 
 def start_daemon(once=False, with_prometheus=True, initializer_metrics=None, domains_config=None):

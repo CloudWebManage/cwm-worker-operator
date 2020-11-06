@@ -4,6 +4,7 @@ import traceback
 from cwm_worker_operator import logs
 from cwm_worker_operator import config
 import cwm_worker_deployment.deployment
+import cwm_worker_deployment.helm
 
 
 urllib3.disable_warnings()
@@ -65,3 +66,10 @@ class DeploymentsManager:
 
     def delete(self, namespace_name, deployment_type, **kwargs):
         cwm_worker_deployment.deployment.delete(namespace_name, deployment_type, **kwargs)
+
+    def iterate_all_releases(self):
+        for release in cwm_worker_deployment.helm.iterate_all_releases("minio"):
+            yield release
+
+    def get_worker_metrics(self, namespace_name):
+        return cwm_worker_deployment.deployment.get_metrics(namespace_name, "minio")

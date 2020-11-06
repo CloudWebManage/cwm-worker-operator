@@ -1,6 +1,8 @@
+import json
 import redis
 import datetime
 from cwm_worker_operator import domains_config
+from cwm_worker_operator import config
 from contextlib import contextmanager
 
 
@@ -127,3 +129,36 @@ def test_get_volume_config_error():
         volume_config, namespace = dc.get_volume_config_namespace_from_domain(None, domain_name)
         assert set(volume_config.keys()) == {'__error', '__last_update'}
         assert namespace == None
+
+
+def test_volume_config_force_update():
+    domain_name = 'force.update.domain'
+    with get_domains_config_redis_clear() as (dc, r):
+        metrics = MockMetrics()
+        # set volume config in redis
+        r.set(domains_config.REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps({"foo": "bar"}))
+        # without force update, this volume config is returned
+        assert dc.get_cwm_api_volume_config(domain_name, metrics) == {"foo": "bar"}
+        # with force update, we get an error as domain does not exist
+        volume_config = dc.get_cwm_api_volume_config(domain_name, metrics, force_update=True)
+        assert set(volume_config.keys()) == {'__error', '__last_update'}
+
+
+def test_worker_forced_delete_update():
+    update_domain_name_1 = 'force.update.domain1'
+    update_domain_name_2 = 'force.update.domain2'
+    delete_domain_name_1 = 'force.delete.domain1'
+    delete_domain_name_2 = 'force.delete.domain2'
+    with get_domains_config_redis_clear() as (dc, r):
+        dc.set_worker_force_update(update_domain_name_1)
+        dc.set_worker_force_update(update_domain_name_2)
+        dc.set_worker_force_delete(delete_domain_name_1)
+        dc.set_worker_force_delete(delete_domain_name_2)
+        assert set(dc.iterate_domains_to_delete()) == {delete_domain_name_1, delete_domain_name_2}
+        assert set(dc.get_domains_force_update()) == {update_domain_name_1, update_domain_name_2}
+        assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
+        assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)
+        dc.del_worker_keys(r, update_domain_name_2)
+        dc.del_worker_keys(r, delete_domain_name_2)
+        assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
+        assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)

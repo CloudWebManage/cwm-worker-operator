@@ -45,9 +45,13 @@ spec:
           value: {{ $.Values.debugVerbosity | quote }}
         {{ end }}
         - name: REDIS_HOST
-          value: "cwm-worker-operator-redis"
+          value: {{ $.Values.operator.REDIS_HOST | quote }}
         - name: REDIS_PORT
-          value: "6379"
+          value: {{ $.Values.operator.REDIS_PORT | quote }}
+        - name: REDIS_POOL_MAX_CONNECTIONS
+          value: {{ $.Values.operator.REDIS_POOL_MAX_CONNECTIONS | quote }}
+        - name: REDIS_POOL_TIMEOUT
+          value: {{ $.Values.operator.REDIS_POOL_TIMEOUT | quote }}
         - name: CWM_ZONE
           value: {{ $.Values.cwm_zone | quote }}
         - name: INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
@@ -82,6 +86,20 @@ spec:
           value: {{ if $.Values.operator.DEPLOYER_USE_EXTERNAL_SERVICE }}"yes"{{ else }}"no"{{ end }}
         - name: DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS
           value: {{ if $.Values.operator.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS }}"yes"{{ else }}"no"{{ end }}
+        - name: DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: FORCE_DELETE_MAX_PERIOD_VALUE
+          value: {{ $.Values.operator.FORCE_DELETE_MAX_PERIOD_VALUE | quote }}
+        - name: FORCE_DELETE_NETWORK_RECEIVE_PERIOD
+          value: {{ $.Values.operator.FORCE_DELETE_NETWORK_RECEIVE_PERIOD | quote }}
+        - name: FORCE_UPDATE_MAX_HOURS_TTL
+          value: {{ $.Values.operator.FORCE_UPDATE_MAX_HOURS_TTL | quote }}
+        - name: UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: WAITER_VERIFY_WORKER_ACCESS
+          value: {{ if $.Values.operator.WAITER_VERIFY_WORKER_ACCESS }}"yes"{{ else }}"no"{{ end }}
+        - name: WORKER_ERROR_MAX_ATTEMPTS
+          value: {{ $.Values.operator.WORKER_ERROR_MAX_ATTEMPTS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ $.Values.operator.resources | indent 10 }}

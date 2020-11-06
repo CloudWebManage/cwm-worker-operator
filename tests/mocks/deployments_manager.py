@@ -6,6 +6,8 @@ class MockDeploymentsManager:
         self.namespace_deployment_type_is_ready = {}
         self.namespace_deployment_type_hostname = {}
         self.hostname_verify_worker_access = {}
+        self.all_releases = []
+        self.worker_metrics = {}
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -35,3 +37,10 @@ class MockDeploymentsManager:
 
     def delete(self, namespace_name, deployment_type, **kwargs):
         self.calls.append(('delete', [namespace_name, deployment_type, kwargs]))
+
+    def iterate_all_releases(self):
+        for release in self.all_releases:
+            yield release
+
+    def get_worker_metrics(self, namespace_name):
+        return self.worker_metrics.get(namespace_name, {})

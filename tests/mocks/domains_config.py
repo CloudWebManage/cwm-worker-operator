@@ -18,6 +18,11 @@ class MockDomainsConfig(DomainsConfig):
         self.domain_worker_waiting_for_deployment = {}
         self.domain_worker_available_hostname = {}
         self.domain_deleted_worker_keys = {}
+        self.domains_to_delete = []
+        self.domain_worker_force_update_calls = {}
+        self.domain_worker_force_delete_calls = {}
+        self.worker_domains_force_update = []
+        self.get_cwm_api_volume_config_calls = {}
 
     def get_worker_domains_ready_for_deployment(self):
         return self.worker_domains_ready_for_deployment
@@ -28,7 +33,8 @@ class MockDomainsConfig(DomainsConfig):
     def get_worker_domains_waiting_for_initlization(self):
         return self.worker_domains_waiting_for_initlization
 
-    def get_cwm_api_volume_config(self, domain_name, metrics=None):
+    def get_cwm_api_volume_config(self, domain_name, metrics=None, force_update=False):
+        self.get_cwm_api_volume_config_calls.setdefault(domain_name, []).append({"force_update": force_update})
         return self.domain_cwm_api_volume_config.get(domain_name, {})
 
     def set_worker_error(self, domain_name, error_msg):
@@ -55,3 +61,16 @@ class MockDomainsConfig(DomainsConfig):
 
     def del_worker_keys(self, redis_connection, domain_name, **kwargs):
         self.domain_deleted_worker_keys[domain_name] = kwargs
+
+    def iterate_domains_to_delete(self):
+        for domain in self.domains_to_delete:
+            yield domain
+
+    def set_worker_force_update(self, domain_name):
+        self.domain_worker_force_update_calls.setdefault(domain_name, []).append(True)
+
+    def set_worker_force_delete(self, domain_name):
+        self.domain_worker_force_delete_calls.setdefault(domain_name, []).append(True)
+
+    def get_domains_force_update(self):
+        return self.worker_domains_force_update

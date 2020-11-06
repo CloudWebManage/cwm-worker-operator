@@ -22,6 +22,7 @@ jobs:
         bin/python_init_venv_requirements_module.sh &&\
         bin/redis_start_wait.sh &&\
         bin/minikube_wait.sh &&\
+        bin/prometheus_deploy_wait.sh &&\
         bin/docker_login.sh &&\
         . venv/bin/activate &&\
         export DEBUG=yes &&\

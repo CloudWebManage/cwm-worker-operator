@@ -78,3 +78,37 @@ class WaiterMetrics(BaseMetrics):
     def deployment_timeout(self, domain_name, start_time):
         self._waiter_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
                                     "timeout").observe((datetime.datetime.now() - start_time).total_seconds())
+
+
+class DeleterMetrics(BaseMetrics):
+
+    def __init__(self):
+        super(DeleterMetrics, self).__init__()
+        self._deleter_request = Histogram('deleter_request_latency', 'deleter request latency', ["domain", "status"])
+
+    def delete_success(self, domain_name, start_time):
+        self._deleter_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                     "success").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def delete_failed(self, domain_name, start_time):
+        self._deleter_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                     "failed").observe((datetime.datetime.now() - start_time).total_seconds())
+
+
+class UpdaterMetrics(BaseMetrics):
+
+    def __init__(self):
+        super(UpdaterMetrics, self).__init__()
+        self._updater_request = Histogram('updater_request_latency', 'updater request latency', ["domain", "status"])
+
+    def not_deployed_force_update(self, domain_name, start_time):
+        self._updater_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                     "not_deployed_force_update").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def force_delete(self, domain_name, start_time):
+        self._updater_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                     "force_delete").observe((datetime.datetime.now() - start_time).total_seconds())
+
+    def force_update(self, domain_name, start_time):
+        self._updater_request.labels(domain_name if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
+                                     "force_update").observe((datetime.datetime.now() - start_time).total_seconds())

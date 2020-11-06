@@ -1,6 +1,13 @@
+import time
+import datetime
+import traceback
+
+import prometheus_client
+
 from cwm_worker_operator import config
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
+from cwm_worker_operator import metrics
 
 
 def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
@@ -20,3 +27,31 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
         namespace_name, "minio", timeout_string=deployment_timeout_string, delete_namespace=delete_namespace,
         delete_helm=delete_helm
     )
+
+
+def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
+    for domain_name in domains_config.iterate_domains_to_delete():
+        start_time = datetime.datetime.now()
+        try:
+            delete(domain_name, domains_config=domains_config, deployments_manager=deployments_manager)
+            deleter_metrics.delete_success(domain_name, start_time)
+        except Exception:
+            if config.DEBUG_VERBOSITY >= 3:
+                traceback.print_exc()
+            deleter_metrics.delete_failed(domain_name, start_time)
+
+
+def start_daemon(once=False, with_prometheus=True, deleter_metrics=None, domains_config=None, deployments_manager=None):
+    if with_prometheus:
+        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_INITIALIZER)
+    if not deleter_metrics:
+        deleter_metrics = metrics.DeleterMetrics()
+    if not domains_config:
+        domains_config = DomainsConfig()
+    if not deployments_manager:
+        deployments_manager = DeploymentsManager()
+    while True:
+        run_single_iteration(domains_config, deleter_metrics, deployments_manager)
+        if once:
+            break
+        time.sleep(config.DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
