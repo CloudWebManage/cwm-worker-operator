@@ -8,6 +8,8 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics):
     updated_less_then_half_hour_ago = (datetime.datetime.now() - datetime.timedelta(minutes=25)).strftime("%Y-%m-%d %H:%M:%S")
     updated_less_then_day_ago = (datetime.datetime.now() - datetime.timedelta(hours=23)).strftime("%Y-%m-%d %H:%M:%S")
     updated_more_then_day_ago = (datetime.datetime.now() - datetime.timedelta(hours=25)).strftime("%Y-%m-%d %H:%M:%S")
+    updated_less_then_hour_ago = (datetime.datetime.now() - datetime.timedelta(minutes=55)).strftime("%Y-%m-%d %H:%M:%S")
+    updated_more_then_hour_ago = (datetime.datetime.now() - datetime.timedelta(minutes=65)).strftime("%Y-%m-%d %H:%M:%S")
     deployments_manager.all_releases += [
         # deployment still pending after more then half hour in revision 1 or 2 is forced to update again
         {
@@ -40,10 +42,10 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics):
             "app_version": "",
             "revision": 2
         },
-        # deployed worker with no network activity for last 5 minutes is marked for deletion
+        # deployed worker updated more then hour ago with no network activity for last 5 minutes is marked for deletion
         {
             "namespace": "deployed--no--network",
-            "updated": updated_less_then_day_ago,
+            "updated": updated_more_then_hour_ago,
             "status": "deployed",
             "app_version": "",
             "revision": 1
@@ -64,10 +66,19 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics):
             "app_version": "",
             "revision": 1
         },
+        # deployed worker updated less then hour ago with no network activity is left as-is (give time to get some network activity)
+        {
+            "namespace": "deployed--no--network--recent-update",
+            "updated": updated_less_then_hour_ago,
+            "status": "deployed",
+            "app_version": "",
+            "revision": 1
+        },
     ]
     deployments_manager.worker_metrics["deployed--no--network"] = {"network_receive_bytes_total_last_5m": 0.0}
     deployments_manager.worker_metrics["deployed--has--network--recent-update"] = {"network_receive_bytes_total_last_5m": 500.0}
     deployments_manager.worker_metrics["deployed--has--network--old-update"] = {"network_receive_bytes_total_last_5m": 500.0}
+    deployments_manager.worker_metrics["deployed--no--network--recent-update"] = {"network_receive_bytes_total_last_5m": 0.0}
     updater.run_single_iteration(domains_config, updater_metrics, deployments_manager)
     assert [o['labels'][1] for o in updater_metrics.observations] == [
         'not_deployed_force_update',

@@ -20,7 +20,9 @@ def check_update_release(domains_config, updater_metrics, deployments_manager, n
             updater_metrics.not_deployed_force_update(domain_name, start_time)
     else:
         worker_metrics = deployments_manager.get_worker_metrics(namespace_name)
-        if worker_metrics['network_receive_bytes_total_last_{}'.format(config.FORCE_DELETE_NETWORK_RECEIVE_PERIOD)] <= config.FORCE_DELETE_MAX_PERIOD_VALUE:
+        metric_key = 'network_receive_bytes_total_last_{}'.format(config.FORCE_DELETE_NETWORK_RECEIVE_PERIOD)
+        assert metric_key in worker_metrics, "missing metric {} for namespace {}".format(metric_key, namespace_name)
+        if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and worker_metrics[metric_key] <= config.FORCE_DELETE_MAX_PERIOD_VALUE:
             domains_config.set_worker_force_delete(domain_name)
             updater_metrics.force_delete(domain_name, start_time)
         elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
