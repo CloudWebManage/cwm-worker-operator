@@ -34,7 +34,7 @@ class DeploymentsManager:
         cwm_worker_deployment.deployment.deploy_extra_objects(deployment_config, extra_objects)
 
     def deploy(self, deployment_config, **kwargs):
-        cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
+        return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
 
     def is_ready(self, namespace_name, deployment_type):
         return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type)

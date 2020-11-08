@@ -46,7 +46,7 @@ operator:
   DELETER_DEFAULT_DELETE_HELM: true
   DEPLOYER_USE_EXTERNAL_SERVICE: false
   DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS: false
-  REDIS_HOST: "cwm-worker-operator-redis"
+  REDIS_HOST: "cwm-worker-operator-redis.default.svc.cluster.local"
   REDIS_PORT: "6379"
   REDIS_POOL_MAX_CONNECTIONS: "50"
   REDIS_POOL_TIMEOUT: "5"

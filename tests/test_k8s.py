@@ -60,8 +60,10 @@ def test_k8s():
                     'kubectl logs deployment/cwm-worker-operator -c deployer',
                     'kubectl logs deployment/cwm-worker-operator -c waiter',
                     'kubectl -n example007--com get pods',
+                    'kubectl -n example007--com describe pod minio',
                     'kubectl -n example007--com logs deployment/minio -c http',
                     'kubectl -n example007--com logs deployment/minio -c https',
+                    'kubectl -n example007--com logs deployment/minio -c last-action-logger',
                     ]:
             print('-- {}'.format(cmd))
             subprocess.call(cmd, shell=True)
