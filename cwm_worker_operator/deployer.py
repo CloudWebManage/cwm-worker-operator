@@ -7,10 +7,10 @@ import prometheus_client
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
-from cwm_worker_operator import common
 from cwm_worker_operator import logs
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
+from cwm_worker_operator import domains_config as domains_config_module
 
 
 def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name, debug=False):
@@ -60,6 +60,16 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
         minio["service"] = {
             "enabled": False
         }
+    minio["MINIO_GATEWAY_DEPLOYMENT_ID"] = namespace_name
+    minio["lastActionLogger"] = {
+        "withRedis": False,
+        "REDIS_HOST": config.REDIS_HOST,
+        "REDIS_PORT": config.REDIS_PORT,
+        "REDIS_POOL_MAX_CONNECTIONS": config.REDIS_POOL_MAX_CONNECTIONS,
+        "REDIS_POOL_TIMEOUT": config.REDIS_POOL_TIMEOUT,
+        "REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION,
+        "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS
+    }
     deployment_config_json = json.dumps({
         "cwm-worker-deployment": {
             "type": "minio",
