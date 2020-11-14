@@ -43,7 +43,7 @@ def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
 
 def start_daemon(once=False, with_prometheus=True, deleter_metrics=None, domains_config=None, deployments_manager=None):
     if with_prometheus:
-        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_INITIALIZER)
+        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DELETER)
     if not deleter_metrics:
         deleter_metrics = metrics.DeleterMetrics()
     if not domains_config:

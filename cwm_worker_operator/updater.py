@@ -43,7 +43,7 @@ def run_single_iteration(domains_config, updater_metrics, deployments_manager):
 
 def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None):
     if with_prometheus:
-        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_WAITER)
+        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_UPDATER)
     if updater_metrics is None:
         updater_metrics = metrics.UpdaterMetrics()
     if domains_config is None:

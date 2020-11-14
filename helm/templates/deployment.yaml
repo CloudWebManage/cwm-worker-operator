@@ -74,6 +74,10 @@ spec:
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DEPLOYER | quote }}
         - name: PROMETHEUS_METRICS_PORT_WAITER
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_WAITER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_UPDATER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_UPDATER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_DELETER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DELETER | quote }}
         {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL }}
         - name: PROMETHEUS_METRICS_WITH_DOMAIN_LABEL
           value: "yes"
