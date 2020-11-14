@@ -41,5 +41,6 @@ jobs:
         bin/docker_push_sha.sh &&\
         if [ "${GITHUB_REF}" == "refs/heads/master" ]; then
           bin/docker_push_latest.sh &&\
+          sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
           bin/helm_publish.sh
         fi
