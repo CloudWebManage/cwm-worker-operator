@@ -4,6 +4,7 @@ from cwm_worker_operator import initializer
 from cwm_worker_operator import deployer
 from cwm_worker_operator import waiter
 from cwm_worker_operator import deleter
+from cwm_worker_operator import updater
 
 
 def main():
@@ -27,7 +28,14 @@ def main():
             domain_name = sys.argv[3] if len(sys.argv) >= 4 else None
             deployment_timeout_string = sys.argv[4] if len(sys.argv) >= 5 else None
             deleter.delete(domain_name, deployment_timeout_string=deployment_timeout_string)
+        elif sys.argv[2] == "start_daemon":
+            deleter.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid deleter command: {}".format(" ".join(sys.argv[2:])))
+    elif sys.argv[1] == "updater":
+        if sys.argv[2] == "start_daemon":
+            updater.start_daemon('--once' in sys.argv)
+        else:
+            raise Exception("Invalid updater command: {}".format(" ".join(sys.argv[2:])))
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))
