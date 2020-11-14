@@ -26,7 +26,7 @@ redis:
       emptyDir: {}
 
 operator:
-  daemons: ["initializer", "deployer", "waiter"]
+  daemons: ["initializer", "deployer", "waiter", "updater", "deleter"]
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
