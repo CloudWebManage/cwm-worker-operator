@@ -21,6 +21,7 @@ REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE = "worker:opstatus:waiti
 REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE = "worker:force_update"
 REDIS_KEY_PREFIX_WORKER_FORCE_DELETE = "worker:force_delete"
 REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION = "deploymentid:last_action"
+REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC = "deploymentid:minio-metrics"
 
 
 class DomainsConfig(object):

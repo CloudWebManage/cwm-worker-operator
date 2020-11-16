@@ -108,6 +108,8 @@ spec:
           value: {{ $.Values.operator.FORCE_DELETE_GRACE_PERIOD_HOURS | quote }}
         - name: LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS
           value: {{ $.Values.operator.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS | quote }}
+        - name: METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS
+          value: {{ $.Values.operator.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS | quote }}
         - name: PROMETHEUS_URL
           value: {{ $.Values.operator.PROMETHEUS_URL | quote }}
 {{ $.Values.operator.env | indent 8 }}
