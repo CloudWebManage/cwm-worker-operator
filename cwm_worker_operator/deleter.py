@@ -4,10 +4,11 @@ import traceback
 
 import prometheus_client
 
+from cwm_worker_operator import logs
 from cwm_worker_operator import config
+from cwm_worker_operator import metrics
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
-from cwm_worker_operator import metrics
 
 
 def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
@@ -35,10 +36,11 @@ def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
         try:
             delete(domain_name, domains_config=domains_config, deployments_manager=deployments_manager)
             deleter_metrics.delete_success(domain_name, start_time)
-        except Exception:
-            if config.DEBUG_VERBOSITY >= 3:
+        except Exception as e:
+            logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
+            if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
                 traceback.print_exc()
-            deleter_metrics.delete_failed(domain_name, start_time)
+            deleter_metrics.exception(domain_name, start_time)
 
 
 def start_daemon(once=False, with_prometheus=True, deleter_metrics=None, domains_config=None, deployments_manager=None):

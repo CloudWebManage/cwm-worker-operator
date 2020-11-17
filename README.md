@@ -77,7 +77,7 @@ Run all tests
 pytest
 ```
 
-Run a tests with full output, by specifying part of the test method name
+Run a test with full output, by specifying part of the test method name
 
 ```
 pytest -sk "invalid_volume_config"
