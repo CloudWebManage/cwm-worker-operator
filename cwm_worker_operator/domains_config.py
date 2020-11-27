@@ -24,6 +24,7 @@ REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE = "worker:force_update"
 REDIS_KEY_PREFIX_WORKER_FORCE_DELETE = "worker:force_delete"
 REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION = "deploymentid:last_action"
 REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC = "deploymentid:minio-metrics"
+REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS = "worker:aggregated-metrics"
 
 
 class DomainsConfig(object):
@@ -204,3 +205,23 @@ class DomainsConfig(object):
                 for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE))
             ]
         return worker_names
+
+    def get_worker_aggregated_metrics(self, domain_name):
+        with self.get_redis() as r:
+            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name))
+            if value:
+                return json.dumps(value)
+            else:
+                return None
+
+    def get_deployment_api_metrics(self, namespace_name):
+        with self.get_redis() as r:
+            base_key = "{}:{}:".format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name)
+            return {
+                key.replace(base_key, ""): r.get(key).decode()
+                for key in r.keys(base_key + "*")
+            }
+
+    def set_worker_aggregated_metrics(self, domain_name, agg_metrics):
+        with self.get_redis() as r:
+            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name), json.dumps(agg_metrics))

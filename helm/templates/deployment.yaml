@@ -112,6 +112,14 @@ spec:
           value: {{ $.Values.operator.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS | quote }}
         - name: PROMETHEUS_URL
           value: {{ $.Values.operator.PROMETHEUS_URL | quote }}
+        - name: METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: METRICS_UPDATER_DAYS_RETENTION_SIZE
+          value: {{ $.Values.operator.METRICS_UPDATER_DAYS_RETENTION_SIZE | quote }}
+        - name: METRICS_UPDATER_HOURS_RETENTION_SIZE
+          value: {{ $.Values.operator.METRICS_UPDATER_HOURS_RETENTION_SIZE | quote }}
+        - name: METRICS_UPDATER_TEN_MINUTES_RETENTION_SIZE
+          value: {{ $.Values.operator.METRICS_UPDATER_TEN_MINUTES_RETENTION_SIZE | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ $.Values.operator.resources | indent 10 }}

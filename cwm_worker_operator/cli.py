@@ -5,6 +5,7 @@ from cwm_worker_operator import deployer
 from cwm_worker_operator import waiter
 from cwm_worker_operator import deleter
 from cwm_worker_operator import updater
+from cwm_worker_operator import metrics_updater
 
 
 def main():
@@ -37,5 +38,10 @@ def main():
             updater.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid updater command: {}".format(" ".join(sys.argv[2:])))
+    elif sys.argv[1] == "metrics_updater":
+        if sys.argv[2] == "start_daemon":
+            metrics_updater.start_daemon('--once' in sys.argv)
+        else:
+            raise Exception("Invalid metrics_updater command: {}".format(" ".join(sys.argv[2:])))
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))

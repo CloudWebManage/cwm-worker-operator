@@ -35,7 +35,7 @@ def check_update_release(domains_config, updater_metrics, deployments_manager, n
         logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        updater_metrics.exception(domain_name)
+        updater_metrics.exception(domain_name, start_time)
 
 
 def run_single_iteration(domains_config, updater_metrics, deployments_manager):

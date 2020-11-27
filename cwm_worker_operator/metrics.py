@@ -111,3 +111,16 @@ class UpdaterMetrics(BaseMetrics):
 
     def exception(self, domain_name, start_time):
         self._observe(self._updater_request, domain_name, start_time, "exception")
+
+
+class MetricsUpdaterMetrics(BaseMetrics):
+
+    def __init__(self):
+        super(MetricsUpdaterMetrics, self).__init__()
+        self._metrics_updater_request = Histogram('metrics_updater_request_latency', 'metrics updater request latency', ["domain", "status"])
+
+    def exception(self, domain_name, start_time):
+        self._observe(self._metrics_updater_request, domain_name, start_time, "exception")
+
+    def agg_metrics_update(self, domain_name, start_time):
+        self._observe(self._metrics_updater_request, domain_name, start_time, "agg_metrics_update")

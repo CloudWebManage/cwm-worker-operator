@@ -39,7 +39,7 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        waiter_metrics.exception(domain_name)
+        waiter_metrics.exception(domain_name, start_time)
 
 
 def run_single_iteration(domains_config, waiter_metrics, deployments_manager):

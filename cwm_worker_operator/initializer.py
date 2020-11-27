@@ -42,7 +42,7 @@ def initialize_domain(domains_config, initializer_metrics, domain_name, force_up
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        initializer_metrics.exception(domain_name)
+        initializer_metrics.exception(domain_name, start_time)
 
 
 def run_single_iteration(domains_config, initializer_metrics):

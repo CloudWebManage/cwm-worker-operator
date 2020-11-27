@@ -123,7 +123,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        deployer_metrics.exception(domain_name)
+        deployer_metrics.exception(domain_name, start_time)
 
 
 def run_single_iteration(domains_config, deployer_metrics, deployments_manager):

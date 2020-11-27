@@ -23,6 +23,9 @@ class MockDomainsConfig(DomainsConfig):
         self.domain_worker_force_delete_calls = {}
         self.worker_domains_force_update = []
         self.get_cwm_api_volume_config_calls = {}
+        self.worker_aggregated_metrics = {}
+        self.deployment_api_metrics = {}
+        self.worker_aggregated_metrics_calls = []
 
     def get_worker_domains_ready_for_deployment(self):
         return self.worker_domains_ready_for_deployment
@@ -74,3 +77,12 @@ class MockDomainsConfig(DomainsConfig):
 
     def get_domains_force_update(self):
         return self.worker_domains_force_update
+
+    def get_worker_aggregated_metrics(self, domain_name):
+        return self.worker_aggregated_metrics.get(domain_name)
+
+    def get_deployment_api_metrics(self, namespace_name):
+        return self.deployment_api_metrics.get(namespace_name)
+
+    def set_worker_aggregated_metrics(self, domain_name, agg_metrics):
+        self.worker_aggregated_metrics_calls.append((domain_name, agg_metrics))

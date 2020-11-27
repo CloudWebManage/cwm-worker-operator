@@ -3,9 +3,13 @@ import requests
 import traceback
 from cwm_worker_operator import logs
 from cwm_worker_operator import config
-import cwm_worker_deployment.deployment
 import cwm_worker_deployment.helm
 
+try:
+    import cwm_worker_deployment.deployment
+except Exception as e:
+    if str(e) != 'Could not configure kubernetes python client':
+        raise
 
 urllib3.disable_warnings()
 

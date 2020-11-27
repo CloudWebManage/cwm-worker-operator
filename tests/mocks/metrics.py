@@ -1,4 +1,7 @@
-from cwm_worker_operator.metrics import InitializerMetrics, DeployerMetrics, WaiterMetrics, DeleterMetrics, UpdaterMetrics
+from cwm_worker_operator.metrics import (
+    InitializerMetrics, DeployerMetrics, WaiterMetrics, DeleterMetrics, UpdaterMetrics,
+    MetricsUpdaterMetrics
+)
 
 
 class MockHistogramLabels:
@@ -68,6 +71,18 @@ class MockUpdaterMetrics(UpdaterMetrics):
 
     def __init__(self):
         self._updater_request = MockHistogram(self)
+        self._volume_config_fetch = MockHistogram(self)
+        self.observations = []
+
+    def observe(self, labels, value):
+        self.observations.append({'labels': labels, 'value': value})
+
+
+
+class MockMetricsUpdaterMetrics(MetricsUpdaterMetrics):
+
+    def __init__(self):
+        self._metrics_updater_request = MockHistogram(self)
         self._volume_config_fetch = MockHistogram(self)
         self.observations = []
 

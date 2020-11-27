@@ -47,6 +47,8 @@ Set env vars
 ```
 export REDIS_HOST=172.17.0.1
 export CWM_ZONE=EU
+export DEBUG=yes
+export DEBUG_VERBOSITY=10
 ```
 
 Set secret env vars (you can get them from Jenkins):
