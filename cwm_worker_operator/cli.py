@@ -38,10 +38,10 @@ def main():
             updater.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid updater command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "metrics_updater":
+    elif sys.argv[1] == "metrics-updater":
         if sys.argv[2] == "start_daemon":
             metrics_updater.start_daemon('--once' in sys.argv)
         else:
-            raise Exception("Invalid metrics_updater command: {}".format(" ".join(sys.argv[2:])))
+            raise Exception("Invalid metrics-updater command: {}".format(" ".join(sys.argv[2:])))
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))

@@ -13,7 +13,7 @@ from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import domains_config as domains_config_module
 
 
-def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name, debug=False):
+def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name, debug=False, extra_minio_extra_configs=None):
     start_time = domains_config.get_worker_ready_for_deployment_start_time(domain_name)
     log_kwargs = {"domain_name": domain_name, "start_time": start_time}
     logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
@@ -33,7 +33,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
         secret = volume_config.get("secret")
         minio_extra_configs = {
             **config.MINIO_EXTRA_CONFIG,
-            **volume_config.get("minio_extra_configs", {})
+            **volume_config.get("minio_extra_configs", {}),
+            **(extra_minio_extra_configs if extra_minio_extra_configs else {})
         }
         cwm_worker_deployment_extra_configs = {
             **config.CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG,
@@ -126,14 +127,14 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
         deployer_metrics.exception(domain_name, start_time)
 
 
-def run_single_iteration(domains_config, deployer_metrics, deployments_manager):
+def run_single_iteration(domains_config, deployer_metrics, deployments_manager, extra_minio_extra_configs=None):
     domain_names_waiting_for_deployment_complete = domains_config.get_worker_domains_waiting_for_deployment_complete()
     for domain_name in domains_config.get_worker_domains_ready_for_deployment():
         if domain_name not in domain_names_waiting_for_deployment_complete:
-            deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name)
+            deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name, extra_minio_extra_configs=extra_minio_extra_configs)
 
 
-def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None):
+def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):
     if with_prometheus:
         prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DEPLOYER)
     if not deployer_metrics:
@@ -143,7 +144,7 @@ def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domain
     deployments_manager = DeploymentsManager()
     deployments_manager.init_cache()
     while True:
-        run_single_iteration(domains_config, deployer_metrics, deployments_manager)
+        run_single_iteration(domains_config, deployer_metrics, deployments_manager, extra_minio_extra_configs=extra_minio_extra_configs)
         if once:
             break
         time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)

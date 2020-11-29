@@ -206,9 +206,12 @@ class DomainsConfig(object):
             ]
         return worker_names
 
-    def get_worker_aggregated_metrics(self, domain_name):
+    def get_worker_aggregated_metrics(self, domain_name, clear=False):
         with self.get_redis() as r:
-            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name))
+            if clear:
+                value = r.getset("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name), '')
+            else:
+                value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name))
             if value:
                 return json.dumps(value)
             else:
@@ -225,3 +228,8 @@ class DomainsConfig(object):
     def set_worker_aggregated_metrics(self, domain_name, agg_metrics):
         with self.get_redis() as r:
             r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name), json.dumps(agg_metrics))
+
+    def get_deployment_last_action(self, namespace_name):
+        with self.get_redis() as r:
+            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name))
+            return datetime.datetime.strptime(value.decode(), "%Y%m%dT%H%M%S.%f") if value else None

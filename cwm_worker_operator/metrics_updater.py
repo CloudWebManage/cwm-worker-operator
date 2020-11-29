@@ -13,40 +13,26 @@ from cwm_worker_operator.deployments_manager import DeploymentsManager
 
 DATEFORMAT = "%Y%m%d%H%M%S"
 LAST_UPDATE_KEY = 'lu'
-TEN_MINUTES_KEY = 'm'
-HOURS_KEY = 'h'
-DAYS_KEY = 'd'
-VALUES_KEY = 'v'
-
-
-def update_agg_metrics_key(agg_metrics, key, now, period_minutes, current_metrics, limit):
-    metrics_obj = agg_metrics.setdefault(key, {})
-    if LAST_UPDATE_KEY not in metrics_obj or (now - datetime.datetime.strptime(metrics_obj[LAST_UPDATE_KEY], DATEFORMAT)).total_seconds() >= 60 * period_minutes:
-        metrics_obj[LAST_UPDATE_KEY] = now.strftime(DATEFORMAT)
-        metrics_obj.setdefault(VALUES_KEY, []).append(current_metrics)
-        if len(metrics_obj[VALUES_KEY]) > limit:
-            metrics_obj[VALUES_KEY].pop(0)
+MINUTES_KEY = 'm'
 
 
 def update_agg_metrics(agg_metrics, now, current_metrics):
     agg_metrics[LAST_UPDATE_KEY] = now.strftime(DATEFORMAT)
-    update_agg_metrics_key(agg_metrics, TEN_MINUTES_KEY, now, 10, current_metrics, config.METRICS_UPDATER_TEN_MINUTES_RETENTION_SIZE)
-    update_agg_metrics_key(agg_metrics, HOURS_KEY, now, 60, current_metrics, config.METRICS_UPDATER_HOURS_RETENTION_SIZE)
-    update_agg_metrics_key(agg_metrics, DAYS_KEY, now, 60 * 24, current_metrics, config.METRICS_UPDATER_DAYS_RETENTION_SIZE)
+    agg_metrics.setdefault(MINUTES_KEY, []).append(current_metrics)
 
 
 def update_release_metrics(domains_config, metrics_updater_metrics, namespace_name):
     start_time = datetime.datetime.now()
     domain_name = namespace_name.replace("--", ".")
     try:
-        agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name)
+        agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name, clear=True)
         if agg_metrics:
             last_agg_update = datetime.datetime.strptime(agg_metrics[LAST_UPDATE_KEY], DATEFORMAT)
         else:
             last_agg_update = None
             agg_metrics = {}
         now = datetime.datetime.now()
-        if not last_agg_update or (now - last_agg_update).total_seconds() >= 60:
+        if not last_agg_update or (now - last_agg_update).total_seconds() >= 59:
             update_agg_metrics(agg_metrics, now, domains_config.get_deployment_api_metrics(namespace_name))
             domains_config.set_worker_aggregated_metrics(domain_name, agg_metrics)
             metrics_updater_metrics.agg_metrics_update(domain_name, start_time)

@@ -26,6 +26,7 @@ class MockDomainsConfig(DomainsConfig):
         self.worker_aggregated_metrics = {}
         self.deployment_api_metrics = {}
         self.worker_aggregated_metrics_calls = []
+        self.deployment_last_action = {}
 
     def get_worker_domains_ready_for_deployment(self):
         return self.worker_domains_ready_for_deployment
@@ -78,11 +79,14 @@ class MockDomainsConfig(DomainsConfig):
     def get_domains_force_update(self):
         return self.worker_domains_force_update
 
-    def get_worker_aggregated_metrics(self, domain_name):
-        return self.worker_aggregated_metrics.get(domain_name)
+    def get_worker_aggregated_metrics(self, domain_name, clear=False):
+        return self.worker_aggregated_metrics.get('{}-{}'.format(domain_name, clear))
 
     def get_deployment_api_metrics(self, namespace_name):
         return self.deployment_api_metrics.get(namespace_name)
 
     def set_worker_aggregated_metrics(self, domain_name, agg_metrics):
         self.worker_aggregated_metrics_calls.append((domain_name, agg_metrics))
+
+    def get_deployment_last_action(self, namespace_name):
+        return self.deployment_last_action.get(namespace_name)

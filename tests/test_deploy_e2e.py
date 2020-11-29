@@ -82,17 +82,29 @@ def _assert_after_deployer(domain_name, test_config, dc):
         raise Exception('unknown after deployer assertion: {}'.format(test_config.get('after_deployer')))
 
 
-def _assert_after_waiter(domain_name, test_config, dc):
+def _assert_after_waiter(domain_name, test_config, dc, debug=False):
     if test_config.get('after_waiter') == 'valid':
         with get_redis(dc) as r:
-            return (
+            if (
                 r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)) == b''
                 and r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode() == "minio.{}.svc.cluster.local".format(domain_name.replace('.', '--'))
                 and domain_name not in dc.get_worker_domains_waiting_for_initlization()
-            )
+            ):
+                return True
+            else:
+                if debug:
+                    print("REDIS_KEY_WORKER_AVAILABLE={}".format(r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name))))
+                    print("REDIS_KEY_WORKER_INGRESS_HOSTNAME={}".format(r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name))))
+                    print("domains_waiting_for_initialization={}".format(list(dc.get_worker_domains_waiting_for_initlization())))
+                return False
     elif test_config.get('after_waiter') == 'error':
         with get_redis(dc) as r:
-            return bool(r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name)))
+            if bool(r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))):
+                return True
+            else:
+                if debug:
+                    print("REDIS_KEY_WORKER_ERROR={}".format(r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))))
+                return False
     elif test_config.get('after_waiter') is not None:
         raise Exception('unkonwn after waiter assertion: {}'.format(test_config.get('after_waiter')))
     else:
@@ -163,7 +175,13 @@ def test():
 
     print("Running deployer iteration")
     mock_deployer_metrics = MockDeployerMetrics()
-    deployer.start_daemon(True, with_prometheus=False, deployer_metrics=mock_deployer_metrics, domains_config=dc)
+    deployer.start_daemon(True, with_prometheus=False, deployer_metrics=mock_deployer_metrics, domains_config=dc,
+                          extra_minio_extra_configs={
+                              "metricsLogger": {
+                                  "withRedis": True,
+                                  "REDIS_HOST": "localhost"
+                              }
+                          })
     for domain_name, test_config in WORKERS.items():
         _assert_after_deployer(domain_name, test_config, dc)
     assert _parse_metrics(mock_deployer_metrics) == {'failed': 1, 'success': 2, 'success_cache': 3}
@@ -176,9 +194,12 @@ def test():
         waiter.start_daemon(True, with_prometheus=False, waiter_metrics=mock_waiter_metrics, domains_config=dc)
         if all([_assert_after_waiter(domain_name, test_config, dc) for domain_name, test_config in WORKERS.items()]):
             break
-        if (datetime.datetime.now() - start_time).total_seconds() > 30:
+        if (datetime.datetime.now() - start_time).total_seconds() > 60:
+            for domain_name, test_config in WORKERS.items():
+                if not _assert_after_waiter(domain_name, test_config, dc, debug=True):
+                    print("Failed asserting after waiter for domain: {} test_config: {}".format(domain_name, test_config))
             raise Exception("Waiting too long for workers to be ready")
-        time.sleep(1)
+        time.sleep(5)
     observations = _parse_metrics(mock_waiter_metrics)
     assert set(observations.keys()) == {'success', 'success_cache', 'timeout'}
     assert observations['success'] == 1

@@ -9,9 +9,18 @@ from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
+from cwm_worker_operator import metrics_updater
 
 
-def check_update_release(domains_config, updater_metrics, deployments_manager, namespace_name, last_updated, status, app_version, revision):
+def check_worker_force_delete_from_metrics(namespace_name, domains_config):
+    last_action = domains_config.get_deployment_last_action(namespace_name)
+    if last_action:
+        return (datetime.datetime.now() - last_action).total_seconds() / 60 >= config.FORCE_DELETE_IF_NO_ACTION_FOR_MINUTES
+    else:
+        return True
+
+
+def check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision):
     start_time = datetime.datetime.now()
     domain_name = namespace_name.replace("--", ".")
     try:
@@ -22,15 +31,33 @@ def check_update_release(domains_config, updater_metrics, deployments_manager, n
                 domains_config.set_worker_force_update(domain_name)
                 updater_metrics.not_deployed_force_update(domain_name, start_time)
         else:
-            worker_metrics = deployments_manager.get_worker_metrics(namespace_name)
-            metric_key = 'network_receive_bytes_total_last_{}'.format(config.FORCE_DELETE_NETWORK_RECEIVE_PERIOD)
-            assert metric_key in worker_metrics, "missing metric {} for namespace {}".format(metric_key, namespace_name)
-            if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and worker_metrics[metric_key] <= config.FORCE_DELETE_MAX_PERIOD_VALUE:
+            if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and check_worker_force_delete_from_metrics(namespace_name, domains_config):
                 domains_config.set_worker_force_delete(domain_name)
                 updater_metrics.force_delete(domain_name, start_time)
             elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
                 domains_config.set_worker_force_update(domain_name)
                 updater_metrics.force_update(domain_name, start_time)
+    except Exception as e:
+        logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
+        if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
+            traceback.print_exc()
+        updater_metrics.exception(domain_name, start_time)
+    return domain_name, start_time
+
+
+def send_agg_metrics_to_cwm(domain_name, last_update, minutes):
+    # TBD
+    pass
+
+
+def store_agg_metrics(domains_config, updater_metrics, domain_name, start_time):
+    try:
+        agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name, clear=True)
+        if agg_metrics:
+            last_update = agg_metrics.get(metrics_updater.LAST_UPDATE_KEY)
+            minutes = agg_metrics.get(metrics_updater.MINUTES_KEY)
+            if last_update and minutes:
+                send_agg_metrics_to_cwm(domain_name, last_update, minutes)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
@@ -44,9 +71,10 @@ def run_single_iteration(domains_config, updater_metrics, deployments_manager):
         datestr, timestr, *_ = release["updated"].split(" ")
         last_updated = datetime.datetime.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S")
         status = release["status"]
-        app_version = release["app_version"]
+        # app_version = release["app_version"]
         revision = release["revision"]
-        check_update_release(domains_config, updater_metrics, deployments_manager, namespace_name, last_updated, status, app_version, revision)
+        domain_name, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision)
+        store_agg_metrics(domains_config, updater_metrics, domain_name, start_time)
 
 
 def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None):

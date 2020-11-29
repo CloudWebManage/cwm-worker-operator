@@ -47,7 +47,7 @@ Set env vars
 ```
 export REDIS_HOST=172.17.0.1
 export CWM_ZONE=EU
-export DEBUG=yes
+export ENABLE_DEBUG=yes
 export DEBUG_VERBOSITY=10
 ```
 

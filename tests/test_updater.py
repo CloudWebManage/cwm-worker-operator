@@ -1,9 +1,11 @@
 import datetime
 
 from cwm_worker_operator import updater
+from cwm_worker_operator import config
 
 
 def test_updater_daemon(domains_config, deployments_manager, updater_metrics):
+    config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = True
     updated_more_then_half_hour_ago = (datetime.datetime.now() - datetime.timedelta(minutes=35)).strftime("%Y-%m-%d %H:%M:%S")
     updated_less_then_half_hour_ago = (datetime.datetime.now() - datetime.timedelta(minutes=25)).strftime("%Y-%m-%d %H:%M:%S")
     updated_less_then_day_ago = (datetime.datetime.now() - datetime.timedelta(hours=23)).strftime("%Y-%m-%d %H:%M:%S")
@@ -42,55 +44,55 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics):
             "app_version": "",
             "revision": 2
         },
-        # deployed worker updated more then hour ago with no network activity for last 5 minutes is marked for deletion
+        # deployed worker updated more then hour ago with no action for last 30 minutes is marked for deletion
         {
-            "namespace": "deployed--no--network",
+            "namespace": "deployed--no--action",
             "updated": updated_more_then_hour_ago,
             "status": "deployed",
             "app_version": "",
             "revision": 1
         },
-        # deployed worker with some network activity for last 5 minutes and update less then 24 hours ago is left as-is
+        # deployed worker with last action in last 30 minutes and updated less then 24 hours ago is left as-is
         {
-            "namespace": "deployed--has--network--recent-update",
+            "namespace": "deployed--has--action--recent-update",
             "updated": updated_less_then_day_ago,
             "status": "deployed",
             "app_version": "",
             "revision": 1
         },
-        # deployed worker with some network activity for last 5 minutes and update more then 24 hours ago is forced to update
+        # deployed worker with last action in last 30 minutes and update more then 24 hours ago is forced to update
         {
-            "namespace": "deployed--has--network--old-update",
+            "namespace": "deployed--has--action--old-update",
             "updated": updated_more_then_day_ago,
             "status": "deployed",
             "app_version": "",
             "revision": 1
         },
-        # deployed worker updated less then hour ago with no network activity is left as-is (give time to get some network activity)
+        # deployed worker updated less then hour ago with no last action is left as-is (give time to get some action)
         {
-            "namespace": "deployed--no--network--recent-update",
+            "namespace": "deployed--no--action--recent-update",
             "updated": updated_less_then_hour_ago,
             "status": "deployed",
             "app_version": "",
             "revision": 1
         },
     ]
-    deployments_manager.worker_metrics["deployed--no--network"] = {"network_receive_bytes_total_last_5m": 0.0}
-    deployments_manager.worker_metrics["deployed--has--network--recent-update"] = {"network_receive_bytes_total_last_5m": 500.0}
-    deployments_manager.worker_metrics["deployed--has--network--old-update"] = {"network_receive_bytes_total_last_5m": 500.0}
-    deployments_manager.worker_metrics["deployed--no--network--recent-update"] = {"network_receive_bytes_total_last_5m": 0.0}
+    domains_config.deployment_last_action["deployed--no--action"] = ''
+    domains_config.deployment_last_action["deployed--has--action--recent-update"] = datetime.datetime.now() - datetime.timedelta(minutes=25)
+    domains_config.deployment_last_action["deployed--has--action--old-update"] = datetime.datetime.now() - datetime.timedelta(minutes=25)
+    domains_config.deployment_last_action["deployed--no--action--recent-update"] = ''
     updater.run_single_iteration(domains_config, updater_metrics, deployments_manager)
-    assert [o['labels'][1] for o in updater_metrics.observations] == [
-        'not_deployed_force_update',
-        'not_deployed_force_update',
-        'force_delete',
-        'force_update',
+    assert [o['labels'] for o in updater_metrics.observations] == [
+        ('pending.old.revision1', 'not_deployed_force_update'),
+        ('pending.old.revision2', 'not_deployed_force_update'),
+        ('deployed.no.action', 'force_delete'),
+        ('deployed.has.action.old-update', 'force_update'),
     ]
     assert domains_config.domain_worker_force_update_calls == {
         "pending.old.revision1": [True],
         "pending.old.revision2": [True],
-        "deployed.has.network.old-update": [True],
+        "deployed.has.action.old-update": [True],
     }
     assert domains_config.domain_worker_force_delete_calls == {
-        "deployed.no.network": [True],
+        "deployed.no.action": [True],
     }

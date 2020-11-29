@@ -26,7 +26,7 @@ redis:
       emptyDir: {}
 
 operator:
-  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics_updater"]
+  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater"]
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -53,8 +53,6 @@ operator:
   REDIS_POOL_MAX_CONNECTIONS: "50"
   REDIS_POOL_TIMEOUT: "5"
   DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "1"
-  FORCE_DELETE_NETWORK_RECEIVE_PERIOD: "1h"
-  FORCE_DELETE_MAX_PERIOD_VALUE: "5.0"
   FORCE_UPDATE_MAX_HOURS_TTL: "24"
   UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "30"
   WAITER_VERIFY_WORKER_ACCESS: true
@@ -64,9 +62,7 @@ operator:
   METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS: "300"
   PROMETHEUS_URL: "http://localhost:9090"
   METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "1"
-  METRICS_UPDATER_DAYS_RETENTION_SIZE: "6"
-  METRICS_UPDATER_HOURS_RETENTION_SIZE: "6"
-  METRICS_UPDATER_TEN_MINUTES_RETENTION_SIZE: "6"
+  FORCE_DELETE_IF_NO_ACTION_FOR_MINUTES: "30"
   env: ""
   resources: |
     requests:

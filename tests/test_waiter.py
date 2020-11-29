@@ -9,6 +9,7 @@ def assert_domain_waiter_metrics(waiter_metrics, observation):
 
 
 def test_invalid_volume_config(domains_config, waiter_metrics, deployments_manager):
+    config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = False
     domain_name = 'invalid.volume.config'
     domains_config.worker_domains_waiting_for_deployment_complete.append(domain_name)
     domains_config.domain_volume_config_namespace[domain_name] = {}, None
@@ -31,6 +32,7 @@ def test_deployment_not_ready(domains_config, waiter_metrics, deployments_manage
 
 
 def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployments_manager):
+    config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = False
     domain_name = 'deployment.timeout'
     namespace_name = domain_name.replace('.', '--')
     domains_config.worker_domains_waiting_for_deployment_complete.append(domain_name)
@@ -44,6 +46,7 @@ def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployment
 
 
 def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
+    config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = False
     config.WAITER_VERIFY_WORKER_ACCESS = True
     domain_name = 'deployment.timeout'
     namespace_name = domain_name.replace('.', '--')
