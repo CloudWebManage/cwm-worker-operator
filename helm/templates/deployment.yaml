@@ -78,6 +78,8 @@ spec:
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_UPDATER | quote }}
         - name: PROMETHEUS_METRICS_PORT_DELETER
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DELETER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_METRICS_UPDATER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_METRICS_UPDATER | quote }}
         {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL }}
         - name: PROMETHEUS_METRICS_WITH_DOMAIN_LABEL
           value: "yes"
