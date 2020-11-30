@@ -16,10 +16,10 @@ redis:
   imagePullPolicy: IfNotPresent
   resources: |
     requests:
-      cpu: .05
-      memory: 50Mi
+      cpu: "25m"
+      memory: "50Mi"
     limits:
-      memory: 200Mi
+      memory: "200Mi"
   persistence:
     enabled: true
     volume: |
@@ -68,10 +68,10 @@ operator:
   env: ""
   resources: |
     requests:
-      cpu: .1
-      memory: 100Mi
+      cpu: "25m"
+      memory: "50Mi"
     limits:
-      memory: 800Mi
+      memory: "200Mi"
 
 # each object have required attributes: apiVersion, kind, name, spec
 extraObjects: []
