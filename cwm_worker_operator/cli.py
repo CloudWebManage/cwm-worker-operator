@@ -6,6 +6,7 @@ from cwm_worker_operator import waiter
 from cwm_worker_operator import deleter
 from cwm_worker_operator import updater
 from cwm_worker_operator import metrics_updater
+from cwm_worker_operator import web_ui
 
 
 def main():
@@ -43,5 +44,8 @@ def main():
             metrics_updater.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid metrics-updater command: {}".format(" ".join(sys.argv[2:])))
+    elif sys.argv[1] == 'web-ui':
+        if sys.argv[2] == 'start_daemon':
+            web_ui.start_daemon()
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))

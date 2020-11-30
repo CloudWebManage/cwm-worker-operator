@@ -26,7 +26,7 @@ redis:
       emptyDir: {}
 
 operator:
-  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater"]
+  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui"]
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -64,6 +64,7 @@ operator:
   PROMETHEUS_URL: "http://localhost:9090"
   METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "1"
   FORCE_DELETE_IF_NO_ACTION_FOR_MINUTES: "30"
+  WEB_UI_PORT: "8182"
   env: ""
   resources: |
     requests:

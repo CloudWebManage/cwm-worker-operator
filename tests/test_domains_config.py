@@ -196,3 +196,19 @@ def test_get_worker_ready_for_deployment_start_time_exception():
         dt = dc.get_worker_ready_for_deployment_start_time(domain_name)
         assert isinstance(dt, datetime.datetime)
         assert (datetime.datetime.now() - dt).total_seconds() < 5
+
+
+def test_keys_summary_delete():
+    domain_name = 'example007.com'
+    with get_domains_config_redis_clear() as (dc, r):
+        for key in dc.get_keys_summary(domain_name=domain_name):
+            _key = key['keys'][0].split(' = ')[0]
+            r.set(_key, "1")
+        dc.del_worker_keys(r, domain_name)
+        num_asserts = 0
+        for key in dc.get_keys_summary(domain_name=domain_name):
+            _value = key['keys'][0].split(' = ')[1]
+            if key['title'] not in ['deploymentid:last_action', 'deploymentid:minio-metrics', 'worker:aggregated-metrics']:
+                assert _value == 'None', key
+                num_asserts += 1
+        assert num_asserts == 10

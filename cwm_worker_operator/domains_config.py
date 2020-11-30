@@ -27,6 +27,26 @@ REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC = "deploymentid:minio-metrics"
 REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS = "worker:aggregated-metrics"
 
 
+ALL_REDIS_KEYS = {
+    REDIS_KEY_PREFIX_WORKER_INITIALIZE: {'type': 'prefix'},
+    REDIS_KEY_PREFIX_WORKER_AVAILABLE: {'type': 'prefix'},
+    REDIS_KEY_WORKER_AVAILABLE: {'type': 'template', 'duplicate_of': REDIS_KEY_PREFIX_WORKER_AVAILABLE},
+    REDIS_KEY_WORKER_INGRESS_HOSTNAME: {'type': 'template'},
+    REDIS_KEY_WORKER_ERROR: {'type': 'template'},
+    REDIS_KEY_PREFIX_WORKER_ERROR: {'type': 'prefix', 'duplicate_of': REDIS_KEY_WORKER_ERROR},
+    REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER: {'type': 'template'},
+    REDIS_KEY_PREFIX_VOLUME_CONFIG: {'type': 'prefix'},
+    REDIS_KEY_VOLUME_CONFIG: {'type': 'template', 'duplicate_of': REDIS_KEY_PREFIX_VOLUME_CONFIG},
+    REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT: {'type': 'prefix'},
+    REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE: {'type': 'prefix'},
+    REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE: {'type': 'prefix'},
+    REDIS_KEY_PREFIX_WORKER_FORCE_DELETE: {'type': 'prefix'},
+    REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION: {'type': 'prefix', 'use_namespace': True},
+    REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC: {'type': 'prefix', 'use_namespace': True},
+    REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS: {'type': 'prefix'},
+}
+
+
 class DomainsConfig(object):
     WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT = "TIMEOUT_WAITING_FOR_DEPLOYMENT"
     WORKER_ERROR_FAILED_TO_DEPLOY = "FAILED_TO_DEPLOY"
@@ -233,3 +253,37 @@ class DomainsConfig(object):
         with self.get_redis() as r:
             value = r.get("{}:{}".format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name))
             return datetime.datetime.strptime(value.decode(), "%Y%m%dT%H%M%S.%f") if value else None
+
+    def get_keys_summary(self, max_keys_per_summary=10, domain_name=None):
+        with self.get_redis() as r:
+            for key, key_config in ALL_REDIS_KEYS.items():
+                if key_config.get('duplicate_of'):
+                    continue
+                if key_config['type'] == 'template':
+                    key = key.replace(':{}', '')
+                if domain_name:
+                    if key_config.get('use_namespace'):
+                        _key = '{}:{}'.format(key, domain_name.replace('.', '--'))
+                    else:
+                        _key = '{}:{}'.format(key, domain_name)
+                    value = r.get(_key)
+                    if value:
+                        value = value.decode()
+                    yield {
+                        'title': key,
+                        'keys': ['{} = {}'.format(_key, value)],
+                        'total': 1 if value else 0
+                    }
+                else:
+                    match = '{}:*'.format(key)
+                    _keys = []
+                    _total_keys = 0
+                    for _key in r.scan_iter(match):
+                        _total_keys += 1
+                        if len(_keys) < max_keys_per_summary:
+                            _keys.append(_key.decode())
+                    yield {
+                        'title': key,
+                        'keys': _keys,
+                        'total': _total_keys
+                    }
