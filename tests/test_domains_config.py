@@ -162,3 +162,37 @@ def test_worker_forced_delete_update():
         dc.del_worker_keys(r, delete_domain_name_2)
         assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
         assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)
+
+
+def test_worker_aggregated_metrics():
+    domain_name = 'example007.com'
+    agg_metrics = {'this is': 'metrics'}
+    with get_domains_config_redis_clear() as (dc, r):
+        dc.set_worker_aggregated_metrics(domain_name, agg_metrics)
+        assert dc.get_worker_aggregated_metrics(domain_name, clear=True) == agg_metrics
+        assert dc.get_worker_aggregated_metrics(domain_name) == None
+
+
+def test_deployment_api_metrics():
+    namespace_name = 'example007--com'
+    with get_domains_config_redis_clear() as (dc, r):
+        assert dc.get_deployment_api_metrics(namespace_name) == {}
+        r.set('{}:{}:mymetric'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name), '5')
+        assert dc.get_deployment_api_metrics(namespace_name) == {'mymetric': '5'}
+
+
+def test_deployment_last_action():
+    namespace_name = 'example007--com'
+    with get_domains_config_redis_clear() as (dc, r):
+        assert dc.get_deployment_last_action(namespace_name) == None
+        r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201103T221112.123456')
+        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, 123456)
+
+
+def test_get_worker_ready_for_deployment_start_time_exception():
+    domain_name = 'example007.com'
+    with get_domains_config_redis_clear() as (dc, r):
+        r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name), 'foobar')
+        dt = dc.get_worker_ready_for_deployment_start_time(domain_name)
+        assert isinstance(dt, datetime.datetime)
+        assert (datetime.datetime.now() - dt).total_seconds() < 5

@@ -213,7 +213,7 @@ class DomainsConfig(object):
             else:
                 value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name))
             if value:
-                return json.dumps(value)
+                return json.loads(value.decode())
             else:
                 return None
 
@@ -221,7 +221,7 @@ class DomainsConfig(object):
         with self.get_redis() as r:
             base_key = "{}:{}:".format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name)
             return {
-                key.replace(base_key, ""): r.get(key).decode()
+                key.decode().replace(base_key, ""): r.get(key).decode()
                 for key in r.keys(base_key + "*")
             }
 
