@@ -19,6 +19,10 @@ spec:
       imagePullSecrets:
       {{ $.Values.imagePullSecrets | indent 6 }}
       {{ end }}
+      {{- if $.Values.tolerations }}
+      tolerations:
+      {{ toYaml $.Values.tolerations | indent 8 }}
+      {{- end }}
       terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
       serviceAccountName: cwm-worker-operator
       containers:

@@ -10,6 +10,7 @@ cwm_api_url: ""
 cwm_zone: "EU"
 packages_reader_github_user: ""
 packages_reader_github_token: ""
+#tolerations: []
 
 redis:
   image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
