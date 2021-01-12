@@ -15,7 +15,7 @@ packages_reader_github_token: ""
 redis:
   image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
   imagePullPolicy: IfNotPresent
-  resources: |
+  resources:
     requests:
       cpu: "25m"
       memory: "50Mi"
@@ -67,7 +67,14 @@ operator:
   FORCE_DELETE_IF_NO_ACTION_FOR_MINUTES: "30"
   WEB_UI_PORT: "8182"
   env: ""
-  resources: |
+#  initializerResources: {}
+#  deployerResources: {}
+#  waiterResources: {}
+#  updaterResources: {}
+#  deleterResources: {}
+#  metricsUpdaterResources: {}
+#  webUiResources: {}
+  defaultResources:
     requests:
       cpu: "25m"
       memory: "50Mi"

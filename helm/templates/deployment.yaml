@@ -122,5 +122,21 @@ spec:
           value: {{ $.Values.operator.WEB_UI_PORT | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
-{{ $.Values.operator.resources | indent 10 }}
+{{ if and (eq . "initializer") $.Values.operator.initializerResources }}
+{{ toYaml $.Values.operator.initializerResources | indent 10 }}
+{{ else if and (eq . "deployer") $.Values.operator.deployerResources }}
+{{ toYaml $.Values.operator.deployerResources | indent 10 }}
+{{ else if and (eq . "waiter") $.Values.operator.waiterResources }}
+{{ toYaml $.Values.operator.waiterResources | indent 10 }}
+{{ else if and (eq . "updater") $.Values.operator.updaterResources }}
+{{ toYaml $.Values.operator.updaterResources | indent 10 }}
+{{ else if and (eq . "deleter") $.Values.operator.deleterResources }}
+{{ toYaml $.Values.operator.deleterResources | indent 10 }}
+{{ else if and (eq . "metrics-updater") $.Values.operator.metricsUpdaterResources }}
+{{ toYaml $.Values.operator.metricsUpdaterResources | indent 10 }}
+{{ else if and (eq . "web-ui") $.Values.operator.webUiResources }}
+{{ toYaml $.Values.operator.webUiResources | indent 10 }}
+{{ else }}
+{{ toYaml $.Values.operator.defaultResources | indent 10 }}
+{{ end }}
 {{ end }}

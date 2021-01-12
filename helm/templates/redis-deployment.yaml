@@ -28,7 +28,7 @@ spec:
         args: ["redis-server", "--appendonly", "yes"]
         {{ end }}
         resources:
-{{ $.Values.redis.resources | indent 10 }}
+{{ toYaml $.Values.redis.resources | indent 10 }}
         {{ if $.Values.redis.persistence.enabled }}
         volumeMounts:
         - mountPath: "/data"
