@@ -15,4 +15,5 @@ RUN pip install -r requirements.txt
 COPY setup.py .
 COPY cwm_worker_operator ./cwm_worker_operator
 RUN pip install -e .
+ENV PYTHONUNBUFFERED=no
 ENTRYPOINT ["cwm_worker_operator"]

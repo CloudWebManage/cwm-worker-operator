@@ -63,11 +63,14 @@ def get_redis_key(server, key):
 class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def _send_html(self, html):
+        print("start send_html")
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
+        print("start send_html write")
         for data in html:
             self.wfile.write(data.encode())
+        print("end send_html")
 
     def _send_server_error(self, error='Server Error'):
         self.send_response(500)
@@ -80,6 +83,8 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(error.encode())
 
     def do_GET(self):
+        if config.DEBUG:
+            print("Start do_GET ({})".format(self.path))
         try:
             if self.path == '/':
                 self._send_html(get_index(self.server))
