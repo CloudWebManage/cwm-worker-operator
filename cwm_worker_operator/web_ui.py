@@ -1,5 +1,5 @@
 import traceback
-from http.server import HTTPServer
+from http.server import ThreadingHTTPServer
 from http.server import BaseHTTPRequestHandler
 
 from cwm_worker_operator import config
@@ -108,7 +108,7 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
             self._send_server_error()
 
 
-class CwmWorkerOperatorHTTPServer(HTTPServer):
+class CwmWorkerOperatorHTTPServer(ThreadingHTTPServer):
 
     def __init__(self):
         self.dc = domains_config.DomainsConfig()
