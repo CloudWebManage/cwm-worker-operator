@@ -72,7 +72,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
             "REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION,
             "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS,
             "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,
-            "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC
+            "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC,
+            **minio_extra_configs.pop('metricsLogger', {})
         }
         deployment_config_json = json.dumps({
             "cwm-worker-deployment": {
