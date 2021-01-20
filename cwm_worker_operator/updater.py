@@ -72,7 +72,7 @@ def run_single_iteration(domains_config, updater_metrics, deployments_manager):
         last_updated = datetime.datetime.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S")
         status = release["status"]
         # app_version = release["app_version"]
-        revision = release["revision"]
+        revision = int(release["revision"])
         domain_name, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision)
         store_agg_metrics(domains_config, updater_metrics, domain_name, start_time)
 
