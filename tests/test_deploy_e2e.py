@@ -87,7 +87,7 @@ def _assert_after_waiter(domain_name, test_config, dc, debug=False):
         with get_redis(dc) as r:
             if (
                 r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)) == b''
-                and r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode() == "minio.{}.svc.cluster.local".format(domain_name.replace('.', '--'))
+                and json.loads(r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode()) == {proto: "minio-{}.{}.svc.cluster.local".format(proto, domain_name.replace('.', '--')) for proto in ['http', 'https']}
                 and domain_name not in dc.get_worker_domains_waiting_for_initlization()
             ):
                 return True

@@ -173,7 +173,7 @@ class DomainsConfig(object):
         with self.get_redis() as r:
             self.del_worker_keys(r, domain_name, with_volume_config=False, with_available=False, with_ingress=False)
             r.set(REDIS_KEY_WORKER_AVAILABLE.format(domain_name), "")
-            r.set(REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name), ingress_hostname)
+            r.set(REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name), json.dumps(ingress_hostname))
 
     def del_worker_keys(self, redis_connection, domain_name, with_error=True, with_volume_config=True, with_available=True, with_ingress=True):
         r = redis_connection if redis_connection else redis.Redis(connection_pool=self.redis_pool)

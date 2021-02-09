@@ -44,12 +44,15 @@ class DeploymentsManager:
         return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type)
 
     def get_hostname(self, namespace_name, deployment_type):
-        return cwm_worker_deployment.deployment.get_hostname(namespace_name, deployment_type)
+        return {
+            protocol: cwm_worker_deployment.deployment.get_hostname(namespace_name, deployment_type, protocol)
+            for protocol in ['http', 'https']
+        }
 
     def verify_worker_access(self, hostname, log_kwargs):
         ok = True
         for proto in ["http", "https"]:
-            url = {"http": "http://{}:8080".format(hostname), "https": "https://{}:8443".format(hostname)}[proto]
+            url = {"http": "http://{}:8080".format(hostname[proto]), "https": "https://{}:8443".format(hostname[proto])}[proto]
             requests_kwargs = {"http": {}, "https": {"verify": False}}[proto]
             try:
                 res = requests.get(url, headers={"User-Agent": "Mozilla"}, timeout=2, **requests_kwargs)

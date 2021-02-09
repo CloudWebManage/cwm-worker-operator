@@ -90,9 +90,13 @@ def test_worker_keys():
         # this also deletes worker keys
 
         assert len(r.keys("*")) == 4
-        dc.set_worker_available(domain_name, 'ingress.hostname')
+        dc.set_worker_available(domain_name, {'http':'ingress-http.hostname', 'https': 'ingress-https.hostname'})
         assert r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)) == b''
-        assert r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode() == 'ingress.hostname'
+        assert json.loads(
+            r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode()
+        ) == {
+            'http':'ingress-http.hostname', 'https': 'ingress-https.hostname'
+        }
         assert len(r.keys("*")) == 3
 
         ## set worker domain errors

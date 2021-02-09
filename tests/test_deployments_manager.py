@@ -37,10 +37,7 @@ def test_deploy():
                 'namespace': namespace_name
             },
             'minio': {
-                'createPullSecret': config.PULL_SECRET,
-                'service': {
-                    'enabled': False
-                }
+                'createPullSecret': config.PULL_SECRET
             },
             'extraObjects': []
         }
@@ -50,11 +47,14 @@ def test_deploy():
         deployments_manager.init(deployment_config)
         returncode, _ = subprocess.getstatusoutput('kubectl get ns {}'.format(namespace_name))
         assert returncode == 0
-        returncode, _ = subprocess.getstatusoutput('kubectl -n {} get service minio'.format(namespace_name))
-        assert returncode == 1
-        deployments_manager.deploy_external_service(deployment_config)
-        returncode, _ = subprocess.getstatusoutput('kubectl -n {} get service minio'.format(namespace_name))
-        assert returncode == 0
+        # single protocol per pod does not support external service
+        # for proto in ['http', 'https']:
+        #     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get service minio-{}'.format(namespace_name, proto))
+        #     assert returncode == 1
+        # deployments_manager.deploy_external_service(deployment_config)
+        # for proto in ['http', 'https']:
+        #     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get service minio-{}'.format(namespace_name, proto))
+        #     assert returncode == 0
         returncode, _ = subprocess.getstatusoutput('kubectl -n {} get service test-extra-object'.format(namespace_name))
         assert returncode == 1
         deployments_manager.deploy_extra_objects(deployment_config, [{
@@ -64,19 +64,24 @@ def test_deploy():
             'spec': 'ports:\n- name: "8080"\n  port: 8080\n  TargetPort: 8080\nselector:\n  app: minio'}])
         returncode, _ = subprocess.getstatusoutput('kubectl -n {} get service test-extra-object'.format(namespace_name))
         assert returncode == 0
-        returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
-        assert returncode == 1
+        for proto in ['http', 'https']:
+            returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-{}'.format(namespace_name, proto))
+            assert returncode == 1
         print("Deploying...")
         deployments_manager.deploy(deployment_config, with_init=False, atomic_timeout_string='2m')
-        returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
-        assert returncode == 0
+        for proto in ['http', 'https']:
+            returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-{}'.format(namespace_name, proto))
+            assert returncode == 0
         start_time = datetime.datetime.now()
         while not deployments_manager.is_ready(namespace_name, 'minio'):
             time.sleep(1)
             if (datetime.datetime.now() - start_time).total_seconds() > 30:
                 raise Exception("Waited too long for deployment to be ready")
         ingress_hostname = deployments_manager.get_hostname(namespace_name, 'minio')
-        assert ingress_hostname == 'minio.{}.svc.cluster.local'.format(namespace_name)
+        assert ingress_hostname == {
+            'http': 'minio-http.{}.svc.cluster.local'.format(namespace_name),
+            'https': 'minio-https.{}.svc.cluster.local'.format(namespace_name),
+        }
         all_releases = {r['namespace']: r for r in deployments_manager.iterate_all_releases()}
         assert namespace_name in all_releases
         worker_metrics = deployments_manager.get_worker_metrics(namespace_name)
@@ -94,8 +99,9 @@ def test_deploy():
             'network_receive_bytes_total_last_96h'
         }
         deployments_manager.delete(namespace_name, 'minio', delete_helm=False, delete_namespace=False)
-        returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
-        assert returncode == 1
+        for proto in ['http', 'https']:
+            returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-{}'.format(namespace_name, proto))
+            assert returncode == 1
         returncode, _ = subprocess.getstatusoutput('helm -n {0} get all minio-{0}'.format(namespace_name))
         assert returncode == 0
         deployments_manager.delete(namespace_name, 'minio', delete_helm=True, delete_namespace=False)
@@ -119,4 +125,7 @@ def test_verify_worker_access():
     returncode, _ = subprocess.getstatusoutput('docker build -t mocknginx tests/mocks/nginx && docker run -p 8080:80 -p 8443:443 -d --name mocknginx mocknginx')
     assert returncode == 0
     time.sleep(5)
-    assert DeploymentsManager().verify_worker_access('localhost', {})
+    assert DeploymentsManager().verify_worker_access({
+        'http': 'localhost',
+        'https': 'localhost'
+    }, {})
