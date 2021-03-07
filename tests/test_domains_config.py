@@ -190,7 +190,9 @@ def test_deployment_last_action():
     with get_domains_config_redis_clear() as (dc, r):
         assert dc.get_deployment_last_action(namespace_name) == None
         r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201103T221112.123456')
-        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, 123456)
+        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12)
+        r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-03T22:11:12.123456')
+        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12)
 
 
 def test_get_worker_ready_for_deployment_start_time_exception():

@@ -252,7 +252,11 @@ class DomainsConfig(object):
     def get_deployment_last_action(self, namespace_name):
         with self.get_redis() as r:
             value = r.get("{}:{}".format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name))
-            return datetime.datetime.strptime(value.decode(), "%Y%m%dT%H%M%S.%f") if value else None
+            if value:
+                value = value.decode().split('.')[0].replace('-', '').replace(':', '')
+                return datetime.datetime.strptime(value, "%Y%m%dT%H%M%S")
+            else:
+                return None
 
     def get_keys_summary(self, max_keys_per_summary=10, domain_name=None):
         with self.get_redis() as r:
