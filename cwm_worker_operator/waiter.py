@@ -14,7 +14,8 @@ from cwm_worker_operator.deployments_manager import DeploymentsManager
 def check_deployment_complete(domains_config, waiter_metrics, deployments_manager, domain_name):
     start_time = domains_config.get_worker_ready_for_deployment_start_time(domain_name)
     log_kwargs = {"domain_name": domain_name, "start_time": start_time}
-    logs.debug("Start check_deployment_complete", debug_verbosity=4, **log_kwargs)
+    # this log occurs on every iteration of waiter, so it should be at debug verbosity 10 otherwise there is a flood of logs
+    logs.debug("Start check_deployment_complete", debug_verbosity=10, **log_kwargs)
     try:
         volume_config, namespace_name = domains_config.get_volume_config_namespace_from_domain(waiter_metrics, domain_name)
         if not namespace_name:
