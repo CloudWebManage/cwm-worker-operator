@@ -33,7 +33,7 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
             if hours_since_last_update >= .5 and revision <= 2:
                 msg = "domain force update (first revision)"
                 if disable_force_update:
-                    logs.debug_info("{} but disable_force_update is true".format(msg), domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
                 else:
                     logs.debug(msg, debug_verbosity=4, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
                     domains_config.set_worker_force_update(domain_name)
@@ -42,7 +42,7 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
             if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and check_worker_force_delete_from_metrics(namespace_name, domains_config):
                 msg = "domain force delete (after grace period + based on metrics)"
                 if disable_force_delete:
-                    logs.debug_info("{} but disable_force_delete is true".format(msg), domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    logs.debug("{} but disable_force_delete is true".format(msg), debug_verbosity=10, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
                 else:
                     logs.debug(msg, debug_verbosity=4, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
                     domains_config.set_worker_force_delete(domain_name)
@@ -50,7 +50,7 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
             elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
                 msg = "domain force update (after FORCE_UPDATE_MAX_HOURS_TTL)"
                 if disable_force_update:
-                    logs.debug_info("{} but disable_force_update is true".format(msg), domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
                 else:
                     logs.debug(msg, debug_verbosity=4, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
                     domains_config.set_worker_force_update(domain_name)
