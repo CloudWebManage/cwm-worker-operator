@@ -208,26 +208,24 @@ def test_keys_summary_delete():
     domain_name = 'example007.com'
     with get_domains_config_redis_clear() as (dc, r):
         for key in dc.get_keys_summary(domain_name=domain_name):
-            _key = key['keys'][0].split(' = ')[0]
-            r.set(_key, "1")
+            if len(key['keys']) > 0:
+                _key = key['keys'][0].split(' = ')[0]
+                r.set(_key, "1")
+        r.set('deploymentid:minio-metrics:example007--com:bytes_in', "1")
         dc.del_worker_keys(r, domain_name)
-        num_asserts = 0
-        for key in dc.get_keys_summary(domain_name=domain_name):
-            _value = key['keys'][0].split(' = ')[1]
-            if key['title'] not in ['deploymentid:last_action', 'deploymentid:minio-metrics', 'worker:aggregated-metrics', 'worker:aggregated-metrics-last-sent-update']:
-                assert _value == 'None', key
-                num_asserts += 1
-        assert num_asserts == 10
+        assert set([key.decode() for key in r.keys('*')]) == {
+            'deploymentid:last_action:example007--com', 'deploymentid:minio-metrics:example007--com:bytes_in',
+            'worker:aggregated-metrics:example007.com', 'worker:aggregated-metrics-last-sent-update:example007.com'
+        }
 
 
 def test_keys_summary_delete_with_metrics():
     domain_name = 'example007.com'
     with get_domains_config_redis_clear() as (dc, r):
         for key in dc.get_keys_summary(domain_name=domain_name):
-            _key = key['keys'][0].split(' = ')[0]
-            if _key.startswith('deploymentid:minio-metrics'):
-                r.set('deploymentid:minio-metrics:example007--com:bytes_in', "1")
-            else:
+            if len(key['keys']) > 0:
+                _key = key['keys'][0].split(' = ')[0]
                 r.set(_key, "1")
+        r.set('deploymentid:minio-metrics:example007--com:bytes_in', "1")
         dc.del_worker_keys(r, domain_name, with_metrics=True)
         assert r.keys('*') == []

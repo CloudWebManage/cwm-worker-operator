@@ -43,7 +43,7 @@ ALL_REDIS_KEYS = {
     REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE: {'type': 'prefix'},
     REDIS_KEY_PREFIX_WORKER_FORCE_DELETE: {'type': 'prefix'},
     REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION: {'type': 'prefix', 'use_namespace': True},
-    REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC: {'type': 'prefix', 'use_namespace': True},
+    REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC: {'type': 'prefix-subkeys', 'use_namespace': True},
     REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS: {'type': 'prefix'},
     REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE: {'type': 'prefix'},
 }
@@ -289,36 +289,62 @@ class DomainsConfig(object):
             else:
                 return None
 
+    def get_key_summary_single_multi_domain(self, r, key, max_keys_per_summary):
+        match = '{}:*'.format(key)
+        _keys = []
+        _total_keys = 0
+        for _key in r.scan_iter(match):
+            _total_keys += 1
+            if len(_keys) < max_keys_per_summary:
+                _keys.append(_key.decode())
+        return {
+            'title': key,
+            'keys': _keys,
+            'total': _total_keys
+        }
+
+    def get_key_summary_single(self, r, key, key_config, domain_name, max_keys_per_summary):
+        if key_config['type'] == 'template':
+            key = key.replace(':{}', '')
+        if domain_name:
+            _key = '{}:{}'.format(key, domain_name.replace('.', '--')) if key_config.get('use_namespace') else '{}:{}'.format(key, domain_name)
+            value = r.get(_key)
+            if value:
+                value = value.decode()
+            return {
+                'title': key,
+                'keys': ['{} = {}'.format(_key, value)],
+                'total': 1 if value else 0
+            }
+        else:
+            return self.get_key_summary_single_multi_domain(r, key, max_keys_per_summary)
+
+    def get_key_summary_prefix_subkeys(self, r, key, key_config, domain_name, max_keys_per_summary):
+        if domain_name:
+            _key = '{}:{}'.format(key, domain_name.replace('.', '--')) if key_config.get('use_namespace') else '{}:{}'.format(key, domain_name)
+            match = '{}:*'.format(_key)
+            _keys = []
+            _total_keys = 0
+            for _key in r.scan_iter(match):
+                _total_keys += 1
+                if len(_keys) < max_keys_per_summary*3:
+                    _keys.append('{} = {}'.format(_key.decode(), r.get(_key).decode()))
+            return {
+                'title': key,
+                'keys': _keys,
+                'total': _total_keys
+            }
+        else:
+            return self.get_key_summary_single_multi_domain(r, key, max_keys_per_summary)
+
     def get_keys_summary(self, max_keys_per_summary=10, domain_name=None):
         with self.get_redis() as r:
             for key, key_config in ALL_REDIS_KEYS.items():
                 if key_config.get('duplicate_of'):
                     continue
-                if key_config['type'] == 'template':
-                    key = key.replace(':{}', '')
-                if domain_name:
-                    if key_config.get('use_namespace'):
-                        _key = '{}:{}'.format(key, domain_name.replace('.', '--'))
-                    else:
-                        _key = '{}:{}'.format(key, domain_name)
-                    value = r.get(_key)
-                    if value:
-                        value = value.decode()
-                    yield {
-                        'title': key,
-                        'keys': ['{} = {}'.format(_key, value)],
-                        'total': 1 if value else 0
-                    }
+                if key_config['type'] == 'prefix-subkeys':
+                    yield self.get_key_summary_prefix_subkeys(r, key, key_config, domain_name, max_keys_per_summary)
+                elif key_config['type'] in ['prefix', 'template']:
+                    yield self.get_key_summary_single(r, key, key_config, domain_name, max_keys_per_summary)
                 else:
-                    match = '{}:*'.format(key)
-                    _keys = []
-                    _total_keys = 0
-                    for _key in r.scan_iter(match):
-                        _total_keys += 1
-                        if len(_keys) < max_keys_per_summary:
-                            _keys.append(_key.decode())
-                    yield {
-                        'title': key,
-                        'keys': _keys,
-                        'total': _total_keys
-                    }
+                    raise NotImplementedError('key_config type not supported yet: {}'.format(key_config['type']))
