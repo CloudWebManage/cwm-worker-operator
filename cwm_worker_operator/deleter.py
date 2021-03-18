@@ -21,8 +21,13 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
         delete_namespace = config.DELETER_DEFAULT_DELETE_NAMESPACE
     if delete_helm is None:
         delete_helm = config.DELETER_DEFAULT_DELETE_HELM
-    volume_config = domains_config.get_cwm_api_volume_config(domain_name)
-    namespace_name = volume_config.get("hostname", domain_name).replace(".", "--")
+    try:
+        volume_config = domains_config.get_cwm_api_volume_config(domain_name)
+        namespace_name = volume_config.get("hostname", domain_name).replace(".", "--")
+    except:
+        traceback.print_exc()
+        print("Failed to get hostname from volume_config, using domain_name")
+        namespace_name = domain_name.replace(".", "--")
     domains_config.del_worker_keys(None, domain_name, with_metrics=with_metrics)
     deployments_manager.delete(
         namespace_name, "minio", timeout_string=deployment_timeout_string, delete_namespace=delete_namespace,
