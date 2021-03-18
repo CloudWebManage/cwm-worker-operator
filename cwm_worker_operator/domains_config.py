@@ -177,7 +177,8 @@ class DomainsConfig(object):
             r.set(REDIS_KEY_WORKER_AVAILABLE.format(domain_name), "")
             r.set(REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name), json.dumps(ingress_hostname))
 
-    def del_worker_keys(self, redis_connection, domain_name, with_error=True, with_volume_config=True, with_available=True, with_ingress=True):
+    def del_worker_keys(self, redis_connection, domain_name, with_error=True, with_volume_config=True, with_available=True, with_ingress=True, with_metrics=False):
+        namespace_name = domain_name.replace('.', '--')
         r = redis_connection if redis_connection else redis.Redis(connection_pool=self.redis_pool)
         try:
             r.delete(
@@ -199,7 +200,16 @@ class DomainsConfig(object):
                 ] if with_volume_config else []),
                 "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE, domain_name),
                 "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name),
+                *([
+                    '{}:{}'.format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name),
+                    '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name),
+                    '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name),
+                ] if with_metrics else [])
             )
+            if with_metrics:
+                keys = [key.decode() for key in r.keys('{}:{}:*'.format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name))]
+                if keys:
+                    r.delete(*keys)
         finally:
             if not redis_connection:
                 r.close()

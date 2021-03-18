@@ -218,3 +218,16 @@ def test_keys_summary_delete():
                 assert _value == 'None', key
                 num_asserts += 1
         assert num_asserts == 10
+
+
+def test_keys_summary_delete_with_metrics():
+    domain_name = 'example007.com'
+    with get_domains_config_redis_clear() as (dc, r):
+        for key in dc.get_keys_summary(domain_name=domain_name):
+            _key = key['keys'][0].split(' = ')[0]
+            if _key.startswith('deploymentid:minio-metrics'):
+                r.set('deploymentid:minio-metrics:example007--com:bytes_in', "1")
+            else:
+                r.set(_key, "1")
+        dc.del_worker_keys(r, domain_name, with_metrics=True)
+        assert r.keys('*') == []
