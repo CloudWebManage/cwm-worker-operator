@@ -1,6 +1,8 @@
 import json
 import datetime
 
+import pytz
+
 from cwm_worker_operator import updater
 from cwm_worker_operator import config
 
@@ -15,17 +17,18 @@ def test_send_agg_metrics(domains_config, updater_metrics, cwm_api_manager):
     with domains_config.get_redis() as r:
         r.set("worker:aggregated-metrics:{}".format(domain_name), json.dumps({
             'lu': "20210302030405",
-            'm': [{'t': '20210302030205', 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
-                  {'t': '20210302030305', 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
-                  {'t': '20210302030405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"}]
+            'm': [{'t': datetime.datetime(2021,3,2,1,2,5).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                  {'t': datetime.datetime(2021,3,2,1,3,5).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                  {'t': datetime.datetime(2021,3,2,1,4,5).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"}]
         }))
     updater.send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
+
     assert cwm_api_manager.mock_calls_log == [
         ('_do_send_agg_metrics', {
             'domain_name': 'example001.com',
-            'measurements': [{'t': '20210302010205', 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
-                             {'t': '20210302010305', 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
-                             {'t': '20210302010405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"}]})
+            'measurements': [{'t': datetime.datetime(2021,3,2,1,2,5).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                             {'t': datetime.datetime(2021,3,2,1,3,5).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                             {'t': datetime.datetime(2021,3,2,1,4,5).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"}]})
     ]
     # metrics not sent because less than 60 seconds since last send
     cwm_api_manager.mock_calls_log = []
@@ -122,17 +125,17 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
         r.set("worker:aggregated-metrics:deployed.has.action.recent-update", json.dumps({
             'lu': "20210302030405",
             'm': [
-                {'t': '20210302030205', 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
-                {'t': '20210302030305', 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
-                {'t': '20210302030405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"},
+                {'t': datetime.datetime(2021,3,2,1,2,5).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                {'t': datetime.datetime(2021,3,2,1,3,5).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                {'t': datetime.datetime(2021,3,2,1,4,5).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"},
             ]
         }))
         r.set("worker:aggregated-metrics:deployed.has.action.old-update", json.dumps({
             'lu': "20210302030405",
             'm': [
-                {'t': '20210302030115',                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
-                {'t': '20210302030133', 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
-                {'t': '20210302030405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
+                {'t': datetime.datetime(2021,3,2,3,1,15).strftime('%Y%m%d%H%M%S'),                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
+                {'t': datetime.datetime(2021,3,2,3,1,33).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
+                {'t': datetime.datetime(2021,3,2,3,4,5).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
             ]
         }))
     updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
@@ -153,17 +156,17 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
         ('_do_send_agg_metrics', {
             "domain_name": "deployed.has.action.recent-update",
             "measurements": [
-                {"t": "20210302010205", "bytes_in": "5000", "bytes_out": "40000", "num_requests_in": "1000", "num_requests_out": "7000", "num_requests_misc": "500", "cpu_seconds": "1234.5", "ram_bytes": "5678"},
-                {"t": "20210302010305", "bytes_in": "5120", "bytes_out": "41300", "num_requests_in": "1120", "num_requests_out": "7230", "num_requests_misc": "503", "cpu_seconds": "2334.5", "ram_bytes": "5766"},
-                {"t": "20210302010405", "bytes_in": "5180", "bytes_out": "42200", "num_requests_in": "1280", "num_requests_out": "7680", "num_requests_misc": "513", "cpu_seconds": "4334.5", "ram_bytes": "5987"},
+                {"t": datetime.datetime(2021,3,2,1,2,5).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), "bytes_in": "5000", "bytes_out": "40000", "num_requests_in": "1000", "num_requests_out": "7000", "num_requests_misc": "500", "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                {"t": datetime.datetime(2021,3,2,1,3,5).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), "bytes_in": "5120", "bytes_out": "41300", "num_requests_in": "1120", "num_requests_out": "7230", "num_requests_misc": "503", "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                {"t": datetime.datetime(2021,3,2,1,4,5).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), "bytes_in": "5180", "bytes_out": "42200", "num_requests_in": "1280", "num_requests_out": "7680", "num_requests_misc": "513", "cpu_seconds": "4334.5", "ram_bytes": "5987"},
             ]
         }),
         ('_do_send_agg_metrics', {
             'domain_name': 'deployed.has.action.old-update',
             'measurements': [
-                {'t': '20210302010115',                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
-                {'t': '20210302010133', 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
-                {'t': '20210302010405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
+                {'t': datetime.datetime(2021,3,2,3,1,15).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'),                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
+                {'t': datetime.datetime(2021,3,2,3,1,33).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
+                {'t': datetime.datetime(2021,3,2,3,4,5).astimezone(pytz.UTC).strftime('%Y%m%d%H%M%S'), 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
             ]
         })
     ]

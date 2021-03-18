@@ -214,7 +214,7 @@ def test_keys_summary_delete():
         num_asserts = 0
         for key in dc.get_keys_summary(domain_name=domain_name):
             _value = key['keys'][0].split(' = ')[1]
-            if key['title'] not in ['deploymentid:last_action', 'deploymentid:minio-metrics', 'worker:aggregated-metrics']:
+            if key['title'] not in ['deploymentid:last_action', 'deploymentid:minio-metrics', 'worker:aggregated-metrics', 'worker:aggregated-metrics-last-sent-update']:
                 assert _value == 'None', key
                 num_asserts += 1
         assert num_asserts == 10
