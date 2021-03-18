@@ -6,6 +6,7 @@ from cwm_worker_operator.domains_config import DomainsConfig
 class MockDomainsConfig(DomainsConfig):
 
     def __init__(self):
+        super(MockDomainsConfig, self).__init__()
         self.worker_domains_ready_for_deployment = []
         self.worker_domains_waiting_for_deployment_complete = []
         self.worker_domains_waiting_for_initlization = []
@@ -19,14 +20,8 @@ class MockDomainsConfig(DomainsConfig):
         self.domain_worker_available_hostname = {}
         self.domain_deleted_worker_keys = {}
         self.domains_to_delete = []
-        self.domain_worker_force_update_calls = {}
-        self.domain_worker_force_delete_calls = {}
         self.worker_domains_force_update = []
         self.get_cwm_api_volume_config_calls = {}
-        self.worker_aggregated_metrics = {}
-        self.deployment_api_metrics = {}
-        self.worker_aggregated_metrics_calls = []
-        self.deployment_last_action = {}
 
     def get_worker_domains_ready_for_deployment(self):
         return self.worker_domains_ready_for_deployment
@@ -70,23 +65,5 @@ class MockDomainsConfig(DomainsConfig):
         for domain in self.domains_to_delete:
             yield domain
 
-    def set_worker_force_update(self, domain_name):
-        self.domain_worker_force_update_calls.setdefault(domain_name, []).append(True)
-
-    def set_worker_force_delete(self, domain_name):
-        self.domain_worker_force_delete_calls.setdefault(domain_name, []).append(True)
-
     def get_domains_force_update(self):
         return self.worker_domains_force_update
-
-    def get_worker_aggregated_metrics(self, domain_name, clear=False):
-        return self.worker_aggregated_metrics.get('{}-{}'.format(domain_name, clear))
-
-    def get_deployment_api_metrics(self, namespace_name):
-        return self.deployment_api_metrics.get(namespace_name)
-
-    def set_worker_aggregated_metrics(self, domain_name, agg_metrics):
-        self.worker_aggregated_metrics_calls.append((domain_name, agg_metrics))
-
-    def get_deployment_last_action(self, namespace_name):
-        return self.deployment_last_action.get(namespace_name)

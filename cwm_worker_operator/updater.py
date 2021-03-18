@@ -10,6 +10,7 @@ from cwm_worker_operator import logs
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import metrics_updater
+from cwm_worker_operator.cwm_api_manager import CwmApiManager
 
 
 def check_worker_force_delete_from_metrics(namespace_name, domains_config):
@@ -63,19 +64,26 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
     return domain_name, start_time
 
 
-def send_agg_metrics_to_cwm(domain_name, last_update, minutes):
-    # TBD
-    pass
-
-
-def store_agg_metrics(domains_config, updater_metrics, domain_name, start_time):
+def send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager):
     try:
-        agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name, clear=True)
+        agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name)
         if agg_metrics:
-            last_update = agg_metrics.get(metrics_updater.LAST_UPDATE_KEY)
-            minutes = agg_metrics.get(metrics_updater.MINUTES_KEY)
-            if last_update and minutes:
-                send_agg_metrics_to_cwm(domain_name, last_update, minutes)
+            current_last_update = datetime.datetime.strptime(agg_metrics.get(metrics_updater.LAST_UPDATE_KEY), metrics_updater.DATEFORMAT)
+            current_minutes = agg_metrics.get(metrics_updater.MINUTES_KEY)
+            if current_last_update and current_minutes:
+                previous_last_update_sent, previous_last_update = domains_config.get_worker_aggregated_metrics_last_sent_update(domain_name)
+                if previous_last_update_sent and (datetime.datetime.now() - previous_last_update_sent).total_seconds() < 60:
+                    logs.debug('send_agg_metrics: not sending metrics to cwm_api because last update was sent less than 60 seconds ago', debug_verbosity=10, domain_name=domain_name, previous_last_update_sent=previous_last_update_sent)
+                elif previous_last_update and previous_last_update == current_last_update:
+                    logs.debug('send_agg_metrics: not sending metrics because previous last_update is the same as current last_update', debug_verbosity=10, domain_name=domain_name, previous_last_update=previous_last_update, current_last_update=current_last_update)
+                else:
+                    logs.debug('send_agg_metrics: sending metrics to cwm_api', debug_verbosity=9, domain_name=domain_name, current_last_update=current_last_update)
+                    cwm_api_manager.send_agg_metrics(domain_name, current_minutes)
+                    domains_config.set_worker_aggregated_metrics_last_sent_update(domain_name, current_last_update)
+            else:
+                logs.debug('send_agg_metrics: no last_update or minutes available for domain', debug_verbosity=10, domain_name=domain_name)
+        else:
+            logs.debug('send_agg_metrics: no agg_metrics for domain', debug_verbosity=10, domain_name=domain_name)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
@@ -83,7 +91,7 @@ def store_agg_metrics(domains_config, updater_metrics, domain_name, start_time):
         updater_metrics.exception(domain_name, start_time)
 
 
-def run_single_iteration(domains_config, updater_metrics, deployments_manager):
+def run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager):
     for release in deployments_manager.iterate_all_releases():
         namespace_name = release["namespace"]
         datestr, timestr, *_ = release["updated"].split(" ")
@@ -92,10 +100,10 @@ def run_single_iteration(domains_config, updater_metrics, deployments_manager):
         # app_version = release["app_version"]
         revision = int(release["revision"])
         domain_name, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision)
-        store_agg_metrics(domains_config, updater_metrics, domain_name, start_time)
+        send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
 
 
-def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None):
+def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None, cwm_api_manager=None):
     if with_prometheus:
         prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_UPDATER)
     if updater_metrics is None:
@@ -104,8 +112,10 @@ def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains
         domains_config = DomainsConfig()
     if deployments_manager is None:
         deployments_manager = DeploymentsManager()
+    if cwm_api_manager is None:
+        cwm_api_manager = CwmApiManager()
     while True:
-        run_single_iteration(domains_config, updater_metrics, deployments_manager)
+        run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
         if once:
             break
         time.sleep(config.UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)

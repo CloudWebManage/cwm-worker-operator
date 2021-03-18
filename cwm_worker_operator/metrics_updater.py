@@ -14,14 +14,25 @@ from cwm_worker_operator.deployments_manager import DeploymentsManager
 DATEFORMAT = "%Y%m%d%H%M%S"
 LAST_UPDATE_KEY = 'lu'
 MINUTES_KEY = 'm'
+TIMESTAMP_KEY = 't'
 
 
-def update_agg_metrics(agg_metrics, now, current_metrics):
+def update_agg_metrics(agg_metrics, now, current_metrics, limit=20):
     agg_metrics[LAST_UPDATE_KEY] = now.strftime(DATEFORMAT)
+    current_metrics[TIMESTAMP_KEY] = now.strftime(DATEFORMAT)
     agg_metrics.setdefault(MINUTES_KEY, []).append(current_metrics)
+    if len(agg_metrics[MINUTES_KEY]) > limit:
+        agg_metrics[MINUTES_KEY] = agg_metrics[MINUTES_KEY][1:limit+1]
 
 
-def update_release_metrics(domains_config, metrics_updater_metrics, namespace_name):
+def get_metrics(domains_config, deployments_manager, namespace_name):
+    return {
+        **domains_config.get_deployment_api_metrics(namespace_name),
+        **deployments_manager.get_prometheus_metrics(namespace_name)
+    }
+
+
+def update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=None, update_interval_seconds=30):
     start_time = datetime.datetime.now()
     domain_name = namespace_name.replace("--", ".")
     try:
@@ -31,11 +42,12 @@ def update_release_metrics(domains_config, metrics_updater_metrics, namespace_na
         else:
             last_agg_update = None
             agg_metrics = {}
-        now = datetime.datetime.now()
-        if not last_agg_update or (now - last_agg_update).total_seconds() >= 59:
-            update_agg_metrics(agg_metrics, now, domains_config.get_deployment_api_metrics(namespace_name))
-            domains_config.set_worker_aggregated_metrics(domain_name, agg_metrics)
+        if now is None:
+            now = datetime.datetime.now()
+        if not last_agg_update or (now - last_agg_update).total_seconds() >= update_interval_seconds:
+            update_agg_metrics(agg_metrics, now, get_metrics(domains_config, deployments_manager, namespace_name))
             metrics_updater_metrics.agg_metrics_update(domain_name, start_time)
+        domains_config.set_worker_aggregated_metrics(domain_name, agg_metrics)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
@@ -45,7 +57,7 @@ def update_release_metrics(domains_config, metrics_updater_metrics, namespace_na
 
 def run_single_iteration(domains_config, metrics_updater_metrics, deployments_manager):
     for release in deployments_manager.iterate_all_releases():
-        update_release_metrics(domains_config, metrics_updater_metrics, release["namespace"])
+        update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, release["namespace"])
 
 
 def start_daemon(once=False, with_prometheus=True, metrics_updater_metrics=None, domains_config=None, deployments_manager=None):

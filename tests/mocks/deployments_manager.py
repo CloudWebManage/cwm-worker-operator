@@ -1,4 +1,7 @@
-class MockDeploymentsManager:
+from cwm_worker_operator.deployments_manager import DeploymentsManager
+
+
+class MockDeploymentsManager(DeploymentsManager):
 
     def __init__(self):
         self.calls = []
@@ -7,7 +10,7 @@ class MockDeploymentsManager:
         self.namespace_deployment_type_hostname = {}
         self.hostname_verify_worker_access = {}
         self.all_releases = []
-        self.worker_metrics = {}
+        self.prometheus_metrics = {}
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -42,5 +45,5 @@ class MockDeploymentsManager:
         for release in self.all_releases:
             yield release
 
-    def get_worker_metrics(self, namespace_name):
-        return self.worker_metrics.get(namespace_name, {})
+    def get_prometheus_metrics(self, namespace_name):
+        return self.prometheus_metrics[namespace_name]

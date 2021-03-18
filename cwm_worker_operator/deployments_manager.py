@@ -78,5 +78,19 @@ class DeploymentsManager:
         for release in cwm_worker_deployment.helm.iterate_all_releases("minio"):
             yield release
 
-    def get_worker_metrics(self, namespace_name):
-        return cwm_worker_deployment.deployment.get_metrics(namespace_name, "minio")
+    def get_prometheus_metrics(self, namespace_name):
+        metrics = {}
+        for metric, prom_metric in {
+            'cpu_seconds': 'container_cpu_usage_seconds_total',
+            'ram_bytes': 'container_memory_usage_bytes'
+        }.items():
+            metrics[metric] = '0'
+            try:
+                res = requests.post('http://kube-prometheus-kube-prome-prometheus.monitoring:9090/api/v1/query', {
+                    'query': 'sum('+prom_metric+'{namespace="'+namespace_name+'"})'
+                }).json()
+                if res.get('status') == 'success' and len(res.get('data', {}).get('result', [])) == 1:
+                    metrics[metric] = str(res['data']['result'][0]['value'][1])
+            except:
+                traceback.print_exc()
+        return metrics

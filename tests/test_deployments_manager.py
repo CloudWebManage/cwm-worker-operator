@@ -84,20 +84,6 @@ def test_deploy():
         }
         all_releases = {r['namespace']: r for r in deployments_manager.iterate_all_releases()}
         assert namespace_name in all_releases
-        worker_metrics = deployments_manager.get_worker_metrics(namespace_name)
-        assert set(worker_metrics.keys()) == {
-            'network_receive_bytes_total_last_10m',
-            'network_receive_bytes_total_last_12h',
-            'network_receive_bytes_total_last_1h',
-            'network_receive_bytes_total_last_24h',
-            'network_receive_bytes_total_last_30m',
-            'network_receive_bytes_total_last_3h',
-            'network_receive_bytes_total_last_48h',
-            'network_receive_bytes_total_last_5m',
-            'network_receive_bytes_total_last_6h',
-            'network_receive_bytes_total_last_72h',
-            'network_receive_bytes_total_last_96h'
-        }
         deployments_manager.delete(namespace_name, 'minio', delete_helm=False, delete_namespace=False)
         for proto in ['http', 'https']:
             returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-{}'.format(namespace_name, proto))

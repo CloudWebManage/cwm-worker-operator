@@ -2,6 +2,7 @@ import pytest
 from .mocks.domains_config import MockDomainsConfig
 from .mocks.metrics import MockInitializerMetrics, MockDeployerMetrics, MockWaiterMetrics, MockDeleterMetrics, MockUpdaterMetrics
 from .mocks.deployments_manager import MockDeploymentsManager
+from .mocks.cwm_api_manager import MockCwmApiManager
 
 
 ORDERED_TESTS = [
@@ -26,7 +27,10 @@ def pytest_collection_modifyitems(session, config, items):
 
 @pytest.fixture()
 def domains_config():
-    return MockDomainsConfig()
+    dc = MockDomainsConfig()
+    with dc.get_redis() as r:
+        [r.delete(key) for key in r.keys('*')]
+    return dc
 
 
 @pytest.fixture()
@@ -56,3 +60,8 @@ def deleter_metrics():
 @pytest.fixture()
 def updater_metrics():
     return MockUpdaterMetrics()
+
+
+@pytest.fixture()
+def cwm_api_manager():
+    return MockCwmApiManager()

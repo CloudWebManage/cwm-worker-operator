@@ -1,10 +1,46 @@
+import json
 import datetime
 
 from cwm_worker_operator import updater
 from cwm_worker_operator import config
 
 
-def test_updater_daemon(domains_config, deployments_manager, updater_metrics):
+def test_send_agg_metrics(domains_config, updater_metrics, cwm_api_manager):
+    start_time = datetime.datetime.now()
+    domain_name = 'example001.com'
+    # metrics not sent to cwm because there are no agg metrics for domain
+    updater.send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
+    assert cwm_api_manager.mock_calls_log == []
+    # aggregated metrics are sent to cwm
+    with domains_config.get_redis() as r:
+        r.set("worker:aggregated-metrics:{}".format(domain_name), json.dumps({
+            'lu': "20210302030405",
+            'm': [{'t': '20210302030205', 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                  {'t': '20210302030305', 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                  {'t': '20210302030405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"}]
+        }))
+    updater.send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
+    assert cwm_api_manager.mock_calls_log == [
+        ('_do_send_agg_metrics', {
+            'domain_name': 'example001.com',
+            'measurements': [{'t': '20210302010205', 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                             {'t': '20210302010305', 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                             {'t': '20210302010405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"}]})
+    ]
+    # metrics not sent because less than 60 seconds since last send
+    cwm_api_manager.mock_calls_log = []
+    updater.send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
+    assert cwm_api_manager.mock_calls_log == []
+    # metrics not sent because last_update is the same as in previous send
+    with domains_config.get_redis() as r:
+        last_sent_update = (datetime.datetime.now() - datetime.timedelta(seconds=61)).strftime('%Y%m%d%H%M%S')
+        last_update = "20210302030405"
+        r.set('worker:aggregated-metrics-last-sent-update:{}'.format(domain_name), '{},{}'.format(last_sent_update, last_update))
+    updater.send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
+    assert cwm_api_manager.mock_calls_log == []
+
+
+def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cwm_api_manager):
     config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = True
     updated_more_then_half_hour_ago = (datetime.datetime.now() - datetime.timedelta(minutes=35)).strftime("%Y-%m-%d %H:%M:%S")
     updated_less_then_half_hour_ago = (datetime.datetime.now() - datetime.timedelta(minutes=25)).strftime("%Y-%m-%d %H:%M:%S")
@@ -77,22 +113,61 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics):
             "revision": 1
         },
     ]
-    domains_config.deployment_last_action["deployed--no--action"] = ''
-    domains_config.deployment_last_action["deployed--has--action--recent-update"] = datetime.datetime.now() - datetime.timedelta(minutes=25)
-    domains_config.deployment_last_action["deployed--has--action--old-update"] = datetime.datetime.now() - datetime.timedelta(minutes=25)
-    domains_config.deployment_last_action["deployed--no--action--recent-update"] = ''
-    updater.run_single_iteration(domains_config, updater_metrics, deployments_manager)
+    with domains_config.get_redis() as r:
+        for namespace_name, last_action in {
+            "deployed--has--action--recent-update": datetime.datetime.now() - datetime.timedelta(minutes=25),
+            "deployed--has--action--old-update": datetime.datetime.now() - datetime.timedelta(minutes=25)
+        }.items():
+            r.set('deploymentid:last_action:{}'.format(namespace_name), last_action.strftime("%Y%m%dT%H%M%S"))
+        r.set("worker:aggregated-metrics:deployed.has.action.recent-update", json.dumps({
+            'lu': "20210302030405",
+            'm': [
+                {'t': '20210302030205', 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500', "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                {'t': '20210302030305', 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503', "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                {'t': '20210302030405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513', "cpu_seconds": "4334.5", "ram_bytes": "5987"},
+            ]
+        }))
+        r.set("worker:aggregated-metrics:deployed.has.action.old-update", json.dumps({
+            'lu': "20210302030405",
+            'm': [
+                {'t': '20210302030115',                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
+                {'t': '20210302030133', 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
+                {'t': '20210302030405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
+            ]
+        }))
+    updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
     assert [o['labels'] for o in updater_metrics.observations] == [
         ('pending.old.revision1', 'not_deployed_force_update'),
         ('pending.old.revision2', 'not_deployed_force_update'),
         ('deployed.no.action', 'force_delete'),
         ('deployed.has.action.old-update', 'force_update'),
     ]
-    assert domains_config.domain_worker_force_update_calls == {
-        "pending.old.revision1": [True],
-        "pending.old.revision2": [True],
-        "deployed.has.action.old-update": [True],
-    }
-    assert domains_config.domain_worker_force_delete_calls == {
-        "deployed.no.action": [True],
-    }
+    with domains_config.get_redis() as r:
+        force_update_domains = [key.decode().replace('worker:force_update:', '') for key in r.keys('worker:force_update:*')]
+        force_delete_domains = [key.decode().replace('worker:force_delete:', '') for key in r.keys('worker:force_delete:*')]
+        assert "pending.old.revision1" in force_update_domains
+        assert "pending.old.revision2" in force_update_domains
+        assert "deployed.has.action.old-update" in force_update_domains
+        assert "deployed.no.action" in force_delete_domains
+    assert cwm_api_manager.mock_calls_log == [
+        ('_do_send_agg_metrics', {
+            "domain_name": "deployed.has.action.recent-update",
+            "measurements": [
+                {"t": "20210302010205", "bytes_in": "5000", "bytes_out": "40000", "num_requests_in": "1000", "num_requests_out": "7000", "num_requests_misc": "500", "cpu_seconds": "1234.5", "ram_bytes": "5678"},
+                {"t": "20210302010305", "bytes_in": "5120", "bytes_out": "41300", "num_requests_in": "1120", "num_requests_out": "7230", "num_requests_misc": "503", "cpu_seconds": "2334.5", "ram_bytes": "5766"},
+                {"t": "20210302010405", "bytes_in": "5180", "bytes_out": "42200", "num_requests_in": "1280", "num_requests_out": "7680", "num_requests_misc": "513", "cpu_seconds": "4334.5", "ram_bytes": "5987"},
+            ]
+        }),
+        ('_do_send_agg_metrics', {
+            'domain_name': 'deployed.has.action.old-update',
+            'measurements': [
+                {'t': '20210302010115',                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
+                {'t': '20210302010133', 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
+                {'t': '20210302010405', 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
+            ]
+        })
+    ]
+    print("Starting 2nd run_single_iteration")
+    cwm_api_manager.mock_calls_log = []
+    updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
+    assert cwm_api_manager.mock_calls_log == []
