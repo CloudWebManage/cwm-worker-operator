@@ -180,18 +180,20 @@ def test_worker_aggregated_metrics():
 def test_deployment_api_metrics():
     namespace_name = 'example007--com'
     with get_domains_config_redis_clear() as (dc, r):
-        assert dc.get_deployment_api_metrics(namespace_name) == {}
-        r.set('{}:{}:mymetric'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name), '5')
-        assert dc.get_deployment_api_metrics(namespace_name) == {'mymetric': '5'}
+        assert dc.get_deployment_api_metrics(namespace_name, 'http') == {}
+        r.set('{}:{}:http:mymetric'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name), '5')
+        assert dc.get_deployment_api_metrics(namespace_name, 'http') == {'mymetric': '5'}
 
 
 def test_deployment_last_action():
     namespace_name = 'example007--com'
     with get_domains_config_redis_clear() as (dc, r):
         assert dc.get_deployment_last_action(namespace_name) == None
-        r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201103T221112.123456')
+        r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201102T221112.123456')
+        r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201103T221112.123456')
         assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12)
-        r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-03T22:11:12.123456')
+        r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-03T22:11:12.123456')
+        r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-02T22:11:12.123456')
         assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12)
 
 
@@ -211,10 +213,14 @@ def test_keys_summary_delete():
             if len(key['keys']) > 0:
                 _key = key['keys'][0].split(' = ')[0]
                 r.set(_key, "1")
-        r.set('deploymentid:minio-metrics:example007--com:bytes_in', "1")
+        r.set('deploymentid:minio-metrics:example007--com:http:bytes_in', "1")
+        r.set('deploymentid:minio-metrics:example007--com:https:bytes_in', "1")
+        r.set('deploymentid:last_action:example007--com:http', '1')
+        r.set('deploymentid:last_action:example007--com:https', '1')
         dc.del_worker_keys(r, domain_name)
         assert set([key.decode() for key in r.keys('*')]) == {
-            'deploymentid:last_action:example007--com', 'deploymentid:minio-metrics:example007--com:bytes_in',
+            'deploymentid:last_action:example007--com:http', 'deploymentid:last_action:example007--com:https',
+            'deploymentid:minio-metrics:example007--com:http:bytes_in', 'deploymentid:minio-metrics:example007--com:https:bytes_in',
             'worker:aggregated-metrics:example007.com', 'worker:aggregated-metrics-last-sent-update:example007.com'
         }
 

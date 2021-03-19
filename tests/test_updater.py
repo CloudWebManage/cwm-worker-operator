@@ -121,7 +121,8 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
             "deployed--has--action--recent-update": datetime.datetime.now() - datetime.timedelta(minutes=25),
             "deployed--has--action--old-update": datetime.datetime.now() - datetime.timedelta(minutes=25)
         }.items():
-            r.set('deploymentid:last_action:{}'.format(namespace_name), last_action.strftime("%Y%m%dT%H%M%S"))
+            r.set('deploymentid:last_action:{}:http'.format(namespace_name), (last_action - datetime.timedelta(minutes=2)).strftime("%Y%m%dT%H%M%S"))
+            r.set('deploymentid:last_action:{}:https'.format(namespace_name), last_action.strftime("%Y%m%dT%H%M%S"))
         r.set("worker:aggregated-metrics:deployed.has.action.recent-update", json.dumps({
             'lu': "20210302030405",
             'm': [

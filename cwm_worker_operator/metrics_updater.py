@@ -1,6 +1,7 @@
 import time
 import datetime
 import traceback
+from collections import defaultdict
 
 import prometheus_client
 
@@ -25,9 +26,25 @@ def update_agg_metrics(agg_metrics, now, current_metrics, limit=20):
         agg_metrics[MINUTES_KEY] = agg_metrics[MINUTES_KEY][1:limit+1]
 
 
+def get_deployment_api_metrics(domains_config, namespace_name, buckets=('http', 'https')):
+    values = defaultdict(float)
+    for bucket in buckets:
+        for metric, value in domains_config.get_deployment_api_metrics(namespace_name, bucket).items():
+            try:
+                if '.' in str(value):
+                    value = float(value)
+                else:
+                    value = int(value)
+            except:
+                value = None
+            if value:
+                values[metric] += value
+    return dict(values)
+
+
 def get_metrics(domains_config, deployments_manager, namespace_name):
     return {
-        **domains_config.get_deployment_api_metrics(namespace_name),
+        **get_deployment_api_metrics(domains_config, namespace_name),
         **deployments_manager.get_prometheus_metrics(namespace_name)
     }
 

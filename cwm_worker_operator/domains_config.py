@@ -42,7 +42,7 @@ ALL_REDIS_KEYS = {
     REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE: {'type': 'prefix'},
     REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE: {'type': 'prefix'},
     REDIS_KEY_PREFIX_WORKER_FORCE_DELETE: {'type': 'prefix'},
-    REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION: {'type': 'prefix', 'use_namespace': True},
+    REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION: {'type': 'prefix-subkeys', 'use_namespace': True},
     REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC: {'type': 'prefix-subkeys', 'use_namespace': True},
     REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS: {'type': 'prefix'},
     REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE: {'type': 'prefix'},
@@ -201,13 +201,15 @@ class DomainsConfig(object):
                 "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE, domain_name),
                 "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name),
                 *([
-                    '{}:{}'.format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name),
                     '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name),
                     '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name),
                 ] if with_metrics else [])
             )
             if with_metrics:
                 keys = [key.decode() for key in r.keys('{}:{}:*'.format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name))]
+                if keys:
+                    r.delete(*keys)
+                keys = [key.decode() for key in r.keys('{}:{}:*'.format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name))]
                 if keys:
                     r.delete(*keys)
         finally:
@@ -249,9 +251,9 @@ class DomainsConfig(object):
             else:
                 return None
 
-    def get_deployment_api_metrics(self, namespace_name):
+    def get_deployment_api_metrics(self, namespace_name, bucket):
         with self.get_redis() as r:
-            base_key = "{}:{}:".format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name)
+            base_key = "{}:{}:{}:".format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name, bucket)
             return {
                 key.decode().replace(base_key, ""): r.get(key).decode()
                 for key in r.keys(base_key + "*")
@@ -280,14 +282,17 @@ class DomainsConfig(object):
             value = '{},{}'.format(datetime.datetime.now().strftime('%Y%m%d%H%M%S'), last_update.strftime('%Y%m%d%H%M%S'))
             r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name), value)
 
-    def get_deployment_last_action(self, namespace_name):
+    def get_deployment_last_action(self, namespace_name, buckets=('http', 'https')):
+        latest_value = None
         with self.get_redis() as r:
-            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name))
-            if value:
-                value = value.decode().split('.')[0].replace('-', '').replace(':', '')
-                return datetime.datetime.strptime(value, "%Y%m%dT%H%M%S")
-            else:
-                return None
+            for bucket in buckets:
+                value = r.get("{}:{}:{}".format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name, bucket))
+                if value:
+                    value = value.decode().split('.')[0].replace('-', '').replace(':', '')
+                    value = datetime.datetime.strptime(value, "%Y%m%dT%H%M%S")
+                    if latest_value is None or value > latest_value:
+                        latest_value = value
+        return latest_value if latest_value else None
 
     def get_key_summary_single_multi_domain(self, r, key, max_keys_per_summary):
         match = '{}:*'.format(key)
