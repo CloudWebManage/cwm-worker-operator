@@ -62,8 +62,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
             minio["service"] = {
                 "enabled": False
             }
-        minio["MINIO_GATEWAY_DEPLOYMENT_ID_http"] = 'http'
-        minio["MINIO_GATEWAY_DEPLOYMENT_ID_https"] = 'https'
+        minio["MINIO_GATEWAY_DEPLOYMENT_ID_http"] = '{}:http'.format(namespace_name)
+        minio["MINIO_GATEWAY_DEPLOYMENT_ID_https"] = '{}:https'.format(namespace_name)
         minio["metricsLogger"] = {
             "withRedis": False,
             "REDIS_HOST": config.REDIS_HOST,
