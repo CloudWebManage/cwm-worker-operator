@@ -1,4 +1,5 @@
 import time
+import pytz
 import datetime
 import traceback
 
@@ -32,7 +33,7 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
                 waiter_metrics.deployment_success(domain_name, start_time)
                 logs.debug_info("Success", **log_kwargs)
                 return
-        if (datetime.datetime.now() - start_time).total_seconds() > config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS:
+        if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > config.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS:
             domains_config.set_worker_error(domain_name, domains_config.WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT)
             waiter_metrics.deployment_timeout(domain_name, start_time)
             logs.debug_info("timeout", **log_kwargs)

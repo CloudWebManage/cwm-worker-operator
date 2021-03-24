@@ -1,4 +1,5 @@
 import time
+import pytz
 import datetime
 import traceback
 
@@ -37,7 +38,7 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
 
 def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
     for domain_name in domains_config.iterate_domains_to_delete():
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(pytz.UTC)
         try:
             delete(domain_name, domains_config=domains_config, deployments_manager=deployments_manager)
             deleter_metrics.delete_success(domain_name, start_time)

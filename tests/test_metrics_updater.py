@@ -1,4 +1,5 @@
 import json
+import pytz
 import datetime
 
 from cwm_worker_operator import metrics_updater
@@ -9,7 +10,7 @@ from .mocks.metrics import MockMetricsUpdaterMetrics
 
 def test_update_agg_metrics():
     agg_metrics = {}
-    now = datetime.datetime(2020, 11, 5, 3, 0)
+    now = datetime.datetime(2020, 11, 5, 3, 0).astimezone(pytz.UTC)
     metrics_updater.update_agg_metrics(agg_metrics, now, {}, limit=2)
     assert agg_metrics == {
         'lu': now.strftime("%Y%m%d%H%M%S"),
@@ -32,7 +33,7 @@ def test_update_release_metrics(domains_config, deployments_manager):
     minio_metrics_base_key = 'deploymentid:minio-metrics:{}:'.format(namespace_name)
     metrics_updater_metrics = MockMetricsUpdaterMetrics()
     deployments_manager.prometheus_metrics[namespace_name] = {}
-    now = datetime.datetime(2020, 1, 5, 4, 3, 2)
+    now = datetime.datetime(2020, 1, 5, 4, 3, 2).astimezone(pytz.UTC)
     with domains_config.get_redis() as r:
         [r.delete(key) for key in r.keys('*')]
         # no aggregated metrics, no current metrics - aggregated metrics are updated with empty metrics for current minute

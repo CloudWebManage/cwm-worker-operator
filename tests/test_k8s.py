@@ -1,5 +1,6 @@
 import os
 import time
+import pytz
 import datetime
 import subprocess
 
@@ -9,12 +10,12 @@ from .common import build_operator_docker_for_minikube, set_github_secret
 
 
 def wait_for_cmd(cmd, expected_returncode, ttl_seconds, error_msg, expected_output=None):
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(pytz.UTC)
     while True:
         returncode, output = subprocess.getstatusoutput(cmd)
         if returncode == expected_returncode and (expected_output is None or expected_output == output):
             break
-        if (datetime.datetime.now() - start_time).total_seconds() > ttl_seconds:
+        if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > ttl_seconds:
             print(output)
             raise Exception(error_msg)
         time.sleep(1)

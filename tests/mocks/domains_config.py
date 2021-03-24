@@ -1,3 +1,4 @@
+import pytz
 import datetime
 from collections import defaultdict
 from cwm_worker_operator.domains_config import DomainsConfig
@@ -47,7 +48,7 @@ class MockDomainsConfig(DomainsConfig):
         self.domain_worker_ready_for_deployment[domain_name] = True
 
     def get_worker_ready_for_deployment_start_time(self, domain_name):
-        return self.domain_ready_for_deployment_start_time.get(domain_name, datetime.datetime.now())
+        return self.domain_ready_for_deployment_start_time.get(domain_name, datetime.datetime.now(pytz.UTC))
 
     def get_volume_config_namespace_from_domain(self, metrics, domain_name):
         return self.domain_volume_config_namespace.get(domain_name)

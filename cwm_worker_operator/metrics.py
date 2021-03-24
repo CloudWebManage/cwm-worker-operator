@@ -1,3 +1,4 @@
+import pytz
 import datetime
 
 from prometheus_client import Histogram
@@ -12,7 +13,7 @@ class BaseMetrics:
 
     def _observe(self, histogram, domain, start_time, status):
         histogram.labels(domain if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
-                         status).observe((datetime.datetime.now() - start_time).total_seconds())
+                         status).observe((datetime.datetime.now(pytz.UTC) - start_time).total_seconds())
 
     def cwm_api_volume_config_success_from_api(self, domain_name, start_time):
         self._observe(self._volume_config_fetch, domain_name, start_time, "success")

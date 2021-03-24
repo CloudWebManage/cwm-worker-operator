@@ -1,3 +1,4 @@
+import pytz
 import datetime
 
 from cwm_worker_operator import waiter, config
@@ -38,7 +39,7 @@ def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployment
     domains_config.worker_domains_waiting_for_deployment_complete.append(domain_name)
     domains_config.domain_volume_config_namespace[domain_name] = {}, namespace_name
     deployments_manager.namespace_deployment_type_is_ready['{}-minio'.format(namespace_name)] = False
-    domains_config.domain_ready_for_deployment_start_time[domain_name] = datetime.datetime.now() - datetime.timedelta(days=1)
+    domains_config.domain_ready_for_deployment_start_time[domain_name] = datetime.datetime.now(pytz.UTC) - datetime.timedelta(days=1)
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     assert not domains_config.domain_worker_available_hostname.get(domain_name)
     assert_domain_waiter_metrics(waiter_metrics, 'timeout')

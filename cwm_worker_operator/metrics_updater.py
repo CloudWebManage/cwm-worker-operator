@@ -1,4 +1,5 @@
 import time
+import pytz
 import datetime
 import traceback
 from collections import defaultdict
@@ -50,17 +51,17 @@ def get_metrics(domains_config, deployments_manager, namespace_name):
 
 
 def update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=None, update_interval_seconds=30):
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(pytz.UTC)
     domain_name = namespace_name.replace("--", ".")
     try:
         agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name, clear=True)
         if agg_metrics:
-            last_agg_update = datetime.datetime.strptime(agg_metrics[LAST_UPDATE_KEY], DATEFORMAT)
+            last_agg_update = datetime.datetime.strptime(agg_metrics[LAST_UPDATE_KEY], DATEFORMAT).astimezone(pytz.UTC)
         else:
             last_agg_update = None
             agg_metrics = {}
         if now is None:
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(pytz.UTC)
         if not last_agg_update or (now - last_agg_update).total_seconds() >= update_interval_seconds:
             update_agg_metrics(agg_metrics, now, get_metrics(domains_config, deployments_manager, namespace_name))
             metrics_updater_metrics.agg_metrics_update(domain_name, start_time)

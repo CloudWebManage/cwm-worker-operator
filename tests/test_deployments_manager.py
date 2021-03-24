@@ -1,5 +1,6 @@
 import os
 import time
+import pytz
 import shutil
 import pytest
 import datetime
@@ -72,10 +73,10 @@ def test_deploy():
         for proto in ['http', 'https']:
             returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-{}'.format(namespace_name, proto))
             assert returncode == 0
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(pytz.UTC)
         while not deployments_manager.is_ready(namespace_name, 'minio'):
             time.sleep(1)
-            if (datetime.datetime.now() - start_time).total_seconds() > 30:
+            if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 30:
                 raise Exception("Waited too long for deployment to be ready")
         ingress_hostname = deployments_manager.get_hostname(namespace_name, 'minio')
         assert ingress_hostname == {
@@ -94,12 +95,12 @@ def test_deploy():
         returncode, _ = subprocess.getstatusoutput('helm -n {0} get all minio-{0}'.format(namespace_name))
         assert returncode == 1
         deployments_manager.delete(namespace_name, 'minio', delete_helm=True, delete_namespace=True)
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(pytz.UTC)
         while True:
             returncode, _ = subprocess.getstatusoutput('kubectl get ns {}'.format(namespace_name))
             if returncode == 1:
                 break
-            if (datetime.datetime.now() - start_time).total_seconds() > 60:
+            if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 60:
                 raise Exception("Waited too long for namespace to be deleted")
     finally:
         prompf.terminate()

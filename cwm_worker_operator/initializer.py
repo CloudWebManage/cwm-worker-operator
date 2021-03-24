@@ -1,4 +1,5 @@
 import time
+import pytz
 import datetime
 import traceback
 
@@ -11,7 +12,7 @@ from cwm_worker_operator.domains_config import DomainsConfig
 
 
 def initialize_domain(domains_config, initializer_metrics, domain_name, force_update=False):
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(pytz.UTC)
     log_kwargs = {"domain_name": domain_name, "start_time": start_time}
     logs.debug("Start initialize_domain", debug_verbosity=4, **log_kwargs)
     try:

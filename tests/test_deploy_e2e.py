@@ -1,8 +1,9 @@
 import json
 import time
 import redis
-import subprocess
+import pytz
 import datetime
+import subprocess
 from collections import defaultdict
 from contextlib import contextmanager
 
@@ -125,12 +126,12 @@ def _delete_workers(dc):
                        domains_config=dc)
     for domain_name in WORKERS.keys():
         namespace_name = domain_name.replace('.', '--')
-        start_time = datetime.datetime.now()
+        start_time = datetime.datetime.now(pytz.UTC)
         while True:
             returncode, _ = subprocess.getstatusoutput('kubectl get ns {}'.format(namespace_name))
             if returncode == 1:
                 break
-            if (datetime.datetime.now() - start_time).total_seconds() > 30:
+            if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 30:
                 raise Exception("Waiting too long for namespace to be deleted ({})".format(namespace_name))
             time.sleep(1)
 
@@ -189,12 +190,12 @@ def test():
     print("Running waiter iterations")
     mock_waiter_metrics = MockWaiterMetrics()
     config.WAITER_VERIFY_WORKER_ACCESS = False
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(pytz.UTC)
     while True:
         waiter.start_daemon(True, with_prometheus=False, waiter_metrics=mock_waiter_metrics, domains_config=dc)
         if all([_assert_after_waiter(domain_name, test_config, dc) for domain_name, test_config in WORKERS.items()]):
             break
-        if (datetime.datetime.now() - start_time).total_seconds() > 60:
+        if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 60:
             for domain_name, test_config in WORKERS.items():
                 if not _assert_after_waiter(domain_name, test_config, dc, debug=True):
                     print("Failed asserting after waiter for domain: {} test_config: {}".format(domain_name, test_config))

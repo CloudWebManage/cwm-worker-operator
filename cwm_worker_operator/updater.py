@@ -1,4 +1,5 @@
 import time
+import pytz
 import datetime
 import traceback
 
@@ -16,19 +17,19 @@ from cwm_worker_operator.cwm_api_manager import CwmApiManager
 def check_worker_force_delete_from_metrics(namespace_name, domains_config):
     last_action = domains_config.get_deployment_last_action(namespace_name)
     if last_action:
-        return (datetime.datetime.now() - last_action).total_seconds() / 60 >= config.FORCE_DELETE_IF_NO_ACTION_FOR_MINUTES
+        return (datetime.datetime.now(pytz.UTC) - last_action).total_seconds() / 60 >= config.FORCE_DELETE_IF_NO_ACTION_FOR_MINUTES
     else:
         return True
 
 
 def check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision):
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(pytz.UTC)
     domain_name = namespace_name.replace("--", ".")
     volume_config = domains_config.get_cwm_api_volume_config(domain_name)
     disable_force_delete = volume_config.get("disable_force_delete")
     disable_force_update = volume_config.get("disable_force_update")
     try:
-        hours_since_last_update = (datetime.datetime.now() - last_updated).total_seconds() / 60 / 60
+        hours_since_last_update = (datetime.datetime.now(pytz.UTC) - last_updated).total_seconds() / 60 / 60
         is_deployed = status == "deployed"
         if not is_deployed:
             if hours_since_last_update >= .5 and revision <= 2:
@@ -68,11 +69,11 @@ def send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, c
     try:
         agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name)
         if agg_metrics:
-            current_last_update = datetime.datetime.strptime(agg_metrics.get(metrics_updater.LAST_UPDATE_KEY), metrics_updater.DATEFORMAT)
+            current_last_update = datetime.datetime.strptime(agg_metrics.get(metrics_updater.LAST_UPDATE_KEY), metrics_updater.DATEFORMAT).astimezone(pytz.UTC)
             current_minutes = agg_metrics.get(metrics_updater.MINUTES_KEY)
             if current_last_update and current_minutes:
                 previous_last_update_sent, previous_last_update = domains_config.get_worker_aggregated_metrics_last_sent_update(domain_name)
-                if previous_last_update_sent and (datetime.datetime.now() - previous_last_update_sent).total_seconds() < 60:
+                if previous_last_update_sent and (datetime.datetime.now(pytz.UTC) - previous_last_update_sent).total_seconds() < 60:
                     logs.debug('send_agg_metrics: not sending metrics to cwm_api because last update was sent less than 60 seconds ago', debug_verbosity=10, domain_name=domain_name, previous_last_update_sent=previous_last_update_sent)
                 elif previous_last_update and previous_last_update == current_last_update:
                     logs.debug('send_agg_metrics: not sending metrics because previous last_update is the same as current last_update', debug_verbosity=10, domain_name=domain_name, previous_last_update=previous_last_update, current_last_update=current_last_update)
@@ -95,7 +96,7 @@ def run_single_iteration(domains_config, updater_metrics, deployments_manager, c
     for release in deployments_manager.iterate_all_releases():
         namespace_name = release["namespace"]
         datestr, timestr, *_ = release["updated"].split(" ")
-        last_updated = datetime.datetime.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S")
+        last_updated = datetime.datetime.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S").astimezone(pytz.UTC)
         status = release["status"]
         # app_version = release["app_version"]
         revision = int(release["revision"])
