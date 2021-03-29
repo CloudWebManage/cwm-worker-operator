@@ -1,14 +1,11 @@
-import traceback
+import datetime
 
-from cwm_worker_operator import config
-import cwm_worker_deployment.deployment
+import pytz
 
 
-def init_cache():
-    for version in config.CACHE_MINIO_VERSIONS:
-        try:
-            chart_path = cwm_worker_deployment.deployment.chart_cache_init("cwm-worker-deployment-minio", version, "minio")
-            print("Initialized chart cache: {}".format(chart_path), flush=True)
-        except Exception:
-            traceback.print_exc()
-            print("Failed to initialize chart cache for version {}".format(version))
+def now():
+    return datetime.datetime.now(pytz.UTC)
+
+
+def strptime(value, dateformat):
+    return datetime.datetime.strptime(value + 'z+0000', dateformat+'z%z')

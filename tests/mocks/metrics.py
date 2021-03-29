@@ -1,6 +1,6 @@
 from cwm_worker_operator.metrics import (
     InitializerMetrics, DeployerMetrics, WaiterMetrics, DeleterMetrics, UpdaterMetrics,
-    MetricsUpdaterMetrics
+    MetricsUpdaterMetrics, DiskUsageUpdaterMetrics
 )
 
 
@@ -78,11 +78,21 @@ class MockUpdaterMetrics(UpdaterMetrics):
         self.observations.append({'labels': labels, 'value': value})
 
 
-
 class MockMetricsUpdaterMetrics(MetricsUpdaterMetrics):
 
     def __init__(self):
         self._metrics_updater_request = MockHistogram(self)
+        self._volume_config_fetch = MockHistogram(self)
+        self.observations = []
+
+    def observe(self, labels, value):
+        self.observations.append({'labels': labels, 'value': value})
+
+
+class MockDiskUsageUpdaterMetrics(DiskUsageUpdaterMetrics):
+
+    def __init__(self):
+        self._disk_usage_updater_request = MockHistogram(self)
         self._volume_config_fetch = MockHistogram(self)
         self.observations = []
 

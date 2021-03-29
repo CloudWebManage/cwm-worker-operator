@@ -1,9 +1,7 @@
-import pytz
-import datetime
-
 from prometheus_client import Histogram
 
 from cwm_worker_operator import config
+from cwm_worker_operator import common
 
 
 class BaseMetrics:
@@ -13,7 +11,7 @@ class BaseMetrics:
 
     def _observe(self, histogram, domain, start_time, status):
         histogram.labels(domain if config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL else "",
-                         status).observe((datetime.datetime.now(pytz.UTC) - start_time).total_seconds())
+                         status).observe((common.now() - start_time).total_seconds())
 
     def cwm_api_volume_config_success_from_api(self, domain_name, start_time):
         self._observe(self._volume_config_fetch, domain_name, start_time, "success")
@@ -125,3 +123,16 @@ class MetricsUpdaterMetrics(BaseMetrics):
 
     def agg_metrics_update(self, domain_name, start_time):
         self._observe(self._metrics_updater_request, domain_name, start_time, "agg_metrics_update")
+
+
+class DiskUsageUpdaterMetrics(BaseMetrics):
+
+    def __init__(self):
+        super(DiskUsageUpdaterMetrics, self).__init__()
+        self._disk_usage_updater_request = Histogram('disk_usage_updater_request_latency', 'disk usage updater request latency', ["domain", "status"])
+
+    def exception(self, domain_name, start_time):
+        self._observe(self._disk_usage_updater_request, domain_name, start_time, "exception")
+
+    def disk_usage_update(self, domain_name, start_time):
+        self._observe(self._disk_usage_updater_request, domain_name, start_time, "disk_usage_update")

@@ -1,6 +1,4 @@
 import time
-import pytz
-import datetime
 import traceback
 
 import prometheus_client
@@ -10,6 +8,7 @@ from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
+from cwm_worker_operator import common
 
 
 def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
@@ -38,7 +37,7 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
 
 def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
     for domain_name in domains_config.iterate_domains_to_delete():
-        start_time = datetime.datetime.now(pytz.UTC)
+        start_time = common.now()
         try:
             delete(domain_name, domains_config=domains_config, deployments_manager=deployments_manager)
             deleter_metrics.delete_success(domain_name, start_time)

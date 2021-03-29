@@ -1,13 +1,12 @@
 import json
-import pytz
 import redis
-import datetime
 import requests
 import traceback
 from contextlib import contextmanager
 
 from cwm_worker_operator import config
 from cwm_worker_operator import logs
+from cwm_worker_operator import common
 
 
 REDIS_KEY_PREFIX_WORKER_INITIALIZE = "worker:initialize"
@@ -27,6 +26,7 @@ REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION = "deploymentid:last_action"
 REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC = "deploymentid:minio-metrics"
 REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS = "worker:aggregated-metrics"
 REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE = "worker:aggregated-metrics-last-sent-update"
+REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES = "worker:total-used-bytes"
 
 
 ALL_REDIS_KEYS = {
@@ -47,6 +47,7 @@ ALL_REDIS_KEYS = {
     REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC: {'type': 'prefix-subkeys', 'use_namespace': True},
     REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS: {'type': 'prefix'},
     REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE: {'type': 'prefix'},
+    REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES: {'type': 'prefix'},
 }
 
 
@@ -101,7 +102,7 @@ class DomainsConfig(object):
         return worker_names
 
     def get_cwm_api_volume_config(self, domain_name, metrics=None, force_update=False):
-        start_time = datetime.datetime.now(pytz.UTC).astimezone(pytz.UTC)
+        start_time = common.now()
         if force_update:
             val = None
         else:
@@ -116,7 +117,7 @@ class DomainsConfig(object):
                     traceback.print_exc()
                 volume_config = {"__error": str(e)}
                 is_success = False
-            volume_config["__last_update"] = datetime.datetime.now(pytz.UTC).strftime("%Y%m%dT%H%M%S")
+            volume_config["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
             with self.get_redis() as r:
                 r.set(REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps(volume_config))
             if metrics:
@@ -145,19 +146,19 @@ class DomainsConfig(object):
     def set_worker_ready_for_deployment(self, domain_name):
         with self.get_redis() as r:
             r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name),
-                  datetime.datetime.now(pytz.UTC).strftime("%Y%m%dT%H%M%S.%f"))
+                  common.now().strftime("%Y%m%dT%H%M%S.%f"))
 
     def get_worker_ready_for_deployment_start_time(self, domain_name):
         with self.get_redis() as r:
             try:
-                dt = datetime.datetime.strptime(
+                dt = common.strptime(
                     r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name)).decode(),
-                    "%Y%m%dT%H%M%S.%f").astimezone(pytz.UTC)
+                    "%Y%m%dT%H%M%S.%f")
             except Exception as e:
                 logs.debug_info("exception: {}".format(e), domain_name=domain_name)
                 if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
                     traceback.print_exc()
-                dt = datetime.datetime.now(pytz.UTC)
+                dt = common.now()
         return dt
 
     def get_volume_config_namespace_from_domain(self, metrics, domain_name):
@@ -204,6 +205,7 @@ class DomainsConfig(object):
                 *([
                     '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name),
                     '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name),
+                    '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES, domain_name),
                 ] if with_metrics else [])
             )
             if with_metrics:
@@ -272,15 +274,15 @@ class DomainsConfig(object):
             value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name))
             if value:
                 last_sent_update, last_update = value.decode().split(',')
-                last_sent_update = datetime.datetime.strptime(last_sent_update, '%Y%m%d%H%M%S').astimezone(pytz.UTC)
-                last_update = datetime.datetime.strptime(last_update, '%Y%m%d%H%M%S').astimezone(pytz.UTC)
+                last_sent_update = common.strptime(last_sent_update, '%Y%m%d%H%M%S')
+                last_update = common.strptime(last_update, '%Y%m%d%H%M%S')
                 return last_sent_update, last_update
             else:
                 return None, None
 
     def set_worker_aggregated_metrics_last_sent_update(self, domain_name, last_update):
         with self.get_redis() as r:
-            value = '{},{}'.format(datetime.datetime.now(pytz.UTC).strftime('%Y%m%d%H%M%S'), last_update.strftime('%Y%m%d%H%M%S'))
+            value = '{},{}'.format(common.now().strftime('%Y%m%d%H%M%S'), last_update.strftime('%Y%m%d%H%M%S'))
             r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name), value)
 
     def get_deployment_last_action(self, namespace_name, buckets=('http', 'https')):
@@ -290,7 +292,7 @@ class DomainsConfig(object):
                 value = r.get("{}:{}:{}".format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name, bucket))
                 if value:
                     value = value.decode().split('.')[0].replace('-', '').replace(':', '')
-                    value = datetime.datetime.strptime(value, "%Y%m%dT%H%M%S").astimezone(pytz.UTC)
+                    value = common.strptime(value, "%Y%m%dT%H%M%S")
                     if latest_value is None or value > latest_value:
                         latest_value = value
         return latest_value if latest_value else None
@@ -354,3 +356,20 @@ class DomainsConfig(object):
                     yield self.get_key_summary_single(r, key, key_config, domain_name, max_keys_per_summary)
                 else:
                     raise NotImplementedError('key_config type not supported yet: {}'.format(key_config['type']))
+
+    def set_worker_total_used_bytes(self, domain_name, total_used_bytes):
+        with self.get_redis() as r:
+            value = str(total_used_bytes)
+            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES, domain_name), value)
+
+    def get_worker_total_used_bytes(self, domain_name):
+        with self.get_redis() as r:
+            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES, domain_name))
+            if value:
+                try:
+                    value = int(value.decode())
+                except:
+                    value = 0
+            else:
+                value = 0
+            return value

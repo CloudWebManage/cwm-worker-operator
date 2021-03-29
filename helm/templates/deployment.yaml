@@ -35,6 +35,10 @@ spec:
         {{ end }}
         image: {{ $.Values.operator.image }}:{{ $.Values.operator.tag | default $.Chart.AppVersion }}
         imagePullPolicy: {{ $.Values.operator.imagePullPolicy }}
+        {{ if eq . "disk-usage-updater" }}
+        securityContext:
+          privileged: true
+        {{ end }}
         env:
         - name: CWM_API_URL
           valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"CWM_API_URL"}}
@@ -84,6 +88,8 @@ spec:
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DELETER | quote }}
         - name: PROMETHEUS_METRICS_PORT_METRICS_UPDATER
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_METRICS_UPDATER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER | quote }}
         {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL }}
         - name: PROMETHEUS_METRICS_WITH_DOMAIN_LABEL
           value: "yes"
@@ -120,6 +126,12 @@ spec:
           value: {{ $.Values.operator.FORCE_DELETE_IF_NO_ACTION_FOR_MINUTES | quote }}
         - name: WEB_UI_PORT
           value: {{ $.Values.operator.WEB_UI_PORT | quote }}
+        - name: DISK_USAGE_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.DISK_USAGE_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: DISK_USAGE_UPDATER_NFS_SERVER
+          value: {{ $.Values.operator.DISK_USAGE_UPDATER_NFS_SERVER | quote }}
+        - name: DISK_USAGE_UPDATER_NFS_ROOT_PATH
+          value: {{ $.Values.operator.DISK_USAGE_UPDATER_NFS_ROOT_PATH | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}

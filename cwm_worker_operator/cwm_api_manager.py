@@ -1,7 +1,5 @@
-import pytz
-import datetime
-
 from cwm_worker_operator.metrics_updater import DATEFORMAT
+from cwm_worker_operator import common
 
 
 CWM_DATEFORMAT = "%Y%m%d%H%M%S"
@@ -14,7 +12,7 @@ class CwmApiManager:
         pass
 
     def get_utc_timestamp(self, t):
-        return datetime.datetime.strptime(t, DATEFORMAT).astimezone(pytz.UTC).strftime(CWM_DATEFORMAT)
+        return common.strptime(t, DATEFORMAT).strftime(CWM_DATEFORMAT)
 
     def get_measurements(self, measurements):
         return [{**m, 't': self.get_utc_timestamp(m['t'])} for m in measurements][:10]

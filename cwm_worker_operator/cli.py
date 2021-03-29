@@ -8,6 +8,7 @@ from cwm_worker_operator import deleter
 from cwm_worker_operator import updater
 from cwm_worker_operator import metrics_updater
 from cwm_worker_operator import web_ui
+from cwm_worker_operator import disk_usage_updater
 
 
 def main():
@@ -49,5 +50,10 @@ def main():
     elif sys.argv[1] == 'web-ui':
         if sys.argv[2] == 'start_daemon':
             web_ui.start_daemon()
+    elif sys.argv[1] == "disk-usage-updater":
+        if sys.argv[2] == "start_daemon":
+            disk_usage_updater.start_daemon('--once' in sys.argv)
+        else:
+            raise Exception("Invalid disk-usage-updater command: {}".format(" ".join(sys.argv[2:])))
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))

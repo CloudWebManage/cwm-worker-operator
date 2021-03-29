@@ -4,6 +4,7 @@ import redis
 import datetime
 from cwm_worker_operator import domains_config
 from contextlib import contextmanager
+from cwm_worker_operator.common import strptime
 
 
 class MockMetrics:
@@ -52,9 +53,9 @@ def test_worker_keys():
         ## worker domain initialized (ready for deployment)
 
         dc.set_worker_ready_for_deployment(domain_name)
-        dt = datetime.datetime.strptime(
+        dt = strptime(
             r.get("{}:{}".format(domains_config.REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name)).decode(),
-            "%Y%m%dT%H%M%S.%f").astimezone(pytz.UTC)
+            "%Y%m%dT%H%M%S.%f")
         assert isinstance(dt, datetime.datetime)
         assert dt == dc.get_worker_ready_for_deployment_start_time(domain_name)
         assert dc.get_worker_domains_ready_for_deployment() == [domain_name]
@@ -71,14 +72,14 @@ def test_worker_keys():
         volume_config = dc.get_cwm_api_volume_config(domain_name, metrics)
         assert volume_config['hostname'] == domain_name
         assert volume_config['zone'] == 'EU'
-        assert isinstance(datetime.datetime.strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S").astimezone(pytz.UTC), datetime.datetime)
+        assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
         assert domain_name in metrics.domain_volume_config_success_from_api
         # second call with valid domain - success from cache
         metrics = MockMetrics()
         volume_config = dc.get_cwm_api_volume_config(domain_name, metrics)
         assert volume_config['hostname'] == domain_name
         assert volume_config['zone'] == 'EU'
-        assert isinstance(datetime.datetime.strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S").astimezone(pytz.UTC), datetime.datetime)
+        assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
         assert domain_name in metrics.domain_volume_config_success_from_cache
         # get volume config namespace
         volume_config, namespace = dc.get_volume_config_namespace_from_domain(None, domain_name)
@@ -121,13 +122,13 @@ def test_get_volume_config_error():
         metrics = MockMetrics()
         volume_config = dc.get_cwm_api_volume_config(domain_name, metrics)
         assert set(volume_config.keys()) == {'__error', '__last_update'}
-        assert isinstance(datetime.datetime.strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S").astimezone(pytz.UTC), datetime.datetime)
+        assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
         assert domain_name in metrics.domain_volume_config_error_from_api
         # second call with invalid domain - error from cache
         metrics = MockMetrics()
         volume_config = dc.get_cwm_api_volume_config(domain_name, metrics)
         assert set(volume_config.keys()) == {'__error', '__last_update'}
-        assert isinstance(datetime.datetime.strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S").astimezone(pytz.UTC), datetime.datetime)
+        assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
         assert domain_name in metrics.domain_volume_config_success_from_cache
         # get volume config namespace
         volume_config, namespace = dc.get_volume_config_namespace_from_domain(None, domain_name)
@@ -191,10 +192,10 @@ def test_deployment_last_action():
         assert dc.get_deployment_last_action(namespace_name) == None
         r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201102T221112.123456')
         r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201103T221112.123456')
-        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12).astimezone(pytz.UTC)
+        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
         r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-03T22:11:12.123456')
         r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-02T22:11:12.123456')
-        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12).astimezone(pytz.UTC)
+        assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
 
 
 def test_get_worker_ready_for_deployment_start_time_exception():
@@ -221,7 +222,8 @@ def test_keys_summary_delete():
         assert set([key.decode() for key in r.keys('*')]) == {
             'deploymentid:last_action:example007--com:http', 'deploymentid:last_action:example007--com:https',
             'deploymentid:minio-metrics:example007--com:http:bytes_in', 'deploymentid:minio-metrics:example007--com:https:bytes_in',
-            'worker:aggregated-metrics:example007.com', 'worker:aggregated-metrics-last-sent-update:example007.com'
+            'worker:aggregated-metrics:example007.com', 'worker:aggregated-metrics-last-sent-update:example007.com',
+            'worker:total-used-bytes:example007.com'
         }
 
 

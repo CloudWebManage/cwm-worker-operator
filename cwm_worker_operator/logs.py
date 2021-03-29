@@ -1,7 +1,5 @@
-import pytz
-import datetime
-
 from cwm_worker_operator import config
+from cwm_worker_operator import common
 
 
 def debug_info(msg, **kwargs):
@@ -11,7 +9,7 @@ def debug_info(msg, **kwargs):
 def debug(msg, debug_verbosity=5, start_time=None, **kwargs):
     if config.DEBUG and config.DEBUG_VERBOSITY >= debug_verbosity:
         if start_time:
-            kwargs["duration"] = (datetime.datetime.now(pytz.UTC) - start_time).total_seconds()
+            kwargs["duration"] = (common.now() - start_time).total_seconds()
         if len(kwargs) > 0:
             msg = "{} ({})".format(msg, " ".join(["{}={}".format(k, v) for k, v in kwargs.items()]))
         print(msg, flush=True)

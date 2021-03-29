@@ -1,6 +1,4 @@
 import time
-import pytz
-import datetime
 import traceback
 
 import prometheus_client
@@ -9,10 +7,11 @@ from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
 from cwm_worker_operator.domains_config import DomainsConfig
+from cwm_worker_operator import common
 
 
 def initialize_domain(domains_config, initializer_metrics, domain_name, force_update=False):
-    start_time = datetime.datetime.now(pytz.UTC)
+    start_time = common.now()
     log_kwargs = {"domain_name": domain_name, "start_time": start_time}
     logs.debug("Start initialize_domain", debug_verbosity=4, **log_kwargs)
     try:
