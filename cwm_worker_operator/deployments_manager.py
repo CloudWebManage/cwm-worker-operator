@@ -87,7 +87,7 @@ class DeploymentsManager:
             metrics[metric] = '0'
             try:
                 res = requests.post('http://kube-prometheus-kube-prome-prometheus.monitoring:9090/api/v1/query', {
-                    'query': 'sum(rate('+prom_metric+'{namespace="'+namespace_name+'"}[5m]))'
+                    'query': 'sum(avg_over_time('+prom_metric+'{namespace="'+namespace_name+'"}[1m]))'
                 }).json()
                 if res.get('status') == 'success' and len(res.get('data', {}).get('result', [])) == 1:
                     metrics[metric] = str(res['data']['result'][0]['value'][1])

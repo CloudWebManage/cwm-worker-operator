@@ -18,7 +18,7 @@ def test_disk_usage_updater(domains_config):
 
     disk_usage_updater.run_single_iteration(domains_config, disk_usage_updater_metrics, subprocess_getstatusoutput)
     assert cmds == [
-        'umount -f /tmp/dum; mkdir -p /tmp/dum; mount -t cwm-nfs:/ganesha-ceph/eu-vobjstore001 /tmp/dum',
+        'umount -f /tmp/dum; mkdir -p /tmp/dum; mount -t nfs4 cwm-nfs:/ganesha-ceph/eu-vobjstore001 /tmp/dum',
         'ls /tmp/dum',
         'du -s /tmp/dum/foo',
         'du -s /tmp/dum/bar',

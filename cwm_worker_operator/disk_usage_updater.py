@@ -12,7 +12,7 @@ from cwm_worker_operator import common
 
 
 def run_single_iteration(domains_config, disk_usage_updater_metrics, subprocess_getstatusoutput):
-    ret, out = subprocess_getstatusoutput('umount -f /tmp/dum; mkdir -p /tmp/dum; mount -t {}:{} /tmp/dum'.format(
+    ret, out = subprocess_getstatusoutput('umount -f /tmp/dum; mkdir -p /tmp/dum; mount -t nfs4 {}:{} /tmp/dum'.format(
         config.DISK_USAGE_UPDATER_NFS_SERVER, config.DISK_USAGE_UPDATER_NFS_ROOT_PATH))
     assert ret == 0, out
     ret, out = subprocess_getstatusoutput('ls /tmp/dum')
