@@ -80,14 +80,14 @@ class DeploymentsManager:
 
     def get_prometheus_metrics(self, namespace_name):
         metrics = {}
-        for metric, prom_metric in {
-            'cpu_seconds': 'container_cpu_usage_seconds_total',
-            'ram_bytes': 'container_memory_usage_bytes'
+        for metric, prom_query_template in {
+            'cpu_seconds': 'sum(container_cpu_usage_seconds_total{namespace="NAMESPACE_NAME"})',
+            'ram_bytes': 'sum(avg_over_time(container_memory_usage_bytes{namespace="NAMESPACE_NAME"}[1m]))'
         }.items():
             metrics[metric] = '0'
             try:
                 res = requests.post('http://kube-prometheus-kube-prome-prometheus.monitoring:9090/api/v1/query', {
-                    'query': 'sum(avg_over_time('+prom_metric+'{namespace="'+namespace_name+'"}[1m]))'
+                    'query': prom_query_template.replace('NAMESPACE_NAME', namespace_name)
                 }).json()
                 if res.get('status') == 'success' and len(res.get('data', {}).get('result', [])) == 1:
                     metrics[metric] = str(res['data']['result'][0]['value'][1])
