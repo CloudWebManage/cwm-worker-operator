@@ -82,7 +82,7 @@ class DeploymentsManager:
         metrics = {}
         for metric, prom_query_template in {
             'cpu_seconds': 'sum(container_cpu_usage_seconds_total{namespace="NAMESPACE_NAME"})',
-            'ram_bytes': 'sum(avg_over_time(container_memory_usage_bytes{namespace="NAMESPACE_NAME"}[1m]))'
+            'ram_bytes': 'sum(avg_over_time(container_memory_working_set_bytes{namespace="NAMESPACE_NAME"}[1m]))'
         }.items():
             metrics[metric] = '0'
             try:
