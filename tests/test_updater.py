@@ -38,14 +38,14 @@ def test_send_agg_metrics(domains_config, updater_metrics, cwm_api_manager):
     assert cwm_api_manager.mock_calls_log == [
         ('_do_send_agg_metrics', {
             'domain_name': 'example001.com',
-            'measurements': [{'t': t1, 'disk_usage_gib': bytes_to_gib(23911),
-                              'gib_in': bytes_to_gib(50000000000), 'gib_out': bytes_to_gib(400000000000), 'num_requests_in': 1000, 'num_requests_out': 7000, 'num_requests_misc': 500,
+            'measurements': [{'t': t1, 'disk_usage_bytes': 23911,
+                              'bytes_in': 50000000000, 'bytes_out': 400000000000, 'num_requests_in': 1000, 'num_requests_out': 7000, 'num_requests_misc': 500,
                               "cpu_seconds": 1234.5, 'ram_gib': bytes_to_gib(579404200)},
-                             {'t': t2, 'disk_usage_gib': bytes_to_gib(53955),
-                              'gib_in': bytes_to_gib(51200000000), 'gib_out': bytes_to_gib(413000000000), 'num_requests_in': 1120, 'num_requests_out': 7230, 'num_requests_misc': 503,
+                             {'t': t2, 'disk_usage_bytes': 53955,
+                              'bytes_in': 51200000000, 'bytes_out': 413000000000, 'num_requests_in': 1120, 'num_requests_out': 7230, 'num_requests_misc': 503,
                               "cpu_seconds": 1098.3, 'ram_gib': bytes_to_gib(579404200)},
-                             {'t': t3, 'disk_usage_gib': bytes_to_gib(9344),
-                              'gib_in': bytes_to_gib(51800000000), 'gib_out': bytes_to_gib(422000000000), 'num_requests_in': 1280, 'num_requests_out': 7680, 'num_requests_misc': 513,
+                             {'t': t3, 'disk_usage_bytes': 9344,
+                              'bytes_in': 51800000000, 'bytes_out': 422000000000, 'num_requests_in': 1280, 'num_requests_out': 7680, 'num_requests_misc': 513,
                               "cpu_seconds": 2338.9, 'ram_gib': 0.0}]})
     ]
     # metrics not sent because less than 60 seconds since last send
@@ -187,23 +187,23 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
         ('_do_send_agg_metrics', {
             "domain_name": "deployed.has.action.recent-update",
             "measurements": [
-                {"t": recent_update_t1, 'disk_usage_gib': bytes_to_gib(1234),
-                 "gib_in": bytes_to_gib(5000), "gib_out": bytes_to_gib(40000), "num_requests_in": 1000, "num_requests_out": 7000, "num_requests_misc": 500,
+                {"t": recent_update_t1, 'disk_usage_bytes': 1234,
+                 "bytes_in": 5000, "bytes_out": 40000, "num_requests_in": 1000, "num_requests_out": 7000, "num_requests_misc": 500,
                  "cpu_seconds": 1234.5, "ram_gib": bytes_to_gib(5678)},
-                {"t": recent_update_t2, 'disk_usage_gib': bytes_to_gib(1234),
-                 "gib_in": bytes_to_gib(5120), "gib_out": bytes_to_gib(41300), "num_requests_in": 1120, "num_requests_out": 7230, "num_requests_misc": 503,
+                {"t": recent_update_t2, 'disk_usage_bytes': 1234,
+                 "bytes_in": 5120, "bytes_out": 41300, "num_requests_in": 1120, "num_requests_out": 7230, "num_requests_misc": 503,
                  "cpu_seconds": 2334.5, "ram_gib": bytes_to_gib(5766)},
-                {"t": recent_update_t3, 'disk_usage_gib': bytes_to_gib(1234),
-                 "gib_in": bytes_to_gib(5180), "gib_out": bytes_to_gib(42200), "num_requests_in": 1280, "num_requests_out": 7680, "num_requests_misc": 513,
+                {"t": recent_update_t3, 'disk_usage_bytes': 1234,
+                 "bytes_in": 5180, "bytes_out": 42200, "num_requests_in": 1280, "num_requests_out": 7680, "num_requests_misc": 513,
                  "cpu_seconds": 4334.5, "ram_gib": bytes_to_gib(5987)},
             ]
         }),
         ('_do_send_agg_metrics', {
             'domain_name': 'deployed.has.action.old-update',
             'measurements': [
-                {'t': old_update_t1, 'gib_in': 0.0, 'gib_out': 0.0, 'num_requests_in': 1000, 'num_requests_out': 7000, 'num_requests_misc': 0.0, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_gib': 0.0},
-                {'t': old_update_t2, 'gib_in': 0.0, 'gib_out': 0.0, 'num_requests_in': 0.0,  'num_requests_out': 6930, 'num_requests_misc': 0.0, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_gib': 0.0},
-                {'t': old_update_t3, 'gib_in': 0.0, 'gib_out': 0.0, 'num_requests_in': 1280, 'num_requests_out': 7680, 'num_requests_misc': 513, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_gib': 0.0},
+                {'t': old_update_t1, 'bytes_in': 0, 'bytes_out': 0, 'num_requests_in': 1000, 'num_requests_out': 7000, 'num_requests_misc': 0, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_bytes': 0},
+                {'t': old_update_t2, 'bytes_in': 5120, 'bytes_out': 45000, 'num_requests_in': 0,  'num_requests_out': 6930, 'num_requests_misc': 0, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_bytes': 0},
+                {'t': old_update_t3, 'bytes_in': 5180, 'bytes_out': 42200, 'num_requests_in': 1280, 'num_requests_out': 7680, 'num_requests_misc': 513, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_bytes': 0},
             ]
         })
     ]

@@ -34,9 +34,9 @@ class CwmApiManager:
 
     def convert_measurements(self, m):
         return {
-            'disk_usage_gib': self.get_gib_measurement(m, 'disk_usage_bytes'),
-            'gib_in': self.get_gib_measurement(m, 'bytes_in'),
-            'gib_out': self.get_gib_measurement(m, 'bytes_out'),
+            'disk_usage_bytes': self.get_int_measurement(m, 'disk_usage_bytes'),
+            'bytes_in': self.get_int_measurement(m, 'bytes_in'),
+            'bytes_out': self.get_int_measurement(m, 'bytes_out'),
             'num_requests_in': self.get_int_measurement(m, 'num_requests_in'),
             'num_requests_out': self.get_int_measurement(m, 'num_requests_out'),
             'num_requests_misc': self.get_int_measurement(m, 'num_requests_misc'),
