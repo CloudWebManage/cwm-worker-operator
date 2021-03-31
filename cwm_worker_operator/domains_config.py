@@ -118,6 +118,9 @@ class DomainsConfig(object):
                 volume_config = {"__error": str(e)}
                 is_success = False
             volume_config["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
+            # TODO: add support for multiple hostnames per domain / multiple domains per customer
+            if volume_config.get("hostname"):
+                volume_config["hostname"] = domain_name
             with self.get_redis() as r:
                 r.set(REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps(volume_config))
             if metrics:

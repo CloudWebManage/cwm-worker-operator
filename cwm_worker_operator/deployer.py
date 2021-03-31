@@ -76,6 +76,16 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
             "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC,
             **minio_extra_configs.pop('metricsLogger', {})
         }
+        minio['cache'] = {
+            "enabled": True,
+            "drives": "/cache",
+            "exclude": "*.pdf",
+            "quota": 80,
+            "after": 3,
+            "watermark_low": 70,
+            "watermark_high": 90,
+            **minio_extra_configs.pop('cache', {})
+        }
         deployment_config_json = json.dumps({
             "cwm-worker-deployment": {
                 "type": "minio",
