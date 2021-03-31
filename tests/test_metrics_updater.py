@@ -40,15 +40,15 @@ def test_update_release_metrics(domains_config, deployments_manager):
         metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
         assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
             'lu': now.strftime("%Y%m%d%H%M%S"),
-            'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0}]
+            'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0}]
         }
         # fast forward 61 seconds, another empty current metric is recorded in aggregated metrics
         now = now + datetime.timedelta(seconds=61)
         metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
         assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
             'lu': now.strftime("%Y%m%d%H%M%S"),
-            'm': [{'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0},
-                  {'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0}]
+            'm': [{'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0},
+                  {'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0}]
         }
         # clear all keys and set some current metrics (cpu and ram) - they are added to aggregated metrics
         [r.delete(key) for key in [aggregated_metrics_key] + r.keys(minio_metrics_base_key + '*')]
@@ -58,7 +58,7 @@ def test_update_release_metrics(domains_config, deployments_manager):
         metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
         assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
             'lu': now.strftime("%Y%m%d%H%M%S"),
-            'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'cpu': 500, 'ram': 700.5}]
+            'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500, 'ram': 700.5}]
         }
         # set different current metrics and fast-forward 61 seconds - they are appended to the aggregated metrics
         # in this case we also set the cpu and ram in different buckets which are also summed as all metrics for each bucket are summed
@@ -74,9 +74,9 @@ def test_update_release_metrics(domains_config, deployments_manager):
         assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
             'lu': now.strftime("%Y%m%d%H%M%S"),
             'm': [
-                {'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'cpu': 500, 'ram': 700.5},
+                {'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500, 'ram': 700.5},
                 {
-                    't': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'cpu': 600+500, 'ram': 800.5+700.5,
+                    't': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 600+500, 'ram': 800.5+700.5,
                     'cpu_seconds': '1234', 'ram_bytes': '5678'
                 }
             ]
@@ -87,9 +87,9 @@ def test_update_release_metrics(domains_config, deployments_manager):
         assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
             'lu': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"),
             'm': [
-                {'t': (now - datetime.timedelta(seconds=50+61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'cpu': 500.0, 'ram': 700.5},
+                {'t': (now - datetime.timedelta(seconds=50+61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500.0, 'ram': 700.5},
                 {
-                    't': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'cpu': 1100.0, 'ram': 800.5+700.5,
+                    't': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 1100.0, 'ram': 800.5+700.5,
                     'cpu_seconds': '1234', 'ram_bytes': '5678'
                 }
             ]

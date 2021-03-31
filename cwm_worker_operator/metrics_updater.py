@@ -48,6 +48,7 @@ def get_metrics(domains_config, deployments_manager, namespace_name):
         'disk_usage_bytes': domains_config.get_worker_total_used_bytes(domain_name),
         **get_deployment_api_metrics(domains_config, namespace_name),
         **deployments_manager.get_prometheus_metrics(namespace_name),
+        **deployments_manager.get_kube_metrics(namespace_name),
     }
 
 

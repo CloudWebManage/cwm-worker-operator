@@ -4,6 +4,7 @@ import traceback
 from cwm_worker_operator import logs
 from cwm_worker_operator import config
 import cwm_worker_deployment.helm
+import cwm_worker_deployment.namespace
 
 try:
     import cwm_worker_deployment.deployment
@@ -81,8 +82,8 @@ class DeploymentsManager:
     def get_prometheus_metrics(self, namespace_name):
         metrics = {}
         for metric, prom_query_template in {
-            'cpu_seconds': 'sum(container_cpu_usage_seconds_total{namespace="NAMESPACE_NAME"})',
-            'ram_bytes': 'sum(avg_over_time(container_memory_working_set_bytes{namespace="NAMESPACE_NAME"}[1m]))'
+            'sum_cpu_seconds': 'sum(container_cpu_usage_seconds_total{namespace="NAMESPACE_NAME"})',
+            'avg_ram_bytes_usage': 'sum(avg_over_time(container_memory_working_set_bytes{namespace="NAMESPACE_NAME"}[1m]))'
         }.items():
             metrics[metric] = '0'
             try:
@@ -94,3 +95,6 @@ class DeploymentsManager:
             except:
                 traceback.print_exc()
         return metrics
+
+    def get_kube_metrics(self, namespace_name):
+        return cwm_worker_deployment.namespace.get_kube_metrics(namespace_name)
