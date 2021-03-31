@@ -14,8 +14,38 @@ class CwmApiManager:
     def get_utc_timestamp(self, t):
         return common.strptime(t, DATEFORMAT).strftime(CWM_DATEFORMAT)
 
+    def get_gib_measurement(self, m, key):
+        try:
+            return common.bytes_to_gib(float(m.get(key) or 0.0))
+        except:
+            return 0.0
+
+    def get_int_measurement(self, m, key):
+        try:
+            return int(m.get(key) or 0)
+        except:
+            return 0
+
+    def get_float_measurement(self, m, key):
+        try:
+            return float(m.get(key) or 0.0)
+        except:
+            return 0.0
+
+    def convert_measurements(self, m):
+        return {
+            'disk_usage_gib': self.get_gib_measurement(m, 'disk_usage_bytes'),
+            'gib_in': self.get_gib_measurement(m, 'bytes_in'),
+            'gib_out': self.get_gib_measurement(m, 'bytes_out'),
+            'num_requests_in': self.get_int_measurement(m, 'num_requests_in'),
+            'num_requests_out': self.get_int_measurement(m, 'num_requests_out'),
+            'num_requests_misc': self.get_int_measurement(m, 'num_requests_misc'),
+            "cpu_seconds": self.get_float_measurement(m, 'sum_cpu_seconds'),
+            'ram_gib': self.get_gib_measurement(m, 'ram_limit_bytes')
+        }
+
     def get_measurements(self, measurements):
-        return [{**m, 't': self.get_utc_timestamp(m['t'])} for m in measurements][:10]
+        return [{**self.convert_measurements(m), 't': self.get_utc_timestamp(m['t'])} for m in measurements][:10]
 
     def send_agg_metrics(self, domain_name, minutes):
         self._do_send_agg_metrics({
