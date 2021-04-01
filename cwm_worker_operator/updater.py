@@ -107,7 +107,6 @@ def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains
     if domains_config is None:
         domains_config = DomainsConfig()
     with logs.alert_exception_catcher(domains_config, daemon="updater"):
-        raise Exception("Testing 123...")
         if with_prometheus:
             prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_UPDATER)
         if updater_metrics is None:
