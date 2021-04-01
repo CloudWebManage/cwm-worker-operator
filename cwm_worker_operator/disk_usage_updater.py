@@ -24,8 +24,10 @@ def run_single_iteration(domains_config, disk_usage_updater_metrics, subprocess_
             domain_name = namespace_name.replace('--', '.')
             try:
                 ret, out = subprocess_getstatusoutput('du -s /tmp/dum/{}'.format(namespace_name))
-                assert ret == 0, out
-                total_used_bytes = int(out.split()[0])
+                if ret != 0:
+                    logs.debug_info("encountered errors when running du: {}".format(out), domain_name=domain_name, start_time=start_time)
+                    out = out.splitlines()[-1]
+                total_used_bytes = int(out.split()[0]) * 1024
                 domains_config.set_worker_total_used_bytes(domain_name, total_used_bytes)
                 disk_usage_updater_metrics.disk_usage_update(domain_name, start_time)
             except Exception as e:
