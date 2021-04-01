@@ -9,6 +9,7 @@ from cwm_worker_operator import updater
 from cwm_worker_operator import metrics_updater
 from cwm_worker_operator import web_ui
 from cwm_worker_operator import disk_usage_updater
+from cwm_worker_operator import alerter
 
 
 def main():
@@ -55,5 +56,10 @@ def main():
             disk_usage_updater.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid disk-usage-updater command: {}".format(" ".join(sys.argv[2:])))
+    elif sys.argv[1] == "alerter":
+        if sys.argv[2] == "start_daemon":
+            alerter.start_daemon('--once' in sys.argv)
+        else:
+            raise Exception("Invalid alerter command: {}".format(" ".join(sys.argv[2:])))
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))

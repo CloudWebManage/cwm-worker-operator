@@ -13,3 +13,8 @@ def debug(msg, debug_verbosity=5, start_time=None, **kwargs):
         if len(kwargs) > 0:
             msg = "{} ({})".format(msg, " ".join(["{}={}".format(k, v) for k, v in kwargs.items()]))
         print(msg, flush=True)
+
+
+def alert(domains_config, msg, **kwargs):
+    debug_info("ALERT: {}".format(msg), **kwargs)
+    domains_config.alerts_push({"type": "cwm-worker-operator-logs", "msg": msg, "kwargs": kwargs})

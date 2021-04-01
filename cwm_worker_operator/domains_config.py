@@ -27,6 +27,7 @@ REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC = "deploymentid:minio-metrics"
 REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS = "worker:aggregated-metrics"
 REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE = "worker:aggregated-metrics-last-sent-update"
 REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES = "worker:total-used-bytes"
+REDIS_KEY_ALERTS = "alerts"
 
 
 ALL_REDIS_KEYS = {
@@ -376,3 +377,12 @@ class DomainsConfig(object):
             else:
                 value = 0
             return value
+
+    def alerts_push(self, alert):
+        with self.get_redis() as r:
+            r.rpush(REDIS_KEY_ALERTS, json.dumps(alert))
+
+    def alerts_pop(self):
+        with self.get_redis() as r:
+            alert = r.lpop(REDIS_KEY_ALERTS)
+        return json.loads(alert) if alert else None

@@ -132,6 +132,10 @@ spec:
           value: {{ $.Values.operator.DISK_USAGE_UPDATER_NFS_SERVER | quote }}
         - name: DISK_USAGE_UPDATER_NFS_ROOT_PATH
           value: {{ $.Values.operator.DISK_USAGE_UPDATER_NFS_ROOT_PATH | quote }}
+        - name: ALERTER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.ALERTER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: ALERTER_SLACK_WEBHOOK_URL
+          value: {{ $.Values.operator.ALERTER_SLACK_WEBHOOK_URL | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}
@@ -148,6 +152,10 @@ spec:
 {{ toYaml $.Values.operator.metricsUpdaterResources | indent 10 }}
 {{ else if and (eq . "web-ui") $.Values.operator.webUiResources }}
 {{ toYaml $.Values.operator.webUiResources | indent 10 }}
+{{ else if and (eq . "disk-usage-updater") $.Values.operator.diskUsageUpdaterResources }}
+{{ toYaml $.Values.operator.diskUsageUpdaterResources | indent 10 }}
+{{ else if and (eq . "alerter") $.Values.operator.AlerterResources }}
+{{ toYaml $.Values.operator.AlerterResources | indent 10 }}
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
 {{ end }}
