@@ -136,6 +136,8 @@ spec:
           value: {{ $.Values.operator.ALERTER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: ALERTER_SLACK_WEBHOOK_URL
           value: {{ $.Values.operator.ALERTER_SLACK_WEBHOOK_URL | quote }}
+        - name: ALERTER_MESSAGE_PREFIX
+          value: {{ $.Values.operator.ALERTER_MESSAGE_PREFIX | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}

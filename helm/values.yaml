@@ -72,6 +72,7 @@ operator:
   DISK_USAGE_UPDATER_NFS_ROOT_PATH: "/ganesha-ceph/eu-vobjstore001"
   ALERTER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "15"
   ALERTER_SLACK_WEBHOOK_URL: ""
+  ALERTER_MESSAGE_PREFIX: ""
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
