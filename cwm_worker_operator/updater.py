@@ -104,18 +104,20 @@ def run_single_iteration(domains_config, updater_metrics, deployments_manager, c
 
 
 def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None, cwm_api_manager=None):
-    if with_prometheus:
-        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_UPDATER)
-    if updater_metrics is None:
-        updater_metrics = metrics.UpdaterMetrics()
     if domains_config is None:
         domains_config = DomainsConfig()
-    if deployments_manager is None:
-        deployments_manager = DeploymentsManager()
-    if cwm_api_manager is None:
-        cwm_api_manager = CwmApiManager()
-    while True:
-        run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
-        if once:
-            break
-        time.sleep(config.UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    with logs.alert_exception_catcher(domains_config, daemon="updater"):
+        raise Exception("Testing 123...")
+        if with_prometheus:
+            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_UPDATER)
+        if updater_metrics is None:
+            updater_metrics = metrics.UpdaterMetrics()
+        if deployments_manager is None:
+            deployments_manager = DeploymentsManager()
+        if cwm_api_manager is None:
+            cwm_api_manager = CwmApiManager()
+        while True:
+            run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
+            if once:
+                break
+            time.sleep(config.UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)

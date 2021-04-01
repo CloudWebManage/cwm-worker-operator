@@ -49,15 +49,16 @@ def run_single_iteration(domains_config, waiter_metrics, deployments_manager):
 
 
 def start_daemon(once=False, with_prometheus=True, waiter_metrics=None, domains_config=None):
-    if with_prometheus:
-        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_WAITER)
-    if waiter_metrics is None:
-        waiter_metrics = metrics.WaiterMetrics()
     if domains_config is None:
         domains_config = DomainsConfig()
-    deployments_manager = DeploymentsManager()
-    while True:
-        run_single_iteration(domains_config, waiter_metrics, deployments_manager)
-        if once:
-            break
-        time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    with logs.alert_exception_catcher(domains_config, daemon="waiter"):
+        if with_prometheus:
+            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_WAITER)
+        if waiter_metrics is None:
+            waiter_metrics = metrics.WaiterMetrics()
+        deployments_manager = DeploymentsManager()
+        while True:
+            run_single_iteration(domains_config, waiter_metrics, deployments_manager)
+            if once:
+                break
+            time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)

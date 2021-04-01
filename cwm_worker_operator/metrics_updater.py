@@ -81,16 +81,17 @@ def run_single_iteration(domains_config, metrics_updater_metrics, deployments_ma
 
 
 def start_daemon(once=False, with_prometheus=True, metrics_updater_metrics=None, domains_config=None, deployments_manager=None):
-    if with_prometheus:
-        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_METRICS_UPDATER)
-    if metrics_updater_metrics is None:
-        metrics_updater_metrics = metrics.MetricsUpdaterMetrics()
     if domains_config is None:
         domains_config = DomainsConfig()
-    if deployments_manager is None:
-        deployments_manager = DeploymentsManager()
-    while True:
-        run_single_iteration(domains_config, metrics_updater_metrics, deployments_manager)
-        if once:
-            break
-        time.sleep(config.METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    with logs.alert_exception_catcher(domains_config, daemon="metrics_updater"):
+        if with_prometheus:
+            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_METRICS_UPDATER)
+        if metrics_updater_metrics is None:
+            metrics_updater_metrics = metrics.MetricsUpdaterMetrics()
+        if deployments_manager is None:
+            deployments_manager = DeploymentsManager()
+        while True:
+            run_single_iteration(domains_config, metrics_updater_metrics, deployments_manager)
+            if once:
+                break
+            time.sleep(config.METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)

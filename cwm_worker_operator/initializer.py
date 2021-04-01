@@ -59,14 +59,15 @@ def run_single_iteration(domains_config, initializer_metrics):
 
 
 def start_daemon(once=False, with_prometheus=True, initializer_metrics=None, domains_config=None):
-    if with_prometheus:
-        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_INITIALIZER)
-    if not initializer_metrics:
-        initializer_metrics = metrics.InitializerMetrics()
     if not domains_config:
         domains_config = DomainsConfig()
-    while True:
-        run_single_iteration(domains_config, initializer_metrics)
-        if once:
-            break
-        time.sleep(config.INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    with logs.alert_exception_catcher(domains_config, daemon="initializer"):
+        if with_prometheus:
+            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_INITIALIZER)
+        if not initializer_metrics:
+            initializer_metrics = metrics.InitializerMetrics()
+        while True:
+            run_single_iteration(domains_config, initializer_metrics)
+            if once:
+                break
+            time.sleep(config.INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)

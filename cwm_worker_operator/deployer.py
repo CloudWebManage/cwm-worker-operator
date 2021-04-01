@@ -147,16 +147,17 @@ def run_single_iteration(domains_config, deployer_metrics, deployments_manager, 
 
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):
-    if with_prometheus:
-        prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DEPLOYER)
-    if not deployer_metrics:
-        deployer_metrics = metrics.DeployerMetrics()
     if not domains_config:
         domains_config = DomainsConfig()
-    deployments_manager = DeploymentsManager()
-    deployments_manager.init_cache()
-    while True:
-        run_single_iteration(domains_config, deployer_metrics, deployments_manager, extra_minio_extra_configs=extra_minio_extra_configs)
-        if once:
-            break
-        time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    with logs.alert_exception_catcher(domains_config, daemon="deployer"):
+        if with_prometheus:
+            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DEPLOYER)
+        if not deployer_metrics:
+            deployer_metrics = metrics.DeployerMetrics()
+        deployments_manager = DeploymentsManager()
+        deployments_manager.init_cache()
+        while True:
+            run_single_iteration(domains_config, deployer_metrics, deployments_manager, extra_minio_extra_configs=extra_minio_extra_configs)
+            if once:
+                break
+            time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
