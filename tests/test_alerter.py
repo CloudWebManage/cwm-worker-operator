@@ -8,12 +8,14 @@ def test_alerter(domains_config):
     def send_alert(alert_msg):
         sent_alerts.append(alert_msg)
 
-    alerter.run_single_iteration(domains_config, send_alert)
+    send_alerts_throttle = alerter.SendAlertsThrottle(send_alert)
+
+    alerter.run_single_iteration(domains_config, send_alert, send_alerts_throttle)
     assert sent_alerts == []
     domains_config.alerts_push({"hello": "world"})
     logs.alert(domains_config, "Hello, world", foo="bar")
-    alerter.run_single_iteration(domains_config, send_alert)
+    alerter.run_single_iteration(domains_config, send_alert, send_alerts_throttle)
     assert sent_alerts == [
         'unknown operator alert: {"hello": "world"}',
-        'operator-logs alert: Hello, world ({"foo": "bar"})',
+        'too many alerts, check cwm-worker-operator logs',
     ]
