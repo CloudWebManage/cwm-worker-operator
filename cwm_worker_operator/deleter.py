@@ -39,8 +39,12 @@ def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
     for domain_name in domains_config.iterate_domains_to_delete():
         start_time = common.now()
         try:
-            delete(domain_name, domains_config=domains_config, deployments_manager=deployments_manager)
-            deleter_metrics.delete_success(domain_name, start_time)
+            if domains_config.is_worker_waiting_for_deployment(domain_name):
+                domains_config.del_worker_force_delete(domain_name)
+                deleter_metrics.delete_canceled(domain_name, start_time)
+            else:
+                delete(domain_name, domains_config=domains_config, deployments_manager=deployments_manager)
+                deleter_metrics.delete_success(domain_name, start_time)
         except Exception as e:
             logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
             if config.DEBUG and config.DEBUG_VERBOSITY >= 3:

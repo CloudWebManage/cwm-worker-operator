@@ -13,3 +13,12 @@ def test_deleter_daemon(domains_config, deployments_manager, deleter_metrics):
     deleter.run_single_iteration(domains_config, deleter_metrics, deployments_manager)
     assert [o['labels'][1] for o in deleter_metrics.observations] == ['success', 'success']
     assert [c[0] + '-' + c[1][0] for c in deployments_manager.calls] == ['delete-domain1--com', 'delete-domain2--com']
+
+
+def test_deleter_cancel_if_worker_deployment(domains_config, deployments_manager, deleter_metrics):
+    with domains_config.get_redis() as r:
+        r.set("worker:initialize:domain1.com", "")
+    domains_config.domains_to_delete += ['domain1.com', 'domain2.com']
+    deleter.run_single_iteration(domains_config, deleter_metrics, deployments_manager)
+    assert [o['labels'][1] for o in deleter_metrics.observations] == ['delete_canceled', 'success']
+    assert [c[0] + '-' + c[1][0] for c in deployments_manager.calls] == ['delete-domain2--com']

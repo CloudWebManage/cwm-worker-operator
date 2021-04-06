@@ -177,6 +177,17 @@ class DomainsConfig(object):
         with self.get_redis() as r:
             r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE, domain_name), "")
 
+    def is_worker_waiting_for_deployment(self, domain_name):
+        with self.get_redis() as r:
+            for key in [
+                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name),
+                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name),
+                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE, domain_name)
+            ]:
+                if r.exists(key):
+                    return True
+        return False
+
     def set_worker_available(self, domain_name, ingress_hostname):
         with self.get_redis() as r:
             self.del_worker_keys(r, domain_name, with_volume_config=False, with_available=False, with_ingress=False)
@@ -234,6 +245,10 @@ class DomainsConfig(object):
     def set_worker_force_delete(self, domain_name):
         with self.get_redis() as r:
             r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name), "")
+
+    def del_worker_force_delete(self, domain_name):
+        with self.get_redis() as r:
+            r.delete("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name))
 
     def iterate_domains_to_delete(self):
         with self.get_redis() as r:

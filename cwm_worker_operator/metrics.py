@@ -92,6 +92,9 @@ class DeleterMetrics(BaseMetrics):
     def exception(self, domain_name, start_time):
         self._observe(self._deleter_request, domain_name, start_time, "exception")
 
+    def delete_canceled(self, domain_name, start_time):
+        self._observe(self._deleter_request, domain_name, start_time, "delete_canceled")
+
 
 class UpdaterMetrics(BaseMetrics):
 
