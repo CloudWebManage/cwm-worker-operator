@@ -104,8 +104,7 @@ class NodeCleanupPod:
         return [s.strip() for s in out.split() if s and s.strip()]
 
     def clear_cache_namespace(self, cache_namespace_name):
-        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n {} exec {} -- rm -rf /cache/{}'.format(self.namespace_name, self.pod_name, cache_namespace_name))
-        assert ret == 0, out
+        subprocess.check_call(['kubectl', '-n', self.namespace_name, 'exec', self.pod_name, '--', 'rm', '-rf', cache_namespace_name])
 
 
 class DeploymentsManager:
