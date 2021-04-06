@@ -133,6 +133,7 @@ def test_iterate_cluster_nodes():
     assert ret == 0, out
     assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False}]
 
+
 def test_node_cleanup_pod():
     deployments_manager = DeploymentsManager()
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role=worker:NoSchedule; DEBUG= kubectl uncordon minikube')
@@ -152,3 +153,11 @@ def test_node_cleanup_pod():
             assert ret == 1, 'file in cache directory was not deleted'
     finally:
         subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role-; DEBUG= kubectl uncordon minikube')
+
+
+def test_worker_has_pod_on_node():
+    deployments_manager = DeploymentsManager()
+    assert not deployments_manager.worker_has_pod_on_node('non-existent-namespace', 'non-existent-node')
+    assert not deployments_manager.worker_has_pod_on_node('non-existent-namespace', 'minikube')
+    assert not deployments_manager.worker_has_pod_on_node('kube-system', 'non-existent-node')
+    assert deployments_manager.worker_has_pod_on_node('kube-system', 'minikube')

@@ -54,6 +54,7 @@ class MockDeploymentsManager(DeploymentsManager):
         self.cluster_nodes = []
         self.node_cleanup_pod_class = MockNodeCleanupPod
         self.node_cleanup_pod_mock_cache_namespaces = []
+        self.mock_worker_has_pod_on_node = True
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -101,3 +102,7 @@ class MockDeploymentsManager(DeploymentsManager):
             self.calls.append(('node_cleanup_pod', [ncp]))
             ncp.mock_cache_namespaces = self.node_cleanup_pod_mock_cache_namespaces
             yield ncp
+
+    def worker_has_pod_on_node(self, namespace_name, node_name):
+        self.calls.append(('worker_has_pod_on_node', [namespace_name, node_name]))
+        return self.mock_worker_has_pod_on_node

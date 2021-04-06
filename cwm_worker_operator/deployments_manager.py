@@ -226,3 +226,7 @@ class DeploymentsManager:
         finally:
             ncp.uncordon()
             ncp.delete(wait=False)
+
+    def worker_has_pod_on_node(self, namespace_name, node_name):
+        ret, out = subprocess.getstatusoutput('kubectl get pods -n {} -ocustom-columns=node:spec.nodeName | tail -n +2 | grep \'^{}$\''.format(namespace_name, node_name))
+        return ret == 0
