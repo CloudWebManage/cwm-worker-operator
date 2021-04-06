@@ -55,3 +55,14 @@ def test_force_update_domain(domains_config, initializer_metrics):
     assert_domain_initializer_configs(domains_config, domain_name, ready_for_deployment=True)
     assert_domain_initializer_metrics(initializer_metrics, 'initialized')
     assert domains_config.get_cwm_api_volume_config_calls[domain_name] == [{'force_update': True}]
+
+
+def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metrics):
+    domain_name = 'force-delete.domain'
+    with domains_config.get_redis() as r:
+        r.set('worker:force_delete:{}'.format(domain_name), "")
+    domains_config.worker_domains_waiting_for_initlization.append(domain_name)
+    domains_config.domain_cwm_api_volume_config[domain_name] = {'hostname': domain_name, 'zone': config.CWM_ZONE}
+    initializer.run_single_iteration(domains_config, initializer_metrics)
+    assert not domains_config.domain_worker_ready_for_deployment.get(domain_name)
+    assert len(initializer_metrics.observations) == 0

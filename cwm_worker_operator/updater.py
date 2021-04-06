@@ -46,7 +46,7 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
                     logs.debug("{} but disable_force_delete is true".format(msg), debug_verbosity=10, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
                 else:
                     logs.debug(msg, debug_verbosity=4, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                    domains_config.set_worker_force_delete(domain_name)
+                    domains_config.set_worker_force_delete(domain_name, allow_cancel=True)
                     updater_metrics.force_delete(domain_name, start_time)
             elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
                 msg = "domain force update (after FORCE_UPDATE_MAX_HOURS_TTL)"

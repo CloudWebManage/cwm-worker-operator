@@ -11,6 +11,10 @@ from cwm_worker_operator import common
 
 
 def initialize_domain(domains_config, initializer_metrics, domain_name, force_update=False):
+    worker_to_delete = domains_config.get_worker_force_delete(domain_name)
+    if worker_to_delete and not worker_to_delete['allow_cancel']:
+        # domain is forced to delete but the deletion cannot be canceled, so we cancel the deployment until delete will occur
+        return
     start_time = common.now()
     log_kwargs = {"domain_name": domain_name, "start_time": start_time}
     logs.debug("Start initialize_domain", debug_verbosity=4, **log_kwargs)

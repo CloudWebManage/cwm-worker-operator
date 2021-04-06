@@ -36,10 +36,12 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
 
 
 def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
-    for domain_name in domains_config.iterate_domains_to_delete():
+    for worker_to_delete in domains_config.iterate_domains_to_delete():
+        domain_name = worker_to_delete['domain_name']
+        allow_cancel = worker_to_delete['allow_cancel']
         start_time = common.now()
         try:
-            if domains_config.is_worker_waiting_for_deployment(domain_name):
+            if allow_cancel and domains_config.is_worker_waiting_for_deployment(domain_name):
                 domains_config.del_worker_force_delete(domain_name)
                 deleter_metrics.delete_canceled(domain_name, start_time)
             else:

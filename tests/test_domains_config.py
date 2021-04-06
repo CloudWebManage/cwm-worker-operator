@@ -159,7 +159,11 @@ def test_worker_forced_delete_update():
         dc.set_worker_force_update(update_domain_name_2)
         dc.set_worker_force_delete(delete_domain_name_1)
         dc.set_worker_force_delete(delete_domain_name_2)
-        assert set(dc.iterate_domains_to_delete()) == {delete_domain_name_1, delete_domain_name_2}
+        assert dc.iterate_domains_to_delete() == [{'domain_name': delete_domain_name_1, 'allow_cancel': False},
+                                                  {'domain_name': delete_domain_name_2, 'allow_cancel': False}]
+        dc.set_worker_force_delete(delete_domain_name_2, allow_cancel=True)
+        assert dc.iterate_domains_to_delete() == [{'domain_name': delete_domain_name_1, 'allow_cancel': False},
+                                                  {'domain_name': delete_domain_name_2, 'allow_cancel': True}]
         assert set(dc.get_domains_force_update()) == {update_domain_name_1, update_domain_name_2}
         assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
         assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)

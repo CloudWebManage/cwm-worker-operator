@@ -242,21 +242,32 @@ class DomainsConfig(object):
         with self.get_redis() as r:
             r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE, domain_name), "")
 
-    def set_worker_force_delete(self, domain_name):
+    def set_worker_force_delete(self, domain_name, allow_cancel=False):
         with self.get_redis() as r:
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name), "")
+            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name), "allow_cancel" if allow_cancel else "")
 
     def del_worker_force_delete(self, domain_name):
         with self.get_redis() as r:
             r.delete("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name))
 
+    def get_worker_force_delete(self, domain_name):
+        with self.get_redis() as r:
+            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name))
+            if value is not None:
+                return {'domain_name': domain_name, 'allow_cancel': value == b"allow_cancel"}
+            else:
+                return None
+
     def iterate_domains_to_delete(self):
         with self.get_redis() as r:
-            worker_names = [
-                key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE), "")
+            workers_to_delete = [
+                {
+                    "domain_name": key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE), ""),
+                    "allow_cancel": r.get(key) == b"allow_cancel"
+                }
                 for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE))
             ]
-        return worker_names
+        return workers_to_delete
 
     def get_domains_force_update(self):
         with self.get_redis() as r:
