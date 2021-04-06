@@ -105,7 +105,10 @@ class NodeCleanupPod:
 
     def clear_cache_namespace(self, cache_namespace_name):
         if len(cache_namespace_name) > 1:
-            subprocess.check_call(['kubectl', '-n', self.namespace_name, 'exec', self.pod_name, '--', 'rm', '-rf', os.path.join("/cache", cache_namespace_name)])
+            subprocess.check_output(
+                ['kubectl', '-n', self.namespace_name, 'exec', self.pod_name, '--', 'rm', '-rf', os.path.join("/cache", cache_namespace_name)],
+                env={**os.environ, "DEBUG": ""}
+            )
 
 
 class DeploymentsManager:

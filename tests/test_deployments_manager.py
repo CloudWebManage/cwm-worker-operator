@@ -139,6 +139,7 @@ def test_node_cleanup_pod():
     assert ret == 0, out
     try:
         with deployments_manager.node_cleanup_pod('minikube') as ncp:
+            subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- rm -rf /cache/example007--com')
             assert ncp.list_cache_namespaces() == []
             ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- mkdir -p /cache/example007--com')
             assert ret == 0, out
