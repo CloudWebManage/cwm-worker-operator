@@ -36,11 +36,11 @@ class NodeCleanupPod:
         with tempfile.TemporaryDirectory() as tmpdir:
             with open(os.path.join(tmpdir, "pod.yaml"), "w") as f:
                 yaml.safe_dump(pod, f)
-            ret, out = subprocess.getstatusoutput('kubectl create -f {}'.format(os.path.join(tmpdir, "pod.yaml")))
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl create -f {}'.format(os.path.join(tmpdir, "pod.yaml")))
             assert ret == 0, out
 
     def kubectl_get_pod(self):
-        ret, out = subprocess.getstatusoutput('kubectl -n {} get pod {} -o json'.format(self.namespace_name, self.pod_name))
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n {} get pod {} -o json'.format(self.namespace_name, self.pod_name))
         return json.loads(out) if ret == 0 else None
 
     def init(self):
@@ -88,23 +88,23 @@ class NodeCleanupPod:
             time.sleep(1)
 
     def cordon(self):
-        ret, out = subprocess.getstatusoutput('kubectl cordon {}'.format(self.node_name))
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl cordon {}'.format(self.node_name))
         assert ret == 0, out
 
     def uncordon(self):
-        ret, out = subprocess.getstatusoutput('kubectl uncordon {}'.format(self.node_name))
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl uncordon {}'.format(self.node_name))
         assert ret == 0, out
 
     def delete(self, wait):
-        subprocess.getstatusoutput('kubectl -n {} delete pod {} {}'.format(self.namespace_name, self.pod_name, "--wait" if wait else ""))
+        subprocess.getstatusoutput('DEBUG= kubectl -n {} delete pod {} {}'.format(self.namespace_name, self.pod_name, "--wait" if wait else ""))
 
     def list_cache_namespaces(self):
-        ret, out = subprocess.getstatusoutput('kubectl -n {} exec {} -- ls /cache'.format(self.namespace_name, self.pod_name))
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n {} exec {} -- ls /cache'.format(self.namespace_name, self.pod_name))
         assert ret == 0, out
         return [s.strip() for s in out.split() if s and s.strip()]
 
     def clear_cache_namespace(self, cache_namespace_name):
-        ret, out = subprocess.getstatusoutput('kubectl -n {} exec {} -- rm -rf /cache/{}'.format(self.namespace_name, self.pod_name, cache_namespace_name))
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n {} exec {} -- rm -rf /cache/{}'.format(self.namespace_name, self.pod_name, cache_namespace_name))
         assert ret == 0, out
 
 

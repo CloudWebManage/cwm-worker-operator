@@ -120,34 +120,34 @@ def test_verify_worker_access():
 
 def test_iterate_cluster_nodes():
     deployments_manager = DeploymentsManager()
-    ret, out = subprocess.getstatusoutput('kubectl taint node minikube cwmc-role-; kubectl uncordon minikube')
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role-; DEBUG= kubectl uncordon minikube')
     assert ret == 0, out
     assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False}]
-    ret, out = subprocess.getstatusoutput('kubectl taint node minikube cwmc-role=worker:NoSchedule')
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role=worker:NoSchedule')
     assert ret == 0, out
     assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': False}]
-    ret, out = subprocess.getstatusoutput('kubectl cordon minikube')
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl cordon minikube')
     assert ret == 0, out
     assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': True}]
-    ret, out = subprocess.getstatusoutput('kubectl taint node minikube cwmc-role- && kubectl uncordon minikube')
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role- && DEBUG= kubectl uncordon minikube')
     assert ret == 0, out
     assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False}]
 
 def test_node_cleanup_pod():
     deployments_manager = DeploymentsManager()
-    ret, out = subprocess.getstatusoutput('kubectl taint node minikube cwmc-role=worker:NoSchedule; kubectl uncordon minikube')
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role=worker:NoSchedule; DEBUG= kubectl uncordon minikube')
     assert ret == 0, out
     try:
         with deployments_manager.node_cleanup_pod('minikube') as ncp:
-            assert len(ncp.list_cache_namespaces()) >= 0
-            ret, out = subprocess.getstatusoutput('kubectl -n default exec cwm-worker-operator-node-cleanup -- mkdir -p /cache/example007--com')
+            assert ncp.list_cache_namespaces() == []
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- mkdir -p /cache/example007--com')
             assert ret == 0, out
-            ret, out = subprocess.getstatusoutput('kubectl -n default exec cwm-worker-operator-node-cleanup -- touch /cache/example007--com/test.txt')
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- touch /cache/example007--com/test.txt')
             assert ret == 0, out
-            ret, out = subprocess.getstatusoutput('kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/example007--com/test.txt')
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/example007--com/test.txt')
             assert ret == 0, out
             ncp.clear_cache_namespace('example007--com')
-            ret, out = subprocess.getstatusoutput('kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/example007--com/test.txt')
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/example007--com/test.txt')
             assert ret == 1, 'file in cache directory was not deleted'
     finally:
-        subprocess.getstatusoutput('kubectl taint node minikube cwmc-role-; kubectl uncordon minikube')
+        subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role-; DEBUG= kubectl uncordon minikube')
