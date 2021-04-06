@@ -183,6 +183,10 @@ class DomainsConfig(object):
             r.set(REDIS_KEY_WORKER_AVAILABLE.format(domain_name), "")
             r.set(REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name), json.dumps(ingress_hostname))
 
+    def is_worker_available(self, domain_name):
+        with self.get_redis() as r:
+            return r.exists(REDIS_KEY_WORKER_AVAILABLE.format(domain_name))
+
     def del_worker_keys(self, redis_connection, domain_name, with_error=True, with_volume_config=True, with_available=True, with_ingress=True, with_metrics=False):
         namespace_name = domain_name.replace('.', '--')
         r = redis_connection if redis_connection else redis.Redis(connection_pool=self.redis_pool)

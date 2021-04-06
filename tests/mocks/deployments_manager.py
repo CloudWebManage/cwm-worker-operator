@@ -1,4 +1,44 @@
-from cwm_worker_operator.deployments_manager import DeploymentsManager
+from contextlib import contextmanager
+
+from cwm_worker_operator.deployments_manager import DeploymentsManager, NodeCleanupPod
+
+
+class MockNodeCleanupPod(NodeCleanupPod):
+
+    def __init__(self, namespace_name, pod_name, node_name):
+        super(MockNodeCleanupPod, self).__init__(namespace_name, pod_name, node_name)
+        self.mock_calls = []
+        self.mock_get_pod = {
+            'status': {
+                'conditions': [
+                    {'type': 'Ready', 'status': 'True'}
+                ]
+            }
+        }
+        self.mock_cache_namespaces = []
+
+    def kubectl_create(self, pod):
+        self.mock_calls.append(('kubectl_create', [pod]))
+
+    def kubectl_get_pod(self):
+        self.mock_calls.append(('kubectl_get_pod', []))
+        return self.mock_get_pod
+
+    def cordon(self):
+        self.mock_calls.append(('cordon', []))
+
+    def uncordon(self):
+        self.mock_calls.append(('uncordon', []))
+
+    def delete(self, wait):
+        self.mock_calls.append(('delete', [wait]))
+
+    def list_cache_namespaces(self):
+        self.mock_calls.append(('list_cache_namespaces', []))
+        return self.mock_cache_namespaces
+
+    def clear_cache_namespace(self, cache_namespace_name):
+        self.mock_calls.append(('clear_cache_namespace', [cache_namespace_name]))
 
 
 class MockDeploymentsManager(DeploymentsManager):
@@ -11,6 +51,9 @@ class MockDeploymentsManager(DeploymentsManager):
         self.hostname_verify_worker_access = {}
         self.all_releases = []
         self.prometheus_metrics = {}
+        self.cluster_nodes = []
+        self.node_cleanup_pod_class = MockNodeCleanupPod
+        self.node_cleanup_pod_mock_cache_namespaces = []
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -47,3 +90,14 @@ class MockDeploymentsManager(DeploymentsManager):
 
     def get_prometheus_metrics(self, namespace_name):
         return self.prometheus_metrics[namespace_name]
+
+    def iterate_cluster_nodes(self):
+        for node in self.cluster_nodes:
+            yield node
+
+    @contextmanager
+    def node_cleanup_pod(self, node_name):
+        with super(MockDeploymentsManager, self).node_cleanup_pod(node_name) as ncp:
+            self.calls.append(('node_cleanup_pod', [ncp]))
+            ncp.mock_cache_namespaces = self.node_cleanup_pod_mock_cache_namespaces
+            yield ncp

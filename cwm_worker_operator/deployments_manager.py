@@ -1,10 +1,20 @@
+import os
+import json
+import time
 import urllib3
-import requests
+import tempfile
 import traceback
+import subprocess
+from contextlib import contextmanager
+
+import requests
+from ruamel import yaml
+
 from cwm_worker_operator import logs
 from cwm_worker_operator import config
 import cwm_worker_deployment.helm
 import cwm_worker_deployment.namespace
+from cwm_worker_operator import common
 
 try:
     import cwm_worker_deployment.deployment
@@ -15,10 +25,94 @@ except Exception as e:
 urllib3.disable_warnings()
 
 
+class NodeCleanupPod:
+
+    def __init__(self, namespace_name, pod_name, node_name):
+        self.namespace_name = namespace_name
+        self.pod_name = pod_name
+        self.node_name = node_name
+
+    def kubectl_create(self, pod):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "pod.yaml"), "w") as f:
+                yaml.safe_dump(pod, f)
+            ret, out = subprocess.getstatusoutput('kubectl create -f {}'.format(os.path.join(tmpdir, "pod.yaml")))
+            assert ret == 0, out
+
+    def kubectl_get_pod(self):
+        ret, out = subprocess.getstatusoutput('kubectl -n {} get pod {} -o json'.format(self.namespace_name, self.pod_name))
+        return json.loads(out) if ret == 0 else None
+
+    def init(self):
+        self.delete(wait=True)
+        self.cordon()
+        self.kubectl_create({
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "name": self.pod_name,
+                "namespace": self.namespace_name
+            },
+            "spec": {
+                'tolerations': [
+                    {"key": "cwmc-role", "operator": "Exists", "effect": "NoSchedule"},
+                    {"key": "node.kubernetes.io/unschedulable", "operator": "Exists", "effect": "NoSchedule"},
+                ],
+                "nodeSelector": {
+                    "kubernetes.io/hostname": self.node_name
+                },
+                "containers": [
+                    {
+                        "name": "nodecleanup",
+                        "image": "alpine",
+                        "command": ["sh", "-c", "while true; do sleep 86400; done"],
+                        "volumeMounts": [
+                            {"name": "cache", "mountPath": "/cache"}
+                        ]
+                    }
+                ],
+                "volumes": [
+                    {"name": "cache", "hostPath": {"path": "/remote/cache", "type": "DirectoryOrCreate"}}
+                ]
+            }
+        })
+        start_time = common.now()
+        while True:
+            pod = self.kubectl_get_pod()
+            if pod:
+                for condition in pod['status']['conditions']:
+                    if condition['type'] == 'Ready' and condition['status'] == "True":
+                        return
+            else:
+                assert (common.now() - start_time).total_seconds() <= 120, 'waited too long for node cleanup pod to be ready: {}'.format(pod)
+            time.sleep(1)
+
+    def cordon(self):
+        ret, out = subprocess.getstatusoutput('kubectl cordon {}'.format(self.node_name))
+        assert ret == 0, out
+
+    def uncordon(self):
+        ret, out = subprocess.getstatusoutput('kubectl uncordon {}'.format(self.node_name))
+        assert ret == 0, out
+
+    def delete(self, wait):
+        subprocess.getstatusoutput('kubectl -n {} delete pod {} {}'.format(self.namespace_name, self.pod_name, "--wait" if wait else ""))
+
+    def list_cache_namespaces(self):
+        ret, out = subprocess.getstatusoutput('kubectl -n {} exec {} -- ls /cache'.format(self.namespace_name, self.pod_name))
+        assert ret == 0, out
+        return [s.strip() for s in out.split() if s and s.strip()]
+
+    def clear_cache_namespace(self, cache_namespace_name):
+        ret, out = subprocess.getstatusoutput('kubectl -n {} exec {} -- rm -rf /cache/{}'.format(self.namespace_name, self.pod_name, cache_namespace_name))
+        assert ret == 0, out
+
+
 class DeploymentsManager:
 
     def __init__(self, cache_minio_versions=config.CACHE_MINIO_VERSIONS):
         self.cache_minio_versions = cache_minio_versions
+        self.node_cleanup_pod_class = NodeCleanupPod
 
     def init_cache(self):
         for version in self.cache_minio_versions:
@@ -98,3 +192,34 @@ class DeploymentsManager:
 
     def get_kube_metrics(self, namespace_name):
         return cwm_worker_deployment.namespace.get_kube_metrics(namespace_name)
+
+    def iterate_cluster_nodes(self):
+        ret, out = subprocess.getstatusoutput('kubectl get nodes -o custom-columns=name:metadata.name')
+        assert ret == 0, out
+        for node_name in out.splitlines()[1:]:
+            node_name = node_name.strip()
+            if node_name:
+                ret, out = subprocess.getstatusoutput('kubectl get node {} -o json'.format(node_name))
+                assert ret == 0, out
+                node = json.loads(out)
+                is_worker = False
+                for taint in node.get('spec', {}).get('taints', []):
+                    if taint.get('key') == 'cwmc-role'and taint.get('value') == 'worker':
+                        is_worker = True
+                        break
+                unschedulable = bool(node.get('spec', {}).get('unschedulable'))
+                yield {
+                    'name': node_name,
+                    'is_worker': is_worker,
+                    'unschedulable': unschedulable
+                }
+
+    @contextmanager
+    def node_cleanup_pod(self, node_name):
+        ncp = self.node_cleanup_pod_class('default', 'cwm-worker-operator-node-cleanup', node_name)
+        try:
+            ncp.init()
+            yield ncp
+        finally:
+            ncp.uncordon()
+            ncp.delete(wait=False)

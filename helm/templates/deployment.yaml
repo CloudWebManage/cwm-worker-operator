@@ -138,6 +138,8 @@ spec:
           value: {{ $.Values.operator.ALERTER_SLACK_WEBHOOK_URL | quote }}
         - name: ALERTER_MESSAGE_PREFIX
           value: {{ $.Values.operator.ALERTER_MESSAGE_PREFIX | quote }}
+        - name: CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}
@@ -158,6 +160,8 @@ spec:
 {{ toYaml $.Values.operator.diskUsageUpdaterResources | indent 10 }}
 {{ else if and (eq . "alerter") $.Values.operator.AlerterResources }}
 {{ toYaml $.Values.operator.AlerterResources | indent 10 }}
+{{ else if and (eq . "cleaner") $.Values.operator.CleanerResources }}
+{{ toYaml $.Values.operator.CleanerResources | indent 10 }}
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
 {{ end }}

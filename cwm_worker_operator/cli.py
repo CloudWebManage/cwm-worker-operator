@@ -10,6 +10,7 @@ from cwm_worker_operator import metrics_updater
 from cwm_worker_operator import web_ui
 from cwm_worker_operator import disk_usage_updater
 from cwm_worker_operator import alerter
+from cwm_worker_operator import cleaner
 
 
 def main():
@@ -61,5 +62,10 @@ def main():
             alerter.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid alerter command: {}".format(" ".join(sys.argv[2:])))
+    elif sys.argv[1] == "cleaner":
+        if sys.argv[2] == "start_daemon":
+            cleaner.start_daemon('--once' in sys.argv)
+        else:
+            raise Exception("Invalid cleaner command: {}".format(" ".join(sys.argv[2:])))
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))

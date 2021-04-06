@@ -27,7 +27,7 @@ redis:
       emptyDir: {}
 
 operator:
-  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter"]
+  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter", "cleaner"]
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -73,6 +73,7 @@ operator:
   ALERTER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "15"
   ALERTER_SLACK_WEBHOOK_URL: ""
   ALERTER_MESSAGE_PREFIX: ""
+  CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "300"
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
@@ -83,6 +84,7 @@ operator:
 #  webUiResources: {}
 #  diskUsageUpdaterResources: {}
 #  AlerterResources: {}
+#  CleanerResources: {}
   defaultResources:
     requests:
       cpu: "25m"
