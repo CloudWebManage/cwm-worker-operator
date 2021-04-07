@@ -59,7 +59,7 @@ def test_force_update_domain(domains_config, initializer_metrics):
 
 def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metrics):
     domain_name = 'force-delete.domain'
-    with domains_config.get_redis() as r:
+    with domains_config.get_internal_redis() as r:
         r.set('worker:force_delete:{}'.format(domain_name), "")
     domains_config.worker_domains_waiting_for_initlization.append(domain_name)
     domains_config.domain_cwm_api_volume_config[domain_name] = {'hostname': domain_name, 'zone': config.CWM_ZONE}

@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cwm-worker-operator-redis
+  name: cwm-worker-operator-redis-ingress
 spec:
   replicas: 1
   revisionHistoryLimit: 5
   selector:
     matchLabels:
-      app: cwm-worker-operator-redis
+      app: cwm-worker-operator-redis-ingress
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: cwm-worker-operator-redis
+        app: cwm-worker-operator-redis-ingress
     spec:
       terminationGracePeriodSeconds: 5
       {{- if $.Values.tolerations }}
@@ -22,18 +22,18 @@ spec:
       {{- end }}
       containers:
       - name: redis
-        image: {{ $.Values.redis.image }}
-        imagePullPolicy: {{ $.Values.redis.imagePullPolicy }}
-        {{ if $.Values.redis.persistence.enabled }}
+        image: {{ $.Values.ingressRedis.image }}
+        imagePullPolicy: {{ $.Values.ingressRedis.imagePullPolicy }}
+        {{ if $.Values.ingressRedis.persistence.enabled }}
         args: ["redis-server", "--appendonly", "yes"]
         {{ end }}
         resources:
-{{ toYaml $.Values.redis.resources | indent 10 }}
-        {{ if $.Values.redis.persistence.enabled }}
+{{ toYaml $.Values.ingressRedis.resources | indent 10 }}
+        {{ if $.Values.ingressRedis.persistence.enabled }}
         volumeMounts:
         - mountPath: "/data"
           name: "data"
         {{ end }}
       volumes:
       - name: data
-{{ $.Values.redis.persistence.volume | indent 8 }}
+{{ toYaml $.Values.ingressRedis.persistence.volume | indent 8 }}

@@ -28,7 +28,11 @@ def pytest_collection_modifyitems(session, config, items):
 @pytest.fixture()
 def domains_config():
     dc = MockDomainsConfig()
-    with dc.get_redis() as r:
+    with dc.get_ingress_redis() as r:
+        [r.delete(key) for key in r.keys('*')]
+    with dc.get_internal_redis() as r:
+        [r.delete(key) for key in r.keys('*')]
+    with dc.get_metrics_redis() as r:
         [r.delete(key) for key in r.keys('*')]
     return dc
 

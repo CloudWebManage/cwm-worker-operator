@@ -18,7 +18,7 @@ def test_send_agg_metrics(domains_config, updater_metrics, cwm_api_manager):
     t1 = datetime.datetime(2021,3,2,1,2,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
     t2 = datetime.datetime(2021,3,2,1,3,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
     t3 = datetime.datetime(2021,3,2,1,4,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
-    with domains_config.get_redis() as r:
+    with domains_config.get_internal_redis() as r:
         r.set("worker:aggregated-metrics:{}".format(domain_name), json.dumps({
             'lu': t3,
             'm': [{'t': t1, 'disk_usage_bytes': 23911,
@@ -53,7 +53,7 @@ def test_send_agg_metrics(domains_config, updater_metrics, cwm_api_manager):
     updater.send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
     assert cwm_api_manager.mock_calls_log == []
     # metrics not sent because last_update is the same as in previous send
-    with domains_config.get_redis() as r:
+    with domains_config.get_internal_redis() as r:
         last_sent_update = (now() - datetime.timedelta(seconds=61)).strftime('%Y%m%d%H%M%S')
         last_update = t3
         r.set('worker:aggregated-metrics-last-sent-update:{}'.format(domain_name), '{},{}'.format(last_sent_update, last_update))
@@ -134,7 +134,7 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
             "revision": 1
         },
     ]
-    with domains_config.get_redis() as r:
+    with domains_config.get_metrics_redis() as r:
         for namespace_name, last_action in {
             "deployed--has--action--recent-update": now() - datetime.timedelta(minutes=25),
             "deployed--has--action--old-update": now() - datetime.timedelta(minutes=25)
@@ -144,31 +144,33 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
         recent_update_t1 = datetime.datetime(2021,3,2,1,2,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
         recent_update_t2 = datetime.datetime(2021,3,2,1,3,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
         recent_update_t3 = datetime.datetime(2021,3,2,1,4,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
-        r.set("worker:aggregated-metrics:deployed.has.action.recent-update", json.dumps({
-            'lu': "20210302030405",
-            'm': [
-                {'t': recent_update_t1, 'disk_usage_bytes': '1234',
-                 'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500',
-                 "sum_cpu_seconds": "1234.5", "ram_limit_bytes": "5678"},
-                {'t': recent_update_t2, 'disk_usage_bytes': '1234',
-                 'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503',
-                 "sum_cpu_seconds": "2334.5", "ram_limit_bytes": "5766"},
-                {'t': recent_update_t3, 'disk_usage_bytes': '1234',
-                 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513',
-                 "sum_cpu_seconds": "4334.5", "ram_limit_bytes": "5987"},
-            ]
-        }))
+        with domains_config.get_internal_redis() as r:
+            r.set("worker:aggregated-metrics:deployed.has.action.recent-update", json.dumps({
+                'lu': "20210302030405",
+                'm': [
+                    {'t': recent_update_t1, 'disk_usage_bytes': '1234',
+                     'bytes_in': '5000', 'bytes_out': '40000', 'num_requests_in': '1000', 'num_requests_out': '7000', 'num_requests_misc': '500',
+                     "sum_cpu_seconds": "1234.5", "ram_limit_bytes": "5678"},
+                    {'t': recent_update_t2, 'disk_usage_bytes': '1234',
+                     'bytes_in': '5120', 'bytes_out': '41300', 'num_requests_in': '1120', 'num_requests_out': '7230', 'num_requests_misc': '503',
+                     "sum_cpu_seconds": "2334.5", "ram_limit_bytes": "5766"},
+                    {'t': recent_update_t3, 'disk_usage_bytes': '1234',
+                     'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513',
+                     "sum_cpu_seconds": "4334.5", "ram_limit_bytes": "5987"},
+                ]
+            }))
         old_update_t1 = datetime.datetime(2021,3,2,3,1,15, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
         old_update_t2 = datetime.datetime(2021,3,2,3,1,33, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
         old_update_t3 = datetime.datetime(2021,3,2,3,4,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
-        r.set("worker:aggregated-metrics:deployed.has.action.old-update", json.dumps({
-            'lu': "20210302030405",
-            'm': [
-                {'t': old_update_t1,                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
-                {'t': old_update_t2, 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
-                {'t': old_update_t3, 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
-            ]
-        }))
+        with domains_config.get_internal_redis() as r:
+            r.set("worker:aggregated-metrics:deployed.has.action.old-update", json.dumps({
+                'lu': "20210302030405",
+                'm': [
+                    {'t': old_update_t1,                                           'num_requests_in': '1000', 'num_requests_out': '7000',                           },
+                    {'t': old_update_t2, 'bytes_in': '5120', 'bytes_out': '45000',                            'num_requests_out': '6930',                           },
+                    {'t': old_update_t3, 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},
+                ]
+            }))
     updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
     assert [o['labels'] for o in updater_metrics.observations] == [
         ('pending.old.revision1', 'not_deployed_force_update'),
@@ -176,7 +178,7 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
         ('deployed.no.action', 'force_delete'),
         ('deployed.has.action.old-update', 'force_update'),
     ]
-    with domains_config.get_redis() as r:
+    with domains_config.get_internal_redis() as r:
         force_update_domains = [key.decode().replace('worker:force_update:', '') for key in r.keys('worker:force_update:*')]
         force_delete_domains = [key.decode().replace('worker:force_delete:', '') for key in r.keys('worker:force_delete:*')]
         assert "pending.old.revision1" in force_update_domains

@@ -7,7 +7,7 @@ from cwm_worker_operator import domains_config
 
 
 def get_header(server):
-    yield '<p><a href="/">index</a> | <a href="/domain/example007.com">domain</a> | <a href="/redis_key/worker:available:example007.com">redis key</a></p>'
+    yield '<p><a href="/">index</a> | <a href="/domain/example007.com">domain</a> | <a href="/redis_key/ingress/worker:available:example007.com">redis key</a></p>'
 
 
 def get_keys_summary(server, domain_name=None):
@@ -31,7 +31,7 @@ def get_domain(server, domain_name):
     yield "<h3>Domain: {}</h3>".format(domain_name)
     if domain_name.startswith('delete/'):
         domain_name = domain_name.replace('delete/', '')
-        server.dc.del_worker_keys(None, domain_name)
+        server.dc.del_worker_keys(domain_name)
         yield '<p style="color:red;font-weight:bold;">Deleted all domain worker keys</p>'
     else:
         yield from get_keys_summary(server, domain_name)
@@ -39,9 +39,9 @@ def get_domain(server, domain_name):
         yield '<p style="color:red;font-weight:bold;">Delete all domain worker keys? <a href="/domain/delete/{}">YES</a></p>'.format(domain_name)
 
 
-def get_redis_key(server, key):
+def get_redis_key(server, pool, key):
     yield from get_header(server)
-    with server.dc.get_redis() as r:
+    with getattr(server.dc, 'get_{}_redis'.format(pool))() as r:
         if key.startswith('delete/'):
             key = key.replace('delete/', '')
             r.delete(key)
@@ -99,8 +99,9 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
                 domain_name = self.path.replace('/domain/', '')
                 self._send_html(get_domain(self.server, domain_name))
             elif self.path.startswith('/redis_key/'):
-                key = self.path.replace('/redis_key/', '')
-                self._send_html(get_redis_key(self.server, key))
+                pool, *key = self.path.replace('/redis_key/', '').split('/')
+                key = '/'.join(key)
+                self._send_html(get_redis_key(self.server, pool, key))
             else:
                 self._send_request_error()
         except:

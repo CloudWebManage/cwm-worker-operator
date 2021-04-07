@@ -28,7 +28,7 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
         traceback.print_exc()
         print("Failed to get hostname from volume_config, using domain_name")
         namespace_name = domain_name.replace(".", "--")
-    domains_config.del_worker_keys(None, domain_name, with_metrics=with_metrics)
+    domains_config.del_worker_keys(domain_name, with_metrics=with_metrics)
     deployments_manager.delete(
         namespace_name, "minio", timeout_string=deployment_timeout_string, delete_namespace=delete_namespace,
         delete_helm=delete_helm

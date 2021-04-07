@@ -12,7 +12,7 @@ packages_reader_github_user: ""
 packages_reader_github_token: ""
 #tolerations: []
 
-redis:
+ingressRedis:
   image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
   imagePullPolicy: IfNotPresent
   resources:
@@ -23,7 +23,35 @@ redis:
       memory: "200Mi"
   persistence:
     enabled: true
-    volume: |
+    volume:
+      emptyDir: {}
+
+internalRedis:
+  image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "50Mi"
+    limits:
+      memory: "200Mi"
+  persistence:
+    enabled: true
+    volume:
+      emptyDir: {}
+
+metricsRedis:
+  image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "50Mi"
+    limits:
+      memory: "200Mi"
+  persistence:
+    enabled: true
+    volume:
       emptyDir: {}
 
 operator:
@@ -51,10 +79,21 @@ operator:
   DELETER_DEFAULT_DELETE_HELM: true
   DEPLOYER_USE_EXTERNAL_SERVICE: false
   DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS: false
-  REDIS_HOST: "cwm-worker-operator-redis.default.svc.cluster.local"
-  REDIS_PORT: "6379"
-  REDIS_POOL_MAX_CONNECTIONS: "50"
-  REDIS_POOL_TIMEOUT: "5"
+  INGRESS_REDIS_HOST: "cwm-worker-operator-redis-ingress.default.svc.cluster.local"
+  INGRESS_REDIS_PORT: "6379"
+  INGRESS_REDIS_POOL_MAX_CONNECTIONS: "50"
+  INGRESS_REDIS_POOL_TIMEOUT: "5"
+  INGRESS_REDIS_DB: "0"
+  INTERNAL_REDIS_HOST: "localhost"
+  INTERNAL_REDIS_PORT: "6379"
+  INTERNAL_REDIS_POOL_MAX_CONNECTIONS: "50"
+  INTERNAL_REDIS_POOL_TIMEOUT: "5"
+  INTERNAL_REDIS_DB: "0"
+  METRICS_REDIS_HOST: "cwm-worker-operator-redis-metrics.default.svc.cluster.local"
+  METRICS_REDIS_PORT: "6379"
+  METRICS_REDIS_POOL_MAX_CONNECTIONS: "50"
+  METRICS_REDIS_POOL_TIMEOUT: "5"
+  METRICS_REDIS_DB: "0"
   DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "1"
   FORCE_UPDATE_MAX_HOURS_TTL: "24"
   UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "30"

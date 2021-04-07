@@ -7,10 +7,28 @@ DEBUG = os.environ.get("DEBUG") == "yes" or os.environ.get("ENABLE_DEBUG") == "y
 # higher numbers = more debug logs
 DEBUG_VERBOSITY = int(os.environ.get("DEBUG_VERBOSITY") or "10")
 
-REDIS_HOST = os.environ.get("REDIS_HOST") or "localhost"
-REDIS_PORT = int(os.environ.get("REDIS_PORT") or "6379")
-REDIS_POOL_MAX_CONNECTIONS = int(os.environ.get("REDIS_POOL_MAX_CONNECTIONS") or "50")
-REDIS_POOL_TIMEOUT = int(os.environ.get("REDIS_POOL_TIMEOUT") or "5")
+_default_redis_host = os.environ.get("REDIS_HOST") or "localhost"
+_default_redis_port = int(os.environ.get("REDIS_PORT") or "6379")
+_default_redis_pool_max_connections = int(os.environ.get("REDIS_POOL_MAX_CONNECTIONS") or "50")
+_default_redis_pool_timeout = int(os.environ.get("REDIS_POOL_TIMEOUT") or "5")
+
+INGRESS_REDIS_HOST = os.environ.get("INGRESS_REDIS_HOST") or _default_redis_host
+INGRESS_REDIS_PORT = int(os.environ.get("INGRESS_REDIS_PORT") or _default_redis_port)
+INGRESS_REDIS_POOL_MAX_CONNECTIONS = int(os.environ.get("INGRESS_REDIS_POOL_MAX_CONNECTIONS") or _default_redis_pool_max_connections)
+INGRESS_REDIS_POOL_TIMEOUT = int(os.environ.get("INGRESS_REDIS_POOL_TIMEOUT") or _default_redis_pool_timeout)
+INGRESS_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB") or "0")
+
+INTERNAL_REDIS_HOST = os.environ.get("INTERNAL_REDIS_HOST") or _default_redis_host
+INTERNAL_REDIS_PORT = int(os.environ.get("INTERNAL_REDIS_PORT") or _default_redis_port)
+INTERNAL_REDIS_POOL_MAX_CONNECTIONS = int(os.environ.get("INTERNAL_REDIS_POOL_MAX_CONNECTIONS") or _default_redis_pool_max_connections)
+INTERNAL_REDIS_POOL_TIMEOUT = int(os.environ.get("INTERNAL_REDIS_POOL_TIMEOUT") or _default_redis_pool_timeout)
+INTERNAL_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB") or "1")
+
+METRICS_REDIS_HOST = os.environ.get("METRICS_REDIS_HOST") or _default_redis_host
+METRICS_REDIS_PORT = int(os.environ.get("METRICS_REDIS_PORT") or _default_redis_port)
+METRICS_REDIS_POOL_MAX_CONNECTIONS = int(os.environ.get("METRICS_REDIS_POOL_MAX_CONNECTIONS") or _default_redis_pool_max_connections)
+METRICS_REDIS_POOL_TIMEOUT = int(os.environ.get("METRICS_REDIS_POOL_TIMEOUT") or _default_redis_pool_timeout)
+METRICS_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB") or "2")
 
 CWM_API_URL = os.environ["CWM_API_URL"]
 CWM_ZONE = os.environ["CWM_ZONE"]

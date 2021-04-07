@@ -1,11 +1,9 @@
 import json
 import time
-import redis
 import pytz
 import datetime
 import subprocess
 from collections import defaultdict
-from contextlib import contextmanager
 
 from cwm_worker_operator import deleter
 from cwm_worker_operator import initializer
@@ -51,23 +49,16 @@ WORKERS = {
 }
 
 
-@contextmanager
-def get_redis(dc):
-    r = redis.Redis(connection_pool=dc.redis_pool)
-    yield r
-    r.close()
-
-
 def _assert_after_initializer(domain_name, test_config, dc, attempt_number=1):
     if test_config['after_initializer'] == 'ready_for_deployment':
         assert domain_name in dc.get_worker_domains_ready_for_deployment()
     else:
         assert domain_name not in dc.get_worker_domains_ready_for_deployment()
         if test_config['after_initializer'] == 'error':
-            with get_redis(dc) as r:
+            with dc.get_ingress_redis() as r:
                 assert r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))
         elif test_config['after_initializer'] == 'error_attempts':
-            with get_redis(dc) as r:
+            with dc.get_internal_redis() as r:
                 assert r.get(domains_config.REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name)).decode() == str(attempt_number)
         else:
             raise Exception('unknown after initializer assertion: {}'.format(test_config['after_initializer']))
@@ -77,7 +68,7 @@ def _assert_after_deployer(domain_name, test_config, dc):
     if test_config.get('after_deployer') == 'waiting_for_deployment':
         assert domain_name in dc.get_worker_domains_waiting_for_deployment_complete()
     elif test_config.get('after_deployer') == 'error':
-        with get_redis(dc) as r:
+        with dc.get_ingress_redis() as r:
             assert r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))
     elif test_config.get('after_deployer') is not None:
         raise Exception('unknown after deployer assertion: {}'.format(test_config.get('after_deployer')))
@@ -85,7 +76,7 @@ def _assert_after_deployer(domain_name, test_config, dc):
 
 def _assert_after_waiter(domain_name, test_config, dc, debug=False):
     if test_config.get('after_waiter') == 'valid':
-        with get_redis(dc) as r:
+        with dc.get_ingress_redis() as r:
             if (
                 r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)) == b''
                 and json.loads(r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode()) == {proto: "minio-{}.{}.svc.cluster.local".format(proto, domain_name.replace('.', '--')) for proto in ['http', 'https']}
@@ -99,7 +90,7 @@ def _assert_after_waiter(domain_name, test_config, dc, debug=False):
                     print("domains_waiting_for_initialization={}".format(list(dc.get_worker_domains_waiting_for_initlization())))
                 return False
     elif test_config.get('after_waiter') == 'error':
-        with get_redis(dc) as r:
+        with dc.get_ingress_redis() as r:
             if bool(r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))):
                 return True
             else:
@@ -136,21 +127,36 @@ def _delete_workers(dc):
             time.sleep(1)
 
 
+def iterate_redis_pools(dc):
+    for pool in ['ingress', 'internal', 'metrics']:
+        with getattr(dc, 'get_{}_redis'.format(pool))() as r:
+            yield r
+
+
+def get_all_redis_pools_keys(dc):
+    all_keys = []
+    for r in iterate_redis_pools(dc):
+        for key in r.keys("*"):
+            all_keys.append(key.decode())
+    return all_keys
+
+
 def _clear_redis(dc):
-    with get_redis(dc) as r:
-        all_keys = [key.decode() for key in r.keys("*")]
+    for r in iterate_redis_pools(dc):
+        all_keys = [key.decode() for key in r.keys('*')]
         if len(all_keys) > 0:
-            print("Deleting {} keys".format(len(all_keys)))
             r.delete(*all_keys)
+    yield dc
 
 
 def _set_redis_keys(dc):
     print("Setting redis keys..")
-    with get_redis(dc) as r:
-        for domain_name, worker_test_config in WORKERS.items():
-            r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name), '')
-            if worker_test_config.get('volume_config'):
-                r.set(domains_config.REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps(worker_test_config['volume_config']))
+    with dc.get_ingress_redis() as ingress_redis:
+        with dc.get_internal_redis() as internal_redis:
+            for domain_name, worker_test_config in WORKERS.items():
+                ingress_redis.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name), '')
+                if worker_test_config.get('volume_config'):
+                    internal_redis.set(domains_config.REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps(worker_test_config['volume_config']))
 
 
 def test():
@@ -195,7 +201,7 @@ def test():
         waiter.start_daemon(True, with_prometheus=False, waiter_metrics=mock_waiter_metrics, domains_config=dc)
         if all([_assert_after_waiter(domain_name, test_config, dc) for domain_name, test_config in WORKERS.items()]):
             break
-        if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 60:
+        if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 120:
             for domain_name, test_config in WORKERS.items():
                 if not _assert_after_waiter(domain_name, test_config, dc, debug=True):
                     print("Failed asserting after waiter for domain: {} test_config: {}".format(domain_name, test_config))

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cwm-worker-operator-redis-metrics
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: cwm-worker-operator-redis-metrics
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: cwm-worker-operator-redis-metrics
+    spec:
+      terminationGracePeriodSeconds: 5
+      {{- if $.Values.tolerations }}
+      tolerations:
+{{ toYaml $.Values.tolerations | indent 6 }}
+      {{- end }}
+      containers:
+      - name: redis
+        image: {{ $.Values.metricsRedis.image }}
+        imagePullPolicy: {{ $.Values.metricsRedis.imagePullPolicy }}
+        {{ if $.Values.metricsRedis.persistence.enabled }}
+        args: ["redis-server", "--appendonly", "yes"]
+        {{ end }}
+        resources:
+{{ toYaml $.Values.metricsRedis.resources | indent 10 }}
+        {{ if $.Values.metricsRedis.persistence.enabled }}
+        volumeMounts:
+        - mountPath: "/data"
+          name: "data"
+        {{ end }}
+      volumes:
+      - name: data
+{{ toYaml $.Values.metricsRedis.persistence.volume | indent 8 }}

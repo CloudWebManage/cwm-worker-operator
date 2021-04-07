@@ -19,7 +19,7 @@ def test_deleter_daemon(domains_config, deployments_manager, deleter_metrics):
 
 
 def test_deleter_cancel_if_worker_deployment(domains_config, deployments_manager, deleter_metrics):
-    with domains_config.get_redis() as r:
+    with domains_config.get_ingress_redis() as r:
         r.set("worker:initialize:domain1.com", "")
     domains_config.domains_to_delete += [
         {'domain_name': 'domain1.com', 'allow_cancel': True},

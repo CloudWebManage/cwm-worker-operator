@@ -24,38 +24,53 @@ class MockMetrics:
         self.domain_volume_config_success_from_cache[domain_name] = start_time
 
 
+def iterate_redis_pools(dc):
+    for pool in ['ingress', 'internal', 'metrics']:
+        with getattr(dc, 'get_{}_redis'.format(pool))() as r:
+            yield r
+
+
+def get_all_redis_pools_keys(dc):
+    all_keys = []
+    for r in iterate_redis_pools(dc):
+        for key in r.keys("*"):
+            all_keys.append(key.decode())
+    return all_keys
+
+
 @contextmanager
 def get_domains_config_redis_clear():
     dc = domains_config.DomainsConfig()
-    r = redis.Redis(connection_pool=dc.redis_pool)
-    all_keys = [key.decode() for key in r.keys("*")]
-    if len(all_keys) > 0:
-        print("Deleting {} keys".format(len(all_keys)))
-        r.delete(*all_keys)
-    yield dc, r
-    r.close()
+    for r in iterate_redis_pools(dc):
+        all_keys = [key.decode() for key in r.keys('*')]
+        if len(all_keys) > 0:
+            r.delete(*all_keys)
+    yield dc
 
 
 def test_init():
-    with get_domains_config_redis_clear() as (dc, r):
-        assert len(r.keys("*")) == 0
+    with get_domains_config_redis_clear() as dc:
+        for r in iterate_redis_pools(dc):
+            assert len(r.keys("*")) == 0
 
 
 def test_worker_keys():
     domain_name = 'example007.com'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
 
         ## worker domain waiting for initialization
 
-        r.set("{}:{}".format(domains_config.REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name), "")
+        with dc.get_ingress_redis() as r:
+            r.set("{}:{}".format(domains_config.REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name), "")
         assert dc.get_worker_domains_waiting_for_initlization() == [domain_name]
 
         ## worker domain initialized (ready for deployment)
 
         dc.set_worker_ready_for_deployment(domain_name)
-        dt = strptime(
-            r.get("{}:{}".format(domains_config.REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name)).decode(),
-            "%Y%m%dT%H%M%S.%f")
+        with dc.get_internal_redis() as r:
+            dt = strptime(
+                r.get("{}:{}".format(domains_config.REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name)).decode(),
+                "%Y%m%dT%H%M%S.%f")
         assert isinstance(dt, datetime.datetime)
         assert dt == dc.get_worker_ready_for_deployment_start_time(domain_name)
         assert dc.get_worker_domains_ready_for_deployment() == [domain_name]
@@ -90,34 +105,37 @@ def test_worker_keys():
         ## worker domain deployment complete - worker ingress hostname is available
         # this also deletes worker keys
 
-        assert len(r.keys("*")) == 4
+        assert len(get_all_redis_pools_keys(dc)) == 4
         dc.set_worker_available(domain_name, {'http':'ingress-http.hostname', 'https': 'ingress-https.hostname'})
-        assert r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)) == b''
-        assert json.loads(
-            r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode()
-        ) == {
-            'http':'ingress-http.hostname', 'https': 'ingress-https.hostname'
-        }
-        assert len(r.keys("*")) == 3
+        with dc.get_ingress_redis() as r:
+            assert r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)) == b''
+            assert json.loads(
+                r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode()
+            ) == {
+                'http':'ingress-http.hostname', 'https': 'ingress-https.hostname'
+            }
+        assert len(get_all_redis_pools_keys(dc)) == 3
 
         ## set worker domain errors
 
         dc.set_worker_error(domain_name, 'test error')
-        assert r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name)).decode() == 'test error'
+        with dc.get_ingress_redis() as r:
+            assert r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name)).decode() == 'test error'
         assert dc.increment_worker_error_attempt_number(domain_name) == 1
-        assert r.get(domains_config.REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name)).decode() == "1"
-        assert dc.increment_worker_error_attempt_number(domain_name) == 2
-        assert r.get(domains_config.REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name)).decode() == "2"
+        with dc.get_internal_redis() as r:
+            assert r.get(domains_config.REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name)).decode() == "1"
+            assert dc.increment_worker_error_attempt_number(domain_name) == 2
+            assert r.get(domains_config.REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name)).decode() == "2"
 
         ## delete worker keys
 
-        dc.del_worker_keys(None, domain_name)
-        assert len(r.keys("*")) == 0
+        dc.del_worker_keys(domain_name)
+        assert len(get_all_redis_pools_keys(dc)) == 0
 
 
 def test_get_volume_config_error():
     domain_name = '__invalid__domain.error'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         # first call with invalid domain - error from api
         metrics = MockMetrics()
         volume_config = dc.get_cwm_api_volume_config(domain_name, metrics)
@@ -138,10 +156,11 @@ def test_get_volume_config_error():
 
 def test_volume_config_force_update():
     domain_name = 'force.update.domain'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         metrics = MockMetrics()
         # set volume config in redis
-        r.set(domains_config.REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps({"foo": "bar"}))
+        with dc.get_internal_redis() as r:
+            r.set(domains_config.REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps({"foo": "bar"}))
         # without force update, this volume config is returned
         assert dc.get_cwm_api_volume_config(domain_name, metrics) == {"foo": "bar"}
         # with force update, we get an error as domain does not exist
@@ -154,29 +173,36 @@ def test_worker_forced_delete_update():
     update_domain_name_2 = 'force.update.domain2'
     delete_domain_name_1 = 'force.delete.domain1'
     delete_domain_name_2 = 'force.delete.domain2'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         dc.set_worker_force_update(update_domain_name_1)
         dc.set_worker_force_update(update_domain_name_2)
         dc.set_worker_force_delete(delete_domain_name_1)
         dc.set_worker_force_delete(delete_domain_name_2)
-        assert dc.iterate_domains_to_delete() == [{'domain_name': delete_domain_name_1, 'allow_cancel': False},
-                                                  {'domain_name': delete_domain_name_2, 'allow_cancel': False}]
+        convdeletedomain = lambda d: "domain_name: {}, allow_cancel: {}".format(d['domain_name'], d['allow_cancel'])
+        assert {convdeletedomain(d) for d in dc.iterate_domains_to_delete()} == {
+            convdeletedomain({'domain_name': delete_domain_name_1, 'allow_cancel': False}),
+            convdeletedomain({'domain_name': delete_domain_name_2, 'allow_cancel': False})
+        }
         dc.set_worker_force_delete(delete_domain_name_2, allow_cancel=True)
-        assert dc.iterate_domains_to_delete() == [{'domain_name': delete_domain_name_1, 'allow_cancel': False},
-                                                  {'domain_name': delete_domain_name_2, 'allow_cancel': True}]
+        assert {convdeletedomain(d) for d in dc.iterate_domains_to_delete()} == {
+            convdeletedomain({'domain_name': delete_domain_name_1, 'allow_cancel': False}),
+            convdeletedomain({'domain_name': delete_domain_name_2, 'allow_cancel': True})
+        }
         assert set(dc.get_domains_force_update()) == {update_domain_name_1, update_domain_name_2}
-        assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
-        assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)
-        dc.del_worker_keys(r, update_domain_name_2)
-        dc.del_worker_keys(r, delete_domain_name_2)
-        assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
-        assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)
+        with dc.get_internal_redis() as r:
+            assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
+            assert r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)
+        dc.del_worker_keys(update_domain_name_2)
+        dc.del_worker_keys(delete_domain_name_2)
+        with dc.get_internal_redis() as r:
+            assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE + ":" + update_domain_name_2)
+            assert not r.exists(domains_config.REDIS_KEY_PREFIX_WORKER_FORCE_DELETE + ":" + delete_domain_name_2)
 
 
 def test_worker_aggregated_metrics():
     domain_name = 'example007.com'
     agg_metrics = {'this is': 'metrics'}
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         dc.set_worker_aggregated_metrics(domain_name, agg_metrics)
         assert dc.get_worker_aggregated_metrics(domain_name, clear=True) == agg_metrics
         assert dc.get_worker_aggregated_metrics(domain_name) == None
@@ -184,28 +210,32 @@ def test_worker_aggregated_metrics():
 
 def test_deployment_api_metrics():
     namespace_name = 'example007--com'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         assert dc.get_deployment_api_metrics(namespace_name, 'http') == {}
-        r.set('{}:{}:http:mymetric'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name), '5')
+        with dc.get_metrics_redis() as r:
+            r.set('{}:{}:http:mymetric'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name), '5')
         assert dc.get_deployment_api_metrics(namespace_name, 'http') == {'mymetric': '5'}
 
 
 def test_deployment_last_action():
     namespace_name = 'example007--com'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         assert dc.get_deployment_last_action(namespace_name) == None
-        r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201102T221112.123456')
-        r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201103T221112.123456')
+        with dc.get_metrics_redis() as r:
+            r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201102T221112.123456')
+            r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '20201103T221112.123456')
         assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
-        r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-03T22:11:12.123456')
-        r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-02T22:11:12.123456')
+        with dc.get_metrics_redis() as r:
+            r.set('{}:{}:https'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-03T22:11:12.123456')
+            r.set('{}:{}:http'.format(domains_config.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name), '2020-11-02T22:11:12.123456')
         assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
 
 
 def test_get_worker_ready_for_deployment_start_time_exception():
     domain_name = 'example007.com'
-    with get_domains_config_redis_clear() as (dc, r):
-        r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name), 'foobar')
+    with get_domains_config_redis_clear() as dc:
+        with dc.get_internal_redis() as r:
+            r.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name), 'foobar')
         dt = dc.get_worker_ready_for_deployment_start_time(domain_name)
         assert isinstance(dt, datetime.datetime)
         assert (datetime.datetime.now(pytz.UTC) - dt).total_seconds() < 5
@@ -213,17 +243,19 @@ def test_get_worker_ready_for_deployment_start_time_exception():
 
 def test_keys_summary_delete():
     domain_name = 'example007.com'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         for key in dc.get_keys_summary(domain_name=domain_name):
             if len(key['keys']) > 0:
                 _key = key['keys'][0].split(' = ')[0]
-                r.set(_key, "1")
-        r.set('deploymentid:minio-metrics:example007--com:http:bytes_in', "1")
-        r.set('deploymentid:minio-metrics:example007--com:https:bytes_in', "1")
-        r.set('deploymentid:last_action:example007--com:http', '1')
-        r.set('deploymentid:last_action:example007--com:https', '1')
-        dc.del_worker_keys(r, domain_name)
-        assert set([key.decode() for key in r.keys('*')]) == {
+                with getattr(dc, 'get_{}_redis'.format(key['pool']))() as r:
+                    r.set(_key, "1")
+        with dc.get_metrics_redis() as r:
+            r.set('deploymentid:minio-metrics:example007--com:http:bytes_in', "1")
+            r.set('deploymentid:minio-metrics:example007--com:https:bytes_in', "1")
+            r.set('deploymentid:last_action:example007--com:http', '1')
+            r.set('deploymentid:last_action:example007--com:https', '1')
+        dc.del_worker_keys(domain_name)
+        assert set(get_all_redis_pools_keys(dc)) == {
             'deploymentid:last_action:example007--com:http', 'deploymentid:last_action:example007--com:https',
             'deploymentid:minio-metrics:example007--com:http:bytes_in', 'deploymentid:minio-metrics:example007--com:https:bytes_in',
             'worker:aggregated-metrics:example007.com', 'worker:aggregated-metrics-last-sent-update:example007.com',
@@ -233,11 +265,22 @@ def test_keys_summary_delete():
 
 def test_keys_summary_delete_with_metrics():
     domain_name = 'example007.com'
-    with get_domains_config_redis_clear() as (dc, r):
+    with get_domains_config_redis_clear() as dc:
         for key in dc.get_keys_summary(domain_name=domain_name):
             if len(key['keys']) > 0:
                 _key = key['keys'][0].split(' = ')[0]
-                r.set(_key, "1")
-        r.set('deploymentid:minio-metrics:example007--com:bytes_in', "1")
-        dc.del_worker_keys(r, domain_name, with_metrics=True)
-        assert r.keys('*') == []
+                with getattr(dc, 'get_{}_redis'.format(key['pool']))() as r:
+                    r.set(_key, "1")
+        with dc.get_metrics_redis() as r:
+            r.set('deploymentid:minio-metrics:example007--com:bytes_in', "1")
+        dc.del_worker_keys(domain_name, with_metrics=True)
+        assert get_all_redis_pools_keys(dc) == []
+
+
+def test_redis_pools():
+    with get_domains_config_redis_clear() as dc:
+        with dc.get_internal_redis() as internal_redis:
+            with dc.get_metrics_redis() as metrics_redis:
+                with dc.get_ingress_redis() as ingress_redis:
+                    internal_redis.set('foo', 'bar')
+                    assert internal_redis.exists('foo') and not metrics_redis.exists('foo') and not ingress_redis.exists('foo')

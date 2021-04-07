@@ -59,7 +59,7 @@ class MockDomainsConfig(DomainsConfig):
     def set_worker_available(self, domain_name, hostname):
         self.domain_worker_available_hostname[domain_name] = hostname
 
-    def del_worker_keys(self, redis_connection, domain_name, **kwargs):
+    def del_worker_keys(self, domain_name, **kwargs):
         self.domain_deleted_worker_keys[domain_name] = kwargs
 
     def iterate_domains_to_delete(self):

@@ -24,7 +24,7 @@ def test_disk_usage_updater(domains_config):
         'du -s /tmp/dum/bar',
         'du -s /tmp/dum/baz',
     ]
-    with domains_config.get_redis() as r:
+    with domains_config.get_internal_redis() as r:
         for namespace_name in ['foo', 'bar', 'baz']:
             assert 125952 == 123 * 1024
             assert r.get('worker:total-used-bytes:{}'.format(namespace_name)) == b'125952'

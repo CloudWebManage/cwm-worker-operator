@@ -8,7 +8,7 @@ def test_operator_config_values():
         values = yaml.safe_load(f)
     missing_keys = []
     for key in dir(config):
-        if key.startswith("__") or key in ["base64", "json", "os"]:
+        if key.startswith("_") or key in ["base64", "json", "os"]:
             continue
         if key in ["PULL_SECRET"]:
             continue

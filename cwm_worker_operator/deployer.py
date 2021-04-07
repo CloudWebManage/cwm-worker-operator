@@ -66,10 +66,11 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
         minio["MINIO_GATEWAY_DEPLOYMENT_ID_https"] = '{}:https'.format(namespace_name)
         minio["metricsLogger"] = {
             "withRedis": False,
-            "REDIS_HOST": config.REDIS_HOST,
-            "REDIS_PORT": config.REDIS_PORT,
-            "REDIS_POOL_MAX_CONNECTIONS": config.REDIS_POOL_MAX_CONNECTIONS,
-            "REDIS_POOL_TIMEOUT": config.REDIS_POOL_TIMEOUT,
+            "REDIS_HOST": config.METRICS_REDIS_HOST,
+            "REDIS_PORT": config.METRICS_REDIS_PORT,
+            "REDIS_POOL_MAX_CONNECTIONS": config.METRICS_REDIS_POOL_MAX_CONNECTIONS,
+            "REDIS_POOL_TIMEOUT": config.METRICS_REDIS_POOL_TIMEOUT,
+            "REDIS_DB": config.METRICS_REDIS_DB,
             "REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION,
             "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS,
             "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,

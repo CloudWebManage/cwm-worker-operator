@@ -25,7 +25,25 @@ spec:
       {{- end }}
       terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
       serviceAccountName: cwm-worker-operator
+      {{ if $.Values.internalRedis.persistence.enabled }}
+      volumes:
+        - name: redisdata
+{{ toYaml $.Values.internalRedis.persistence.volume | indent 10 }}
+      {{ end }}
       containers:
+      - name: redis
+        image: {{ $.Values.internalRedis.image }}
+        imagePullPolicy: {{ $.Values.internalRedis.imagePullPolicy }}
+        {{ if $.Values.internalRedis.persistence.enabled }}
+        args: ["redis-server", "--appendonly", "yes"]
+        {{ end }}
+        resources:
+{{ toYaml $.Values.internalRedis.resources | indent 10 }}
+        {{ if $.Values.internalRedis.persistence.enabled }}
+        volumeMounts:
+          - name: "redisdata"
+            mountPath: "/data"
+        {{ end }}
 {{ range $.Values.operator.daemons }}
       - name: {{ . }}
         {{ if eq . "debug" }}
@@ -52,14 +70,36 @@ spec:
         - name: DEBUG_VERBOSITY
           value: {{ $.Values.debugVerbosity | quote }}
         {{ end }}
-        - name: REDIS_HOST
-          value: {{ $.Values.operator.REDIS_HOST | quote }}
-        - name: REDIS_PORT
-          value: {{ $.Values.operator.REDIS_PORT | quote }}
-        - name: REDIS_POOL_MAX_CONNECTIONS
-          value: {{ $.Values.operator.REDIS_POOL_MAX_CONNECTIONS | quote }}
-        - name: REDIS_POOL_TIMEOUT
-          value: {{ $.Values.operator.REDIS_POOL_TIMEOUT | quote }}
+        - name: INGRESS_REDIS_HOST
+          value: {{ $.Values.operator.INGRESS_REDIS_HOST | quote }}
+        - name: INGRESS_REDIS_PORT
+          value: {{ $.Values.operator.INGRESS_REDIS_PORT | quote }}
+        - name: INGRESS_REDIS_POOL_MAX_CONNECTIONS
+          value: {{ $.Values.operator.INGRESS_REDIS_POOL_MAX_CONNECTIONS | quote }}
+        - name: INGRESS_REDIS_POOL_TIMEOUT
+          value: {{ $.Values.operator.INGRESS_REDIS_POOL_TIMEOUT | quote }}
+        - name: INGRESS_REDIS_DB
+          value: {{ $.Values.operator.INGRESS_REDIS_DB | quote }}
+        - name: INTERNAL_REDIS_HOST
+          value: {{ $.Values.operator.INTERNAL_REDIS_HOST | quote }}
+        - name: INTERNAL_REDIS_PORT
+          value: {{ $.Values.operator.INTERNAL_REDIS_PORT | quote }}
+        - name: INTERNAL_REDIS_POOL_MAX_CONNECTIONS
+          value: {{ $.Values.operator.INTERNAL_REDIS_POOL_MAX_CONNECTIONS | quote }}
+        - name: INTERNAL_REDIS_POOL_TIMEOUT
+          value: {{ $.Values.operator.INTERNAL_REDIS_POOL_TIMEOUT | quote }}
+        - name: INTERNAL_REDIS_DB
+          value: {{ $.Values.operator.INTERNAL_REDIS_DB | quote }}
+        - name: METRICS_REDIS_HOST
+          value: {{ $.Values.operator.METRICS_REDIS_HOST | quote }}
+        - name: METRICS_REDIS_PORT
+          value: {{ $.Values.operator.METRICS_REDIS_PORT | quote }}
+        - name: METRICS_REDIS_POOL_MAX_CONNECTIONS
+          value: {{ $.Values.operator.METRICS_REDIS_POOL_MAX_CONNECTIONS | quote }}
+        - name: METRICS_REDIS_POOL_TIMEOUT
+          value: {{ $.Values.operator.METRICS_REDIS_POOL_TIMEOUT | quote }}
+        - name: METRICS_REDIS_DB
+          value: {{ $.Values.operator.METRICS_REDIS_DB | quote }}
         - name: CWM_ZONE
           value: {{ $.Values.cwm_zone | quote }}
         - name: INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS

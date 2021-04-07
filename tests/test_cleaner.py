@@ -44,7 +44,7 @@ def test_cleaner(domains_config, deployments_manager):
 
     # got a node in cluster - cleanup pod created - got a cache directory - worker is available and has pods on node - no action performed
     deployments_manager.mock_worker_has_pod_on_node = True
-    with domains_config.get_redis() as r:
+    with domains_config.get_ingress_redis() as r:
         r.set('worker:available:example007.com', "")
     deployments_manager.calls = []
     deployments_manager.node_cleanup_pod_mock_cache_namespaces = ['example007--com']
@@ -80,7 +80,7 @@ def test_cleaner(domains_config, deployments_manager):
     ]
 
     # got a node in cluster - cleanup pod created - got a cache directory - worker is not available - cleanup performed
-    with domains_config.get_redis() as r:
+    with domains_config.get_ingress_redis() as r:
         r.delete('worker:available:example007.com')
     deployments_manager.calls = []
     deployments_manager.node_cleanup_pod_mock_cache_namespaces = ['example007--com']
@@ -117,7 +117,7 @@ def test_cleaner(domains_config, deployments_manager):
 
     # got a node in cluster - cleanup pod created - got a cache directory - worker is available but doesn't have pods - cleanup performed
     deployments_manager.mock_worker_has_pod_on_node = False
-    with domains_config.get_redis() as r:
+    with domains_config.get_ingress_redis() as r:
         r.set('worker:available:example007.com', "")
     deployments_manager.calls = []
     deployments_manager.node_cleanup_pod_mock_cache_namespaces = ['example007--com']
