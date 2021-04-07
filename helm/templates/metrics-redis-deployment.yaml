@@ -37,7 +37,7 @@ spec:
       volumes:
       - name: data
         {{ if $.Values.metricsRedis.persistence.volume }}
-{{ toYaml $.Values.metricsRedis.persistence.volume | indent 10 }}
+{{ toYaml $.Values.metricsRedis.persistence.volume | indent 8 }}
         {{ else }}
         emptyDir: {}
         {{ end }}
