@@ -23,8 +23,6 @@ ingressRedis:
       memory: "200Mi"
   persistence:
     enabled: true
-    volume:
-      emptyDir: {}
 
 internalRedis:
   image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
@@ -37,8 +35,6 @@ internalRedis:
       memory: "200Mi"
   persistence:
     enabled: true
-    volume:
-      emptyDir: {}
 
 metricsRedis:
   image: redis@sha256:09c33840ec47815dc0351f1eca3befe741d7105b3e95bc8fdb9a7e4985b9e1e5
@@ -51,8 +47,6 @@ metricsRedis:
       memory: "200Mi"
   persistence:
     enabled: true
-    volume:
-      emptyDir: {}
 
 operator:
   daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter", "cleaner"]

@@ -28,7 +28,11 @@ spec:
       {{ if $.Values.internalRedis.persistence.enabled }}
       volumes:
         - name: redisdata
+          {{ if $.Values.internalRedis.persistence.volume }}
 {{ toYaml $.Values.internalRedis.persistence.volume | indent 10 }}
+          {{ else }}
+          emptyDir: {}
+          {{ end }}
       {{ end }}
       containers:
       - name: redis
