@@ -49,7 +49,7 @@ def start_daemon(once=False, with_prometheus=True, waiter_metrics=None, domains_
     Daemon(
         name='waiter',
         sleep_time_between_iterations_seconds=config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
-        metrics_class=metrics.WaiterMetrics(),
+        metrics_class=metrics.WaiterMetrics,
         domains_config=domains_config,
         metrics=waiter_metrics,
         run_single_iteration_callback=run_single_iteration,
