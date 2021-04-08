@@ -1,16 +1,12 @@
-import time
 import traceback
-
-import prometheus_client
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
-from cwm_worker_operator.domains_config import DomainsConfig
-from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import metrics_updater
 from cwm_worker_operator.cwm_api_manager import CwmApiManager
 from cwm_worker_operator import common
+from cwm_worker_operator.daemon import Daemon
 
 
 def check_worker_force_delete_from_metrics(namespace_name, domains_config):
@@ -91,7 +87,8 @@ def send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, c
         updater_metrics.exception(domain_name, start_time)
 
 
-def run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager):
+def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_manager, **_):
+    updater_metrics = metrics
     for release in deployments_manager.iterate_all_releases():
         namespace_name = release["namespace"]
         datestr, timestr, *_ = release["updated"].split(" ")
@@ -104,19 +101,19 @@ def run_single_iteration(domains_config, updater_metrics, deployments_manager, c
 
 
 def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None, cwm_api_manager=None):
-    if domains_config is None:
-        domains_config = DomainsConfig()
-    with logs.alert_exception_catcher(domains_config, daemon="updater"):
-        if with_prometheus:
-            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_UPDATER)
-        if updater_metrics is None:
-            updater_metrics = metrics.UpdaterMetrics()
-        if deployments_manager is None:
-            deployments_manager = DeploymentsManager()
-        if cwm_api_manager is None:
-            cwm_api_manager = CwmApiManager()
-        while True:
-            run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
-            if once:
-                break
-            time.sleep(config.UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    if cwm_api_manager is None:
+        cwm_api_manager = CwmApiManager()
+    Daemon(
+        name='updater',
+        sleep_time_between_iterations_seconds=config.UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        metrics_class=metrics.UpdaterMetrics,
+        domains_config=domains_config,
+        metrics=updater_metrics,
+        run_single_iteration_callback=run_single_iteration,
+        prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_UPDATER,
+        run_single_iteration_extra_kwargs={'cwm_api_manager': cwm_api_manager},
+        deployments_manager=deployments_manager
+    ).start(
+        once=once,
+        with_prometheus=with_prometheus
+    )

@@ -1,14 +1,10 @@
-import time
 import traceback
-
-import prometheus_client
 
 from cwm_worker_operator import metrics
 from cwm_worker_operator import config
 from cwm_worker_operator import logs
-from cwm_worker_operator.domains_config import DomainsConfig
-from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import common
+from cwm_worker_operator.daemon import Daemon
 
 
 def check_deployment_complete(domains_config, waiter_metrics, deployments_manager, domain_name):
@@ -43,22 +39,22 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
         waiter_metrics.exception(domain_name, start_time)
 
 
-def run_single_iteration(domains_config, waiter_metrics, deployments_manager):
+def run_single_iteration(domains_config, metrics, deployments_manager, **_):
+    waiter_metrics = metrics
     for domain_name in domains_config.get_worker_domains_waiting_for_deployment_complete():
         check_deployment_complete(domains_config, waiter_metrics, deployments_manager, domain_name)
 
 
 def start_daemon(once=False, with_prometheus=True, waiter_metrics=None, domains_config=None):
-    if domains_config is None:
-        domains_config = DomainsConfig()
-    with logs.alert_exception_catcher(domains_config, daemon="waiter"):
-        if with_prometheus:
-            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_WAITER)
-        if waiter_metrics is None:
-            waiter_metrics = metrics.WaiterMetrics()
-        deployments_manager = DeploymentsManager()
-        while True:
-            run_single_iteration(domains_config, waiter_metrics, deployments_manager)
-            if once:
-                break
-            time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    Daemon(
+        name='waiter',
+        sleep_time_between_iterations_seconds=config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        metrics_class=metrics.WaiterMetrics(),
+        domains_config=domains_config,
+        metrics=waiter_metrics,
+        run_single_iteration_callback=run_single_iteration,
+        prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_WAITER
+    ).start(
+        once=once,
+        with_prometheus=with_prometheus
+    )

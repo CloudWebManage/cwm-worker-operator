@@ -1,16 +1,13 @@
 import sys
-import time
 import json
 import traceback
-
-import prometheus_client
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
-from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import domains_config as domains_config_module
+from cwm_worker_operator.daemon import Daemon
 
 
 def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name, debug=False, extra_minio_extra_configs=None):
@@ -140,7 +137,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
         deployer_metrics.exception(domain_name, start_time)
 
 
-def run_single_iteration(domains_config, deployer_metrics, deployments_manager, extra_minio_extra_configs=None):
+def run_single_iteration(domains_config, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
+    deployer_metrics = metrics
     domain_names_waiting_for_deployment_complete = domains_config.get_worker_domains_waiting_for_deployment_complete()
     for domain_name in domains_config.get_worker_domains_ready_for_deployment():
         if domain_name not in domain_names_waiting_for_deployment_complete:
@@ -148,17 +146,19 @@ def run_single_iteration(domains_config, deployer_metrics, deployments_manager, 
 
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):
-    if not domains_config:
-        domains_config = DomainsConfig()
-    with logs.alert_exception_catcher(domains_config, daemon="deployer"):
-        if with_prometheus:
-            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DEPLOYER)
-        if not deployer_metrics:
-            deployer_metrics = metrics.DeployerMetrics()
-        deployments_manager = DeploymentsManager()
-        deployments_manager.init_cache()
-        while True:
-            run_single_iteration(domains_config, deployer_metrics, deployments_manager, extra_minio_extra_configs=extra_minio_extra_configs)
-            if once:
-                break
-            time.sleep(config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    deployments_manager = DeploymentsManager()
+    deployments_manager.init_cache()
+    Daemon(
+        name='deployer',
+        sleep_time_between_iterations_seconds=config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        metrics_class=metrics.DeployerMetrics,
+        domains_config=domains_config,
+        metrics=deployer_metrics,
+        run_single_iteration_callback=run_single_iteration,
+        prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_DEPLOYER,
+        run_single_iteration_extra_kwargs={'extra_minio_extra_configs': extra_minio_extra_configs},
+        deployments_manager=deployments_manager
+    ).start(
+        once=once,
+        with_prometheus=with_prometheus
+    )

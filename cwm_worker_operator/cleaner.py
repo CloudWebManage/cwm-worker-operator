@@ -1,9 +1,5 @@
-import time
-
 from cwm_worker_operator import config
-from cwm_worker_operator import logs
-from cwm_worker_operator.domains_config import DomainsConfig
-from cwm_worker_operator.deployments_manager import DeploymentsManager
+from cwm_worker_operator.daemon import Daemon
 
 
 def cleanup_node(node, domains_config, deployments_manager):
@@ -14,20 +10,20 @@ def cleanup_node(node, domains_config, deployments_manager):
                 node_cleanup_pod.clear_cache_namespace(namespace_name)
 
 
-def run_single_iteration(domains_config, deployments_manager):
+def run_single_iteration(domains_config, deployments_manager, **_):
     for node in deployments_manager.iterate_cluster_nodes():
         if node['is_worker'] and not node['unschedulable']:
             cleanup_node(node, domains_config, deployments_manager)
 
 
 def start_daemon(once=False, domains_config=None, deployments_manager=None):
-    if domains_config is None:
-        domains_config = DomainsConfig()
-    if deployments_manager is None:
-        deployments_manager = DeploymentsManager()
-    with logs.alert_exception_catcher(domains_config, daemon="cleaner"):
-        while True:
-            run_single_iteration(domains_config, deployments_manager)
-            if once:
-                break
-            time.sleep(config.CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    Daemon(
+        name="cleaner",
+        sleep_time_between_iterations_seconds=config.CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        domains_config=domains_config,
+        run_single_iteration_callback=run_single_iteration,
+        deployments_manager=deployments_manager
+    ).start(
+        once=once,
+        with_prometheus=False
+    )

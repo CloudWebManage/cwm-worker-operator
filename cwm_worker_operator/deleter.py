@@ -1,7 +1,4 @@
-import time
 import traceback
-
-import prometheus_client
 
 from cwm_worker_operator import logs
 from cwm_worker_operator import config
@@ -9,6 +6,7 @@ from cwm_worker_operator import metrics
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import common
+from cwm_worker_operator.daemon import Daemon
 
 
 def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
@@ -35,7 +33,8 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
     )
 
 
-def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
+def run_single_iteration(domains_config, metrics, deployments_manager, **_):
+    deleter_metrics = metrics
     for worker_to_delete in domains_config.iterate_domains_to_delete():
         domain_name = worker_to_delete['domain_name']
         allow_cancel = worker_to_delete['allow_cancel']
@@ -55,17 +54,16 @@ def run_single_iteration(domains_config, deleter_metrics, deployments_manager):
 
 
 def start_daemon(once=False, with_prometheus=True, deleter_metrics=None, domains_config=None, deployments_manager=None):
-    if not domains_config:
-        domains_config = DomainsConfig()
-    with logs.alert_exception_catcher(domains_config, daemon="deleter"):
-        if with_prometheus:
-            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DELETER)
-        if not deleter_metrics:
-            deleter_metrics = metrics.DeleterMetrics()
-        if not deployments_manager:
-            deployments_manager = DeploymentsManager()
-        while True:
-            run_single_iteration(domains_config, deleter_metrics, deployments_manager)
-            if once:
-                break
-            time.sleep(config.DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    Daemon(
+        name='deleter',
+        sleep_time_between_iterations_seconds=config.DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        metrics_class=metrics.DeleterMetrics,
+        domains_config=domains_config,
+        metrics=deleter_metrics,
+        run_single_iteration_callback=run_single_iteration,
+        prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_DELETER,
+        deployments_manager=deployments_manager
+    ).start(
+        once=once,
+        with_prometheus=with_prometheus
+    )

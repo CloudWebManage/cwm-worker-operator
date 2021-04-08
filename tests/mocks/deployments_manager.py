@@ -55,6 +55,7 @@ class MockDeploymentsManager(DeploymentsManager):
         self.node_cleanup_pod_class = MockNodeCleanupPod
         self.node_cleanup_pod_mock_cache_namespaces = []
         self.mock_worker_has_pod_on_node = True
+        self.kube_metrics = {}
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -91,6 +92,9 @@ class MockDeploymentsManager(DeploymentsManager):
 
     def get_prometheus_metrics(self, namespace_name):
         return self.prometheus_metrics[namespace_name]
+
+    def get_kube_metrics(self, namespace_name):
+        return self.kube_metrics[namespace_name]
 
     def iterate_cluster_nodes(self):
         for node in self.cluster_nodes:

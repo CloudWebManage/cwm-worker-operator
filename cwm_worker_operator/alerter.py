@@ -1,4 +1,3 @@
-import time
 import json
 import traceback
 
@@ -6,8 +5,8 @@ import requests
 
 from cwm_worker_operator import config
 from cwm_worker_operator import logs
-from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator import common
+from cwm_worker_operator.daemon import Daemon
 
 
 class SendAlertsThrottle:
@@ -56,7 +55,7 @@ def process_alert(alert, send_alert_callback, send_alerts_throttle):
             process_unknown_alert(alert, send_alert_callback)
 
 
-def run_single_iteration(domains_config, send_alert_callback, send_alerts_throttle):
+def run_single_iteration(domains_config, send_alert_callback, send_alerts_throttle, **_):
     while True:
         alert = domains_config.alerts_pop()
         if alert:
@@ -71,13 +70,14 @@ def run_single_iteration(domains_config, send_alert_callback, send_alerts_thrott
 
 
 def start_daemon(once=False, domains_config=None, send_alert_callback=None):
-    if domains_config is None:
-        domains_config = DomainsConfig()
     if send_alert_callback is None:
         send_alert_callback = send_alert
     send_alerts_throttle = SendAlertsThrottle(send_alert_callback)
-    while True:
-        run_single_iteration(domains_config, send_alert_callback, send_alerts_throttle)
-        if once:
-            break
-        time.sleep(config.ALERTER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    Daemon(
+        name='alerter',
+        sleep_time_between_iterations_seconds=config.ALERTER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        domains_config=domains_config,
+        run_single_iteration_callback=run_single_iteration,
+        run_single_iteration_extra_kwargs={'send_alert_callback': send_alert_callback,
+                                           'send_alerts_throttle': send_alerts_throttle}
+    ).start(once=once, with_prometheus=False)

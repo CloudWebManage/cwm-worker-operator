@@ -1,13 +1,10 @@
-import time
 import traceback
-
-import prometheus_client
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
-from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator import common
+from cwm_worker_operator.daemon import Daemon
 
 
 def initialize_domain(domains_config, initializer_metrics, domain_name, force_update=False):
@@ -49,7 +46,8 @@ def initialize_domain(domains_config, initializer_metrics, domain_name, force_up
         initializer_metrics.exception(domain_name, start_time)
 
 
-def run_single_iteration(domains_config, initializer_metrics):
+def run_single_iteration(domains_config, metrics, **_):
+    initializer_metrics = metrics
     domain_names_ready_for_deployment = domains_config.get_worker_domains_ready_for_deployment()
     domain_names_waiting_for_deployment_complete = domains_config.get_worker_domains_waiting_for_deployment_complete()
     domains_waiting_for_initialization = domains_config.get_worker_domains_waiting_for_initlization()
@@ -63,15 +61,15 @@ def run_single_iteration(domains_config, initializer_metrics):
 
 
 def start_daemon(once=False, with_prometheus=True, initializer_metrics=None, domains_config=None):
-    if not domains_config:
-        domains_config = DomainsConfig()
-    with logs.alert_exception_catcher(domains_config, daemon="initializer"):
-        if with_prometheus:
-            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_INITIALIZER)
-        if not initializer_metrics:
-            initializer_metrics = metrics.InitializerMetrics()
-        while True:
-            run_single_iteration(domains_config, initializer_metrics)
-            if once:
-                break
-            time.sleep(config.INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    Daemon(
+        name="initializer",
+        sleep_time_between_iterations_seconds=config.INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        metrics_class=metrics.InitializerMetrics,
+        metrics=initializer_metrics,
+        domains_config=domains_config,
+        run_single_iteration_callback=run_single_iteration,
+        prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_INITIALIZER
+    ).start(
+        once=once,
+        with_prometheus=with_prometheus
+    )

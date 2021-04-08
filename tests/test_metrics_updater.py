@@ -44,6 +44,10 @@ def test_update_release_metrics(domains_config, deployments_manager):
     minio_metrics_base_key = 'deploymentid:minio-metrics:{}:'.format(namespace_name)
     metrics_updater_metrics = MockMetricsUpdaterMetrics()
     deployments_manager.prometheus_metrics[namespace_name] = {}
+    deployments_manager.kube_metrics[namespace_name] = {
+        'ram_limit_bytes': 0,
+        'ram_requests_bytes': 0
+    }
     now = datetime.datetime(2020, 1, 5, 4, 3, 2).astimezone(pytz.UTC)
     delete_all_redis_pools_keys(domains_config)
 

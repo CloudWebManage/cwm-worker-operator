@@ -1,17 +1,15 @@
-import time
 import traceback
 import subprocess
-
-import prometheus_client
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
-from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator import common
+from cwm_worker_operator.daemon import Daemon
 
 
-def run_single_iteration(domains_config, disk_usage_updater_metrics, subprocess_getstatusoutput):
+def run_single_iteration(domains_config, metrics, subprocess_getstatusoutput, **_):
+    disk_usage_updater_metrics = metrics
     ret, out = subprocess_getstatusoutput('umount -f /tmp/dum; mkdir -p /tmp/dum; mount -t nfs4 {}:{} /tmp/dum'.format(
         config.DISK_USAGE_UPDATER_NFS_SERVER, config.DISK_USAGE_UPDATER_NFS_ROOT_PATH))
     assert ret == 0, out
@@ -38,17 +36,18 @@ def run_single_iteration(domains_config, disk_usage_updater_metrics, subprocess_
 
 
 def start_daemon(once=False, with_prometheus=True, disk_usage_updater_metrics=None, domains_config=None, subprocess_getstatusoutput=None):
-    if domains_config is None:
-        domains_config = DomainsConfig()
-    with logs.alert_exception_catcher(domains_config, daemon="disk_usage_updater"):
-        if with_prometheus:
-            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER)
-        if disk_usage_updater_metrics is None:
-            disk_usage_updater_metrics = metrics.DiskUsageUpdaterMetrics()
-        if subprocess_getstatusoutput is None:
-            subprocess_getstatusoutput = subprocess.getstatusoutput
-        while True:
-            run_single_iteration(domains_config, disk_usage_updater_metrics, subprocess_getstatusoutput)
-            if once:
-                break
-            time.sleep(config.DISK_USAGE_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    if subprocess_getstatusoutput is None:
+        subprocess_getstatusoutput = subprocess.getstatusoutput
+    Daemon(
+        name='disk_usage_updater',
+        sleep_time_between_iterations_seconds=config.DISK_USAGE_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        metrics_class=metrics.DiskUsageUpdaterMetrics,
+        domains_config=domains_config,
+        metrics=disk_usage_updater_metrics,
+        run_single_iteration_callback=run_single_iteration,
+        prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER,
+        run_single_iteration_extra_kwargs={'subprocess_getstatusoutput': subprocess_getstatusoutput}
+    ).start(
+        once=once,
+        with_prometheus=with_prometheus
+    )

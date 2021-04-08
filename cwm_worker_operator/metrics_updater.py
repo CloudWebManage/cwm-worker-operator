@@ -10,6 +10,7 @@ from cwm_worker_operator import logs
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import common
+from cwm_worker_operator.daemon import Daemon
 
 
 DATEFORMAT = "%Y%m%d%H%M%S"
@@ -75,23 +76,23 @@ def update_release_metrics(domains_config, deployments_manager, metrics_updater_
         metrics_updater_metrics.exception(domain_name, start_time)
 
 
-def run_single_iteration(domains_config, metrics_updater_metrics, deployments_manager):
+def run_single_iteration(domains_config, metrics, deployments_manager, **_):
+    metrics_updater_metrics = metrics
     for release in deployments_manager.iterate_all_releases():
         update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, release["namespace"])
 
 
 def start_daemon(once=False, with_prometheus=True, metrics_updater_metrics=None, domains_config=None, deployments_manager=None):
-    if domains_config is None:
-        domains_config = DomainsConfig()
-    with logs.alert_exception_catcher(domains_config, daemon="metrics_updater"):
-        if with_prometheus:
-            prometheus_client.start_http_server(config.PROMETHEUS_METRICS_PORT_METRICS_UPDATER)
-        if metrics_updater_metrics is None:
-            metrics_updater_metrics = metrics.MetricsUpdaterMetrics()
-        if deployments_manager is None:
-            deployments_manager = DeploymentsManager()
-        while True:
-            run_single_iteration(domains_config, metrics_updater_metrics, deployments_manager)
-            if once:
-                break
-            time.sleep(config.METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS)
+    Daemon(
+        name='metrics_updater',
+        sleep_time_between_iterations_seconds=config.METRICS_UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
+        metrics_class=metrics.MetricsUpdaterMetrics,
+        domains_config=domains_config,
+        metrics=metrics_updater_metrics,
+        run_single_iteration_callback=run_single_iteration,
+        prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_METRICS_UPDATER,
+        deployments_manager=deployments_manager
+    ).start(
+        once=once,
+        with_prometheus=with_prometheus
+    )
