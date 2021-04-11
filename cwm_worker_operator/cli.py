@@ -68,7 +68,7 @@ def main():
             cleaner.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid cleaner command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "nodes_checker":
+    elif sys.argv[1] == "nodes-checker":
         if sys.argv[2] == "start_daemon":
             nodes_checker.start_daemon('--once' in sys.argv)
         else:

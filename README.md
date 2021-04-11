@@ -66,12 +66,6 @@ export AWS_ACCESS_KEY_ID=
 export AWS_SECRET_ACCESS_KEY=
 ```
 
-Deploy a testing instance of Prometheus on the minikube cluster and wait for it to be ready 
-
-```
-bin/prometheus_deploy_wait.sh
-```
-
 ### Run tests
 
 Activate the virtualenv

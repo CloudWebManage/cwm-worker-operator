@@ -34,10 +34,12 @@ def test_k8s():
                    "cwm_api_url={CWM_API_URL}," \
                    "packages_reader_github_user={PACKAGES_READER_GITHUB_USER}," \
                    "packages_reader_github_token={PACKAGES_READER_GITHUB_TOKEN}," \
-                   "operator.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS=120".format(
+                   "operator.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS=120," \
+                   "operator.daemons={daemons_helm_list}".format(
             CWM_API_URL=os.environ['CWM_API_URL'],
             PACKAGES_READER_GITHUB_USER=os.environ['PACKAGES_READER_GITHUB_USER'],
             PACKAGES_READER_GITHUB_TOKEN=os.environ['PACKAGES_READER_GITHUB_TOKEN'],
+            daemons_helm_list='{initializer,deployer,waiter,updater,deleter,metrics-updater}',
         )
         returncode, output = subprocess.getstatusoutput(
             'helm upgrade --install cwm-worker-operator ./helm {}'.format(helmargs))
