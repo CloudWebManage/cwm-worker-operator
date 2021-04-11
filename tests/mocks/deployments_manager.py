@@ -56,6 +56,9 @@ class MockDeploymentsManager(DeploymentsManager):
         self.node_cleanup_pod_mock_cache_namespaces = []
         self.mock_worker_has_pod_on_node = True
         self.kube_metrics = {}
+        self.dns_healthchecks = []
+        self.dns_records = []
+        self.dns_healthcheck_counter = 0
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -110,3 +113,25 @@ class MockDeploymentsManager(DeploymentsManager):
     def worker_has_pod_on_node(self, namespace_name, node_name):
         self.calls.append(('worker_has_pod_on_node', [namespace_name, node_name]))
         return self.mock_worker_has_pod_on_node
+
+    def iterate_dns_healthchecks(self):
+        for dns_healthcheck in self.dns_healthchecks:
+            yield dns_healthcheck
+
+    def iterate_dns_records(self):
+        for dns_record in self.dns_records:
+            yield dns_record
+
+    def set_dns_healthcheck(self, node_name, node_ip):
+        self.calls.append(('set_dns_healthcheck', [node_name, node_ip]))
+        self.dns_healthcheck_counter += 1
+        return 'created-healthcheck-{}'.format(self.dns_healthcheck_counter)
+
+    def set_dns_record(self, node_name, node_ip, healthcheck_id):
+        self.calls.append(('set_dns_record', [node_name, node_ip, healthcheck_id]))
+
+    def delete_dns_healthcheck(self, healthcheck_id):
+        self.calls.append(('delete_dns_healthcheck', [healthcheck_id]))
+
+    def delete_dns_record(self, record_id):
+        self.calls.append(('delete_dns_record', [record_id]))

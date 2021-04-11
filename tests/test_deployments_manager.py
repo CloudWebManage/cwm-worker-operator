@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import pytz
 import shutil
@@ -119,19 +120,23 @@ def test_verify_worker_access():
 
 
 def test_iterate_cluster_nodes():
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl get node minikube -o json')
+    assert ret == 0, out
+    node = json.loads(out)
+    node_ip = node['status']['addresses'][0]['address']
     deployments_manager = DeploymentsManager()
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role-; DEBUG= kubectl uncordon minikube')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False}]
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip}]
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role=worker:NoSchedule')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': False}]
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip}]
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl cordon minikube')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': True}]
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': True, 'public_ip': node_ip}]
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role- && DEBUG= kubectl uncordon minikube')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False}]
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip}]
 
 
 def test_node_cleanup_pod():
@@ -161,3 +166,37 @@ def test_worker_has_pod_on_node():
     assert not deployments_manager.worker_has_pod_on_node('non-existent-namespace', 'minikube')
     assert not deployments_manager.worker_has_pod_on_node('kube-system', 'non-existent-node')
     assert deployments_manager.worker_has_pod_on_node('kube-system', 'minikube')
+
+
+def test_dns_healthchecks_records():
+    deployments_manager = DeploymentsManager()
+    for healthcheck in deployments_manager.iterate_dns_healthchecks():
+        deployments_manager.delete_dns_healthcheck(healthcheck['id'])
+    assert list(deployments_manager.iterate_dns_healthchecks()) == []
+    node1_ip = '1.1.1.1'
+    node2_ip = '2.2.2.2'
+    node1_healthcheck_id = deployments_manager.set_dns_healthcheck('cwmc-operator-test-node1', node1_ip)
+    node2_healthcheck_id = deployments_manager.set_dns_healthcheck('cwmc-operator-test-node2', node2_ip)
+    healthchecks = {healthcheck['node_name']: healthcheck for healthcheck in deployments_manager.iterate_dns_healthchecks()}
+    assert len(healthchecks) == 2
+    node1_healthcheck = healthchecks['cwmc-operator-test-node1']
+    node2_healthcheck = healthchecks['cwmc-operator-test-node2']
+    assert node1_healthcheck['id'] == node1_healthcheck_id
+    assert node2_healthcheck['id'] == node2_healthcheck_id
+    assert node1_healthcheck['ip'] == node1_ip
+    assert node2_healthcheck['ip'] == node2_ip
+    for record in deployments_manager.iterate_dns_records():
+        deployments_manager.delete_dns_record(record['id'])
+    deployments_manager.set_dns_record('cwmc-operator-test-node1', node1_ip, node1_healthcheck_id)
+    deployments_manager.set_dns_record('cwmc-operator-test-node2', node2_ip, node2_healthcheck_id)
+    records = {record['node_name']: record for record in deployments_manager.iterate_dns_records()}
+    assert len(records) == 2
+    node1_record = records['cwmc-operator-test-node1']
+    node2_record = records['cwmc-operator-test-node2']
+    assert node1_record['ip'] == node1_ip
+    assert node2_record['ip'] == node2_ip
+    for record in records.values():
+        deployments_manager.delete_dns_record(record['id'])
+    for healthcheck in healthchecks.values():
+        deployments_manager.delete_dns_healthcheck(healthcheck['id'])
+    assert list(deployments_manager.iterate_dns_healthchecks()) == []

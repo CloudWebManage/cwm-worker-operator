@@ -11,6 +11,7 @@ from cwm_worker_operator import web_ui
 from cwm_worker_operator import disk_usage_updater
 from cwm_worker_operator import alerter
 from cwm_worker_operator import cleaner
+from cwm_worker_operator import nodes_checker
 
 
 def main():
@@ -67,5 +68,10 @@ def main():
             cleaner.start_daemon('--once' in sys.argv)
         else:
             raise Exception("Invalid cleaner command: {}".format(" ".join(sys.argv[2:])))
+    elif sys.argv[1] == "nodes_checker":
+        if sys.argv[2] == "start_daemon":
+            nodes_checker.start_daemon('--once' in sys.argv)
+        else:
+            raise Exception("Invalid nodes_checker command: {}".format(" ".join(sys.argv[2:])))
     else:
         raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))

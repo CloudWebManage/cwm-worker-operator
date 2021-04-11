@@ -49,7 +49,7 @@ metricsRedis:
     enabled: true
 
 operator:
-  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter", "cleaner"]
+  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter", "cleaner", "nodes_checker"]
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -107,6 +107,11 @@ operator:
   ALERTER_SLACK_WEBHOOK_URL: ""
   ALERTER_MESSAGE_PREFIX: ""
   CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "900"
+  NODES_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "60"
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  AWS_ROUTE53_HOSTEDZONE_ID: ""
+  AWS_ROUTE53_HOSTEDZONE_DOMAIN: ""
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
@@ -118,6 +123,7 @@ operator:
 #  diskUsageUpdaterResources: {}
 #  AlerterResources: {}
 #  CleanerResources: {}
+#  NodesCheckerResources: {}
   defaultResources:
     requests:
       cpu: "25m"

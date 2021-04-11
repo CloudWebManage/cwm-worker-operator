@@ -1,6 +1,8 @@
 import os
+import uuid
 import json
 import time
+import boto3
 import urllib3
 import tempfile
 import traceback
@@ -211,10 +213,12 @@ class DeploymentsManager:
                         is_worker = True
                         break
                 unschedulable = bool(node.get('spec', {}).get('unschedulable'))
+                public_ip = node.get('status', {}).get('addresses', [{}])[0].get('address', '')
                 yield {
                     'name': node_name,
                     'is_worker': is_worker,
-                    'unschedulable': unschedulable
+                    'unschedulable': unschedulable,
+                    'public_ip': public_ip
                 }
 
     @contextmanager
@@ -230,3 +234,123 @@ class DeploymentsManager:
     def worker_has_pod_on_node(self, namespace_name, node_name):
         ret, out = subprocess.getstatusoutput('kubectl get pods -n {} -ocustom-columns=node:spec.nodeName | tail -n +2 | grep \'^{}$\''.format(namespace_name, node_name))
         return ret == 0
+
+    def iterate_dns_healthchecks(self):
+        client = boto3.client('route53')
+        next_marker = ''
+        while True:
+            res = client.list_health_checks(Marker=next_marker)
+            for healthcheck in res.get('HealthChecks', []):
+                healthcheck_id = healthcheck['Id']
+                healthcheck_name = None
+                for tag in client.list_tags_for_resource(ResourceType='healthcheck', ResourceId=healthcheck_id)['ResourceTagSet']['Tags']:
+                    if tag['Key'] == 'Name':
+                        healthcheck_name = tag['Value']
+                        break
+                healthcheck_ip = healthcheck.get('HealthCheckConfig', {}).get('IPAddress') or ''
+                if healthcheck_name and healthcheck_name.startswith(config.DNS_RECORDS_PREFIX + ":"):
+                    yield {
+                        'id': healthcheck_id,
+                        'node_name': healthcheck_name.replace(config.DNS_RECORDS_PREFIX + ":", ""),
+                        'ip': healthcheck_ip
+                    }
+            if res['IsTruncated']:
+                next_marker = res['NextMarker']
+            else:
+                break
+
+    def iterate_dns_records(self):
+        client = boto3.client('route53')
+        next_record_identifier = None
+        while True:
+            res = client.list_resource_record_sets(
+                HostedZoneId=config.AWS_ROUTE53_HOSTEDZONE_ID,
+                **({'StartRecordIdentifier': next_record_identifier} if next_record_identifier is not None else {})
+            )
+            for record in res.get('ResourceRecordSets', []):
+                if record['Type'] == 'A' and record['Name'] == '{}.{}.'.format(config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
+                    if record['SetIdentifier'].startswith(config.DNS_RECORDS_PREFIX+':'):
+                        record_ip = ''
+                        for value in record.get('ResourceRecords', []):
+                            record_ip = value.get('Value') or ''
+                            break
+                        yield {
+                            'id': json.dumps(record),
+                            'node_name': record['SetIdentifier'].replace(config.DNS_RECORDS_PREFIX+':', ''),
+                            'ip': record_ip
+                        }
+            if res['IsTruncated']:
+                next_record_identifier = res['NextRecordIdentifier']
+            else:
+                break
+
+    def set_dns_healthcheck(self, node_name, node_ip):
+        client = boto3.client('route53')
+        caller_reference = str(uuid.uuid4())
+        res = client.create_health_check(
+            CallerReference=caller_reference,
+            HealthCheckConfig={
+                "IPAddress": node_ip,
+                "Port": 80,
+                "Type": "HTTP",
+                "ResourcePath": "/healthz",
+                "RequestInterval": 30,  # according to AWS docs, when using the recommended regions, it actually does a healthcheck every 2-3 seconds
+                "FailureThreshold": 1,
+            }
+        )
+        healthcheck_id = res['HealthCheck']['Id']
+        client.change_tags_for_resource(
+            ResourceType="healthcheck",
+            ResourceId=healthcheck_id,
+            AddTags=[
+                {"Key": "Name", "Value": config.DNS_RECORDS_PREFIX + ":" + node_name}
+            ]
+        )
+        return healthcheck_id
+
+    def set_dns_record(self, node_name, node_ip, healthcheck_id):
+        client = boto3.client('route53')
+        client.change_resource_record_sets(
+            HostedZoneId=config.AWS_ROUTE53_HOSTEDZONE_ID,
+            ChangeBatch={
+                "Comment": "cwm-worker-operator deployments_manager.set_dns_record({},{})".format(node_name, node_ip),
+                "Changes": [
+                    {
+                        "Action": "CREATE",
+                        "ResourceRecordSet": {
+                            "Name": '{}.{}.'.format(config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN),
+                            'Type': 'A',
+                            'SetIdentifier': config.DNS_RECORDS_PREFIX + ':' + node_name,
+                            'MultiValueAnswer': True,
+                            'TTL': 120,
+                            'ResourceRecords': [
+                                {
+                                    'Value': node_ip
+                                }
+                            ],
+                            'HealthCheckId': healthcheck_id
+                        }
+                    }
+                ]
+            }
+        )
+
+    def delete_dns_healthcheck(self, healthcheck_id):
+        client = boto3.client('route53')
+        client.delete_health_check(HealthCheckId=healthcheck_id)
+
+    def delete_dns_record(self, record_id):
+        client = boto3.client('route53')
+        record = json.loads(record_id)
+        client.change_resource_record_sets(
+            HostedZoneId=config.AWS_ROUTE53_HOSTEDZONE_ID,
+            ChangeBatch={
+                "Comment": "cwm-worker-operator deployments_manager.delete_dns_record",
+                "Changes": [
+                    {
+                        "Action": "DELETE",
+                        "ResourceRecordSet": record
+                    }
+                ]
+            }
+        )

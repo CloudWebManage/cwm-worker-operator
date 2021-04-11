@@ -16,6 +16,7 @@ REDIS_KEY_WORKER_AVAILABLE = REDIS_KEY_PREFIX_WORKER_AVAILABLE + ":{}"
 REDIS_KEY_WORKER_INGRESS_HOSTNAME = "worker:ingress:hostname:{}"
 REDIS_KEY_WORKER_ERROR = "worker:error:{}"
 REDIS_KEY_PREFIX_WORKER_ERROR = "worker:error"
+REDIS_KEY_PREFIX_NODE_HEALTHY = "node:healthy"
 
 # internal_redis - keys used internally only by cwm-worker-operator
 REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER = "worker:error_attempt_number:{}"
@@ -475,3 +476,16 @@ class DomainsConfig(object):
         with self.get_internal_redis() as r:
             alert = r.lpop(REDIS_KEY_ALERTS)
         return json.loads(alert) if alert else None
+
+    def set_node_healthy(self, node_name, is_healthy):
+        key = "{}:{}".format(REDIS_KEY_PREFIX_NODE_HEALTHY, node_name)
+        with self.get_ingress_redis() as r:
+            if is_healthy:
+                r.set(key, "")
+            else:
+                r.delete(key)
+
+    def iterate_healthy_node_names(self):
+        with self.get_ingress_redis() as r:
+            for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_NODE_HEALTHY)):
+                yield key.decode().replace(REDIS_KEY_PREFIX_NODE_HEALTHY + ":", "")

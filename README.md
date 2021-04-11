@@ -60,6 +60,10 @@ Set secret env vars (you can get them from Jenkins):
 export CWM_API_URL=
 export PACKAGES_READER_GITHUB_USER=
 export PACKAGES_READER_GITHUB_TOKEN=
+export AWS_ROUTE53_HOSTEDZONE_ID=
+export AWS_ROUTE53_HOSTEDZONE_DOMAIN=
+export AWS_ACCESS_KEY_ID=
+export AWS_SECRET_ACCESS_KEY=
 ```
 
 Deploy a testing instance of Prometheus on the minikube cluster and wait for it to be ready 

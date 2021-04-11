@@ -184,6 +184,18 @@ spec:
           value: {{ $.Values.operator.ALERTER_MESSAGE_PREFIX | quote }}
         - name: CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.operator.CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: NODES_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.NODES_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        {{ if eq . "nodes_checker" }}
+        - name: AWS_ACCESS_KEY_ID
+          value: {{ $.Values.operator.AWS_ACCESS_KEY_ID | quote }}
+        - name: AWS_SECRET_ACCESS_KEY
+          value: {{ $.Values.operator.AWS_SECRET_ACCESS_KEY | quote }}
+        - name: AWS_ROUTE53_HOSTEDZONE_ID
+          value: {{ $.Values.operator.AWS_ROUTE53_HOSTEDZONE_ID | quote }}
+        - name: AWS_ROUTE53_HOSTEDZONE_DOMAIN
+          value: {{ $.Values.operator.AWS_ROUTE53_HOSTEDZONE_DOMAIN | quote }}
+        {{ end }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}
@@ -206,6 +218,8 @@ spec:
 {{ toYaml $.Values.operator.AlerterResources | indent 10 }}
 {{ else if and (eq . "cleaner") $.Values.operator.CleanerResources }}
 {{ toYaml $.Values.operator.CleanerResources | indent 10 }}
+{{ else if and (eq . "nodes_checker") $.Values.operator.NodesCheckerResources }}
+{{ toYaml $.Values.operator.NodesCheckerResources | indent 10 }}
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
 {{ end }}
