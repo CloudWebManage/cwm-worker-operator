@@ -41,7 +41,9 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
             *config.CWM_WORKER_EXTRA_OBJECTS,
             *volume_config.get("cwm_worker_extra_objects", [])
         ]
-        minio = {}
+        minio = {
+            'domain_name': domain_name
+        }
         if config.PULL_SECRET:
             minio['createPullSecret'] = config.PULL_SECRET
         if protocol == "https" and certificate_key and certificate_pem:
