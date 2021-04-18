@@ -48,3 +48,13 @@ jobs:
           sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
           bin/helm_publish.sh
         fi
+
+    - uses: 8398a7/action-slack@v3
+      if: github.ref == 'refs/heads/master'
+      with:
+        status: ${{ job.status }}
+        author_name: ${{ github.actor }}
+        fields: all
+        if_mention: success,failure
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
