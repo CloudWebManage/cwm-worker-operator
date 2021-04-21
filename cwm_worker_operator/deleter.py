@@ -9,7 +9,7 @@ from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
 
 
-def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
+def delete(worker_id, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
            domains_config=None, deployments_manager=None, with_metrics=False):
     if domains_config is None:
         domains_config = DomainsConfig()
@@ -19,14 +19,8 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
         delete_namespace = config.DELETER_DEFAULT_DELETE_NAMESPACE
     if delete_helm is None:
         delete_helm = config.DELETER_DEFAULT_DELETE_HELM
-    try:
-        volume_config = domains_config.get_cwm_api_volume_config(domain_name)
-        namespace_name = volume_config.get("hostname", domain_name).replace(".", "--")
-    except:
-        traceback.print_exc()
-        print("Failed to get hostname from volume_config, using domain_name")
-        namespace_name = domain_name.replace(".", "--")
-    domains_config.del_worker_keys(domain_name, with_metrics=with_metrics)
+    namespace_name = common.get_namespace_name_from_worker_id(worker_id)
+    domains_config.del_worker_keys(worker_id, with_metrics=with_metrics)
     deployments_manager.delete(
         namespace_name, "minio", timeout_string=deployment_timeout_string, delete_namespace=delete_namespace,
         delete_helm=delete_helm
@@ -36,21 +30,21 @@ def delete(domain_name, deployment_timeout_string=None, delete_namespace=None, d
 def run_single_iteration(domains_config, metrics, deployments_manager, **_):
     deleter_metrics = metrics
     for worker_to_delete in domains_config.iterate_domains_to_delete():
-        domain_name = worker_to_delete['domain_name']
+        worker_id = worker_to_delete['worker_id']
         allow_cancel = worker_to_delete['allow_cancel']
         start_time = common.now()
         try:
-            if allow_cancel and domains_config.is_worker_waiting_for_deployment(domain_name):
-                domains_config.del_worker_force_delete(domain_name)
-                deleter_metrics.delete_canceled(domain_name, start_time)
+            if allow_cancel and domains_config.is_worker_waiting_for_deployment(worker_id):
+                domains_config.del_worker_force_delete(worker_id)
+                deleter_metrics.delete_canceled(worker_id, start_time)
             else:
-                delete(domain_name, domains_config=domains_config, deployments_manager=deployments_manager)
-                deleter_metrics.delete_success(domain_name, start_time)
+                delete(worker_id, domains_config=domains_config, deployments_manager=deployments_manager)
+                deleter_metrics.delete_success(worker_id, start_time)
         except Exception as e:
-            logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
+            logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
             if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
                 traceback.print_exc()
-            deleter_metrics.exception(domain_name, start_time)
+            deleter_metrics.exception(worker_id, start_time)
 
 
 def start_daemon(once=False, with_prometheus=True, deleter_metrics=None, domains_config=None, deployments_manager=None):

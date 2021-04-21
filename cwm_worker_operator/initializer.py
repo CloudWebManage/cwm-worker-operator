@@ -7,57 +7,68 @@ from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
 
 
-def initialize_domain(domains_config, initializer_metrics, domain_name, force_update=False):
-    worker_to_delete = domains_config.get_worker_force_delete(domain_name)
+def failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time):
+    initializer_metrics.failed_to_get_volume_config(hostname, start_time)
+    error_attempt_number = domains_config.increment_worker_error_attempt_number(hostname)
+    if error_attempt_number >= config.WORKER_ERROR_MAX_ATTEMPTS:
+        domains_config.set_worker_error_by_hostname(hostname, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
+    logs.debug_info("Failed to get volume config", hostname=hostname, start_time=start_time)
+
+
+def initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time, hostname=None):
+    worker_to_delete = domains_config.get_worker_force_delete(worker_id)
     if worker_to_delete and not worker_to_delete['allow_cancel']:
-        # domain is forced to delete but the deletion cannot be canceled, so we cancel the deployment until delete will occur
+        # worker is forced to delete but the deletion cannot be canceled, so we cancel the deployment until delete will occur
         return
-    start_time = common.now()
-    log_kwargs = {"domain_name": domain_name, "start_time": start_time}
-    logs.debug("Start initialize_domain", debug_verbosity=4, **log_kwargs)
+    log_kwargs = {"worker_id": worker_id, "start_time": start_time, "hostname": hostname}
+    logs.debug("Start initialize_worker", debug_verbosity=4, **log_kwargs)
     try:
-        try:
-            volume_config = domains_config.get_cwm_api_volume_config(domain_name, initializer_metrics, force_update=force_update)
-            namespace_name = volume_config["hostname"].replace(".", "--")
-            volume_zone = volume_config["zone"]
-        except Exception:
+        volume_zone = volume_config.get("zone")
+        if not volume_zone or volume_zone != config.CWM_ZONE:
             if config.DEBUG and config.DEBUG_VERBOSITY > 5:
-                traceback.print_exc()
-            initializer_metrics.failed_to_get_volume_config(domain_name, start_time)
-            error_attempt_number = domains_config.increment_worker_error_attempt_number(domain_name)
-            if error_attempt_number >= config.WORKER_ERROR_MAX_ATTEMPTS:
-                domains_config.set_worker_error(domain_name, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
-            logs.debug_info("Failed to get volume config", **log_kwargs)
-            return
-        if volume_zone != config.CWM_ZONE:
-            if config.DEBUG and config.DEBUG_VERBOSITY > 5:
-                print("ERROR! Invalid volume zone (domain={} volume_zone={} CWM_ZONE={})".format(domain_name, volume_zone, config.CWM_ZONE), flush=True)
-            domains_config.set_worker_error(domain_name, domains_config.WORKER_ERROR_INVALID_VOLUME_ZONE)
-            initializer_metrics.invalid_volume_zone(domain_name, start_time)
+                print("ERROR! Invalid volume zone (worker_id={} volume_zone={} CWM_ZONE={})".format(worker_id, volume_zone, config.CWM_ZONE), flush=True)
+            if hostname:
+                domains_config.set_worker_error_by_hostname(hostname, domains_config.WORKER_ERROR_INVALID_VOLUME_ZONE)
+            else:
+                domains_config.del_worker_force_update(worker_id)
+                domains_config.set_worker_force_delete(worker_id)
+            initializer_metrics.invalid_volume_zone(worker_id, start_time)
             logs.debug_info("Invalid volume zone", **log_kwargs)
             return
-        initializer_metrics.initialized(domain_name, start_time)
-        domains_config.set_worker_ready_for_deployment(domain_name)
+        domains_config.del_worker_force_update(worker_id)
+        initializer_metrics.initialized(worker_id, start_time)
+        domains_config.set_worker_ready_for_deployment(worker_id)
         logs.debug_info("Ready for deployment", **log_kwargs)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        initializer_metrics.exception(domain_name, start_time)
+        initializer_metrics.exception(worker_id, start_time)
 
 
 def run_single_iteration(domains_config, metrics, **_):
     initializer_metrics = metrics
-    domain_names_ready_for_deployment = domains_config.get_worker_domains_ready_for_deployment()
-    domain_names_waiting_for_deployment_complete = domains_config.get_worker_domains_waiting_for_deployment_complete()
-    domains_waiting_for_initialization = domains_config.get_worker_domains_waiting_for_initlization()
-    domains_force_update = domains_config.get_domains_force_update()
-    for domain_name in domains_force_update:
-        if domain_name not in domain_names_ready_for_deployment and domain_name not in domain_names_waiting_for_deployment_complete:
-            initialize_domain(domains_config, initializer_metrics, domain_name, force_update=True)
-    for domain_name in domains_waiting_for_initialization:
-        if domain_name not in domain_names_ready_for_deployment and domain_name not in domain_names_waiting_for_deployment_complete and domain_name not in domains_force_update:
-            initialize_domain(domains_config, initializer_metrics, domain_name)
+    worker_ids_ready_for_deployment = domains_config.get_worker_ids_ready_for_deployment()
+    worker_ids_waiting_for_deployment_complete = domains_config.get_worker_ids_waiting_for_deployment_complete()
+    hostnames_waiting_for_initialization = domains_config.get_hostnames_waiting_for_initlization()
+    worker_ids_force_update = domains_config.get_worker_ids_force_update()
+    hostnames_forced_update = set()
+    for worker_id in worker_ids_force_update:
+        start_time = common.now()
+        if worker_id not in worker_ids_ready_for_deployment and worker_id not in worker_ids_waiting_for_deployment_complete:
+            volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id, metrics=initializer_metrics, force_update=True)
+            # TODO: add support for multiple hostnames, iterate over all of them to add to hostnames_forced_update
+            hostnames_forced_update.add(volume_config.get("hostname"))
+            initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time)
+    for hostname in hostnames_waiting_for_initialization:
+        if hostname not in hostnames_forced_update:
+            start_time = common.now()
+            volume_config = domains_config.get_cwm_api_volume_config(hostname=hostname, metrics=initializer_metrics)
+            worker_id = volume_config.get("id")
+            if not worker_id or volume_config.get('__error'):
+                failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time)
+            elif worker_id not in worker_ids_ready_for_deployment and worker_id not in worker_ids_waiting_for_deployment_complete and worker_id not in worker_ids_force_update:
+                initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time, hostname=hostname)
 
 
 def start_daemon(once=False, with_prometheus=True, initializer_metrics=None, domains_config=None):

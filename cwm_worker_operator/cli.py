@@ -32,10 +32,10 @@ def main():
             raise Exception("Invalid waiter command: {}".format(" ".join(sys.argv[2:])))
     elif sys.argv[1] == "deleter":
         if sys.argv[2] == "delete":
-            domain_name = sys.argv[3] if len(sys.argv) >= 4 else None
+            worker_id = sys.argv[3] if len(sys.argv) >= 4 else None
             deployment_timeout_string = sys.argv[4] if len(sys.argv) >= 5 else None
             with_metrics = True if os.environ.get('CLI_DELETER_DELETE_WITH_METRICS') == 'yes' else False
-            deleter.delete(domain_name, deployment_timeout_string=deployment_timeout_string, with_metrics=with_metrics)
+            deleter.delete(worker_id, deployment_timeout_string=deployment_timeout_string, with_metrics=with_metrics)
         elif sys.argv[2] == "start_daemon":
             deleter.start_daemon('--once' in sys.argv)
         else:

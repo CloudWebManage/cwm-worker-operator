@@ -42,7 +42,7 @@ Start a Redis server
 docker run -d --rm --name redis -p 6379:6379 redis
 ```
 
-Set env vars
+Create a `.env` file with the following:
 
 ```
 export REDIS_HOST=172.17.0.1
@@ -54,7 +54,7 @@ export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633
 export WAITER_VERIFY_WORKER_ACCESS=no
 ```
 
-Set secret env vars (you can get them from Jenkins):
+Add secret env vars to the `.env` (you can get them from Jenkins):
 
 ```
 export CWM_API_URL=
@@ -64,6 +64,12 @@ export AWS_ROUTE53_HOSTEDZONE_ID=
 export AWS_ROUTE53_HOSTEDZONE_DOMAIN=
 export AWS_ACCESS_KEY_ID=
 export AWS_SECRET_ACCESS_KEY=
+```
+
+Source the `.env` file
+
+```
+source .env
 ```
 
 ### Run tests

@@ -19,8 +19,8 @@ def check_worker_force_delete_from_metrics(namespace_name, domains_config):
 
 def check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision):
     start_time = common.now()
-    domain_name = namespace_name.replace("--", ".")
-    volume_config = domains_config.get_cwm_api_volume_config(domain_name)
+    worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
     disable_force_delete = volume_config.get("disable_force_delete")
     disable_force_update = volume_config.get("disable_force_update")
     try:
@@ -30,61 +30,61 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
             if hours_since_last_update >= .5 and revision <= 2:
                 msg = "domain force update (first revision)"
                 if disable_force_update:
-                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
                 else:
-                    logs.debug(msg, debug_verbosity=4, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                    domains_config.set_worker_force_update(domain_name)
-                    updater_metrics.not_deployed_force_update(domain_name, start_time)
+                    logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    domains_config.set_worker_force_update(worker_id)
+                    updater_metrics.not_deployed_force_update(worker_id, start_time)
         else:
             if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and check_worker_force_delete_from_metrics(namespace_name, domains_config):
                 msg = "domain force delete (after grace period + based on metrics)"
                 if disable_force_delete:
-                    logs.debug("{} but disable_force_delete is true".format(msg), debug_verbosity=10, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    logs.debug("{} but disable_force_delete is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
                 else:
-                    logs.debug(msg, debug_verbosity=4, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                    domains_config.set_worker_force_delete(domain_name, allow_cancel=True)
-                    updater_metrics.force_delete(domain_name, start_time)
+                    logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    domains_config.set_worker_force_delete(worker_id, allow_cancel=True)
+                    updater_metrics.force_delete(worker_id, start_time)
             elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
                 msg = "domain force update (after FORCE_UPDATE_MAX_HOURS_TTL)"
                 if disable_force_update:
-                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
                 else:
-                    logs.debug(msg, debug_verbosity=4, domain_name=domain_name, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                    domains_config.set_worker_force_update(domain_name)
-                    updater_metrics.force_update(domain_name, start_time)
+                    logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    domains_config.set_worker_force_update(worker_id)
+                    updater_metrics.force_update(worker_id, start_time)
     except Exception as e:
-        logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
+        logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        updater_metrics.exception(domain_name, start_time)
-    return domain_name, start_time
+        updater_metrics.exception(worker_id, start_time)
+    return worker_id, start_time
 
 
-def send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager):
+def send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager):
     try:
-        agg_metrics = domains_config.get_worker_aggregated_metrics(domain_name)
+        agg_metrics = domains_config.get_worker_aggregated_metrics(worker_id)
         if agg_metrics:
             current_last_update = common.strptime(agg_metrics.get(metrics_updater.LAST_UPDATE_KEY), metrics_updater.DATEFORMAT)
             current_minutes = agg_metrics.get(metrics_updater.MINUTES_KEY)
             if current_last_update and current_minutes:
-                previous_last_update_sent, previous_last_update = domains_config.get_worker_aggregated_metrics_last_sent_update(domain_name)
+                previous_last_update_sent, previous_last_update = domains_config.get_worker_aggregated_metrics_last_sent_update(worker_id)
                 if previous_last_update_sent and (common.now() - previous_last_update_sent).total_seconds() < 60:
-                    logs.debug('send_agg_metrics: not sending metrics to cwm_api because last update was sent less than 60 seconds ago', debug_verbosity=10, domain_name=domain_name, previous_last_update_sent=previous_last_update_sent)
+                    logs.debug('send_agg_metrics: not sending metrics to cwm_api because last update was sent less than 60 seconds ago', debug_verbosity=10, worker_id=worker_id, previous_last_update_sent=previous_last_update_sent)
                 elif previous_last_update and previous_last_update == current_last_update:
-                    logs.debug('send_agg_metrics: not sending metrics because previous last_update is the same as current last_update', debug_verbosity=10, domain_name=domain_name, previous_last_update=previous_last_update, current_last_update=current_last_update)
+                    logs.debug('send_agg_metrics: not sending metrics because previous last_update is the same as current last_update', debug_verbosity=10, worker_id=worker_id, previous_last_update=previous_last_update, current_last_update=current_last_update)
                 else:
-                    logs.debug('send_agg_metrics: sending metrics to cwm_api', debug_verbosity=9, domain_name=domain_name, current_last_update=current_last_update)
-                    cwm_api_manager.send_agg_metrics(domain_name, current_minutes)
-                    domains_config.set_worker_aggregated_metrics_last_sent_update(domain_name, current_last_update)
+                    logs.debug('send_agg_metrics: sending metrics to cwm_api', debug_verbosity=9, worker_id=worker_id, current_last_update=current_last_update)
+                    cwm_api_manager.send_agg_metrics(worker_id, current_minutes)
+                    domains_config.set_worker_aggregated_metrics_last_sent_update(worker_id, current_last_update)
             else:
-                logs.debug('send_agg_metrics: no last_update or minutes available for domain', debug_verbosity=10, domain_name=domain_name)
+                logs.debug('send_agg_metrics: no last_update or minutes available for domain', debug_verbosity=10, worker_id=worker_id)
         else:
-            logs.debug('send_agg_metrics: no agg_metrics for domain', debug_verbosity=10, domain_name=domain_name)
+            logs.debug('send_agg_metrics: no agg_metrics for domain', debug_verbosity=10, worker_id=worker_id)
     except Exception as e:
-        logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
+        logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        updater_metrics.exception(domain_name, start_time)
+        updater_metrics.exception(worker_id, start_time)
 
 
 def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_manager, **_):
@@ -96,8 +96,8 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
         status = release["status"]
         # app_version = release["app_version"]
         revision = int(release["revision"])
-        domain_name, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision)
-        send_agg_metrics(domains_config, updater_metrics, domain_name, start_time, cwm_api_manager)
+        worker_id, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision)
+        send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager)
 
 
 def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None, cwm_api_manager=None):

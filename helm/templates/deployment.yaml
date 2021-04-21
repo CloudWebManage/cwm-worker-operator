@@ -135,8 +135,8 @@ spec:
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_METRICS_UPDATER | quote }}
         - name: PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER | quote }}
-        {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL }}
-        - name: PROMETHEUS_METRICS_WITH_DOMAIN_LABEL
+        {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_IDENTIFIER }}
+        - name: PROMETHEUS_METRICS_WITH_IDENTIFIER
           value: "yes"
         {{ end }}
         - name: DELETER_DEFAULT_DELETE_NAMESPACE

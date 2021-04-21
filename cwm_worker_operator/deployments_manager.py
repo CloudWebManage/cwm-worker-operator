@@ -140,8 +140,10 @@ class DeploymentsManager:
     def deploy(self, deployment_config, **kwargs):
         return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
 
-    def is_ready(self, namespace_name, deployment_type):
-        return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type)
+    def is_ready(self, namespace_name, deployment_type, enabledProtocols=None):
+        if not enabledProtocols:
+            enabledProtocols = ['http', 'https']
+        return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, enabledProtocols=enabledProtocols)
 
     def get_hostname(self, namespace_name, deployment_type):
         return {
@@ -149,10 +151,10 @@ class DeploymentsManager:
             for protocol in ['http', 'https']
         }
 
-    def verify_worker_access(self, hostname, log_kwargs):
+    def verify_worker_access(self, internal_hostname, log_kwargs):
         ok = True
         for proto in ["http", "https"]:
-            url = {"http": "http://{}:8080".format(hostname[proto]), "https": "https://{}:8443".format(hostname[proto])}[proto]
+            url = {"http": "http://{}:8080".format(internal_hostname[proto]), "https": "https://{}:8443".format(internal_hostname[proto])}[proto]
             requests_kwargs = {"http": {}, "https": {"verify": False}}[proto]
             try:
                 res = requests.get(url, headers={"User-Agent": "Mozilla"}, timeout=2, **requests_kwargs)

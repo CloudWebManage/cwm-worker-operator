@@ -47,8 +47,8 @@ class CwmApiManager:
     def get_measurements(self, measurements):
         return [{**self.convert_measurements(m), 't': self.get_utc_timestamp(m['t'])} for m in measurements][:10]
 
-    def send_agg_metrics(self, domain_name, minutes):
+    def send_agg_metrics(self, worker_id, minutes):
         self._do_send_agg_metrics({
-            'domain_name': domain_name,
+            'instance_id': worker_id,
             'measurements': self.get_measurements(minutes)
         })

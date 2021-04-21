@@ -19,20 +19,20 @@ def run_single_iteration(domains_config, metrics, subprocess_getstatusoutput, **
         namespace_name = namespace_name.strip()
         if namespace_name:
             start_time = common.now()
-            domain_name = namespace_name.replace('--', '.')
+            worker_id = common.get_worker_id_from_namespace_name(namespace_name)
             try:
                 ret, out = subprocess_getstatusoutput('du -s /tmp/dum/{}'.format(namespace_name))
                 if ret != 0:
-                    logs.debug_info("encountered errors when running du: {}".format(out), domain_name=domain_name, start_time=start_time)
+                    logs.debug_info("encountered errors when running du: {}".format(out), worker_id=worker_id, start_time=start_time)
                     out = out.splitlines()[-1]
                 total_used_bytes = int(out.split()[0]) * 1024
-                domains_config.set_worker_total_used_bytes(domain_name, total_used_bytes)
-                disk_usage_updater_metrics.disk_usage_update(domain_name, start_time)
+                domains_config.set_worker_total_used_bytes(worker_id, total_used_bytes)
+                disk_usage_updater_metrics.disk_usage_update(worker_id, start_time)
             except Exception as e:
-                logs.debug_info("exception: {}".format(e), domain_name=domain_name, start_time=start_time)
+                logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
                 if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
                     traceback.print_exc()
-                disk_usage_updater_metrics.exception(domain_name, start_time)
+                disk_usage_updater_metrics.exception(worker_id, start_time)
 
 
 def start_daemon(once=False, with_prometheus=True, disk_usage_updater_metrics=None, domains_config=None, subprocess_getstatusoutput=None):

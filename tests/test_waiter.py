@@ -1,3 +1,4 @@
+import json
 import pytz
 import datetime
 
@@ -10,54 +11,76 @@ def assert_domain_waiter_metrics(waiter_metrics, observation):
 
 
 def test_invalid_volume_config(domains_config, waiter_metrics, deployments_manager):
-    config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = False
-    domain_name = 'invalid.volume.config'
-    domains_config.worker_domains_waiting_for_deployment_complete.append(domain_name)
-    domains_config.domain_volume_config_namespace[domain_name] = {}, None
+    config.PROMETHEUS_METRICS_WITH_IDENTIFIER = False
+    worker_id = 'invalid.volume.config'
+    domains_config.keys.worker_waiting_for_deployment_complete.set(worker_id, '')
+    domains_config.keys.volume_config.set(worker_id, '{}')
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
-    assert not domains_config.domain_worker_available_hostname.get(domain_name)
-    assert_domain_waiter_metrics(waiter_metrics, 'failed_to_get_volume_config')
+    volume_config_key = domains_config.keys.volume_config._(worker_id)
+    waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+        waiting_for_deployment_key: '',
+        volume_config_key: ''
+    }
+    assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
     assert len(deployments_manager.calls) == 0
 
 
 def test_deployment_not_ready(domains_config, waiter_metrics, deployments_manager):
-    domain_name = 'deployment.not.ready'
-    namespace_name = domain_name.replace('.', '--')
-    domains_config.worker_domains_waiting_for_deployment_complete.append(domain_name)
-    domains_config.domain_volume_config_namespace[domain_name] = {}, namespace_name
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
+    domains_config.keys.worker_waiting_for_deployment_complete.set(worker_id, '')
     deployments_manager.namespace_deployment_type_is_ready['{}-minio'.format(namespace_name)] = False
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
-    assert not domains_config.domain_worker_available_hostname.get(domain_name)
-    assert len(waiter_metrics.observations) == 0
-    assert len(deployments_manager.calls) == 1
+    volume_config_key = domains_config.keys.volume_config._(worker_id)
+    waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+        waiting_for_deployment_key: '',
+        volume_config_key: ''
+    }
+    assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache']
+    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio', ['http']])]
 
 
 def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployments_manager):
-    config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = False
-    domain_name = 'deployment.timeout'
-    namespace_name = domain_name.replace('.', '--')
-    domains_config.worker_domains_waiting_for_deployment_complete.append(domain_name)
-    domains_config.domain_volume_config_namespace[domain_name] = {}, namespace_name
+    config.PROMETHEUS_METRICS_WITH_IDENTIFIER = False
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
+    domains_config.keys.worker_waiting_for_deployment_complete.set(worker_id, '')
     deployments_manager.namespace_deployment_type_is_ready['{}-minio'.format(namespace_name)] = False
-    domains_config.domain_ready_for_deployment_start_time[domain_name] = datetime.datetime.now(pytz.UTC) - datetime.timedelta(days=1)
+    domains_config.keys.worker_ready_for_deployment.set(worker_id, (datetime.datetime.now(pytz.UTC) - datetime.timedelta(days=1)).strftime("%Y%m%dT%H%M%S.%f"))
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
-    assert not domains_config.domain_worker_available_hostname.get(domain_name)
-    assert_domain_waiter_metrics(waiter_metrics, 'timeout')
-    assert len(deployments_manager.calls) == 1
+    volume_config_key = domains_config.keys.volume_config._(worker_id)
+    hostname_error_key = domains_config.keys.hostname_error._(hostname)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+        hostname_error_key: 'TIMEOUT_WAITING_FOR_DEPLOYMENT',
+        volume_config_key: ''
+    }
+    assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',timeout']
+    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio', ['http']])]
 
 
 def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
-    config.PROMETHEUS_METRICS_WITH_DOMAIN_LABEL = False
+    config.PROMETHEUS_METRICS_WITH_IDENTIFIER = False
     config.WAITER_VERIFY_WORKER_ACCESS = True
-    domain_name = 'deployment.timeout'
-    namespace_name = domain_name.replace('.', '--')
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
     internal_hostname = 'internal.hostname'
-    domains_config.worker_domains_waiting_for_deployment_complete.append(domain_name)
-    domains_config.domain_volume_config_namespace[domain_name] = {}, namespace_name
+    domains_config.keys.worker_waiting_for_deployment_complete.set(worker_id, '')
     deployments_manager.namespace_deployment_type_is_ready['{}-minio'.format(namespace_name)] = True
     deployments_manager.namespace_deployment_type_hostname['{}-minio'.format(namespace_name)] = internal_hostname
     deployments_manager.hostname_verify_worker_access[internal_hostname] = True
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
-    assert domains_config.domain_worker_available_hostname.get(domain_name) == internal_hostname
-    assert_domain_waiter_metrics(waiter_metrics, 'success')
-    assert len(deployments_manager.calls) == 4
+    volume_config_key = domains_config.keys.volume_config._(worker_id)
+    hostname_available_key = domains_config.keys.hostname_available._(hostname)
+    hostname_ingress_hostname_key = domains_config.keys.hostname_ingress_hostname._(hostname)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+        hostname_available_key: '',
+        hostname_ingress_hostname_key: '"{}"'.format(internal_hostname),
+        volume_config_key: ''
+    }
+    assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',success']
+    print(deployments_manager.calls)
+    assert len(deployments_manager.calls) == 3
+    assert deployments_manager.calls[0] == ('is_ready', [namespace_name, 'minio', ['http']])
+    assert deployments_manager.calls[1] == ('get_hostname', [namespace_name, 'minio'])
+    assert deployments_manager.calls[2][0] == 'verify_worker_access'
+    assert deployments_manager.calls[2][1][0] == internal_hostname
+    assert deployments_manager.calls[2][1][1]['worker_id'] == worker_id

@@ -9,67 +9,114 @@ from cwm_worker_operator import logs
 from cwm_worker_operator import common
 
 
-# ingress_redis - keys shared with cwm-worker-ingress
-REDIS_KEY_PREFIX_WORKER_INITIALIZE = "worker:initialize"
-REDIS_KEY_PREFIX_WORKER_AVAILABLE = "worker:available"
-REDIS_KEY_WORKER_AVAILABLE = REDIS_KEY_PREFIX_WORKER_AVAILABLE + ":{}"
-REDIS_KEY_WORKER_INGRESS_HOSTNAME = "worker:ingress:hostname:{}"
-REDIS_KEY_WORKER_ERROR = "worker:error:{}"
-REDIS_KEY_PREFIX_WORKER_ERROR = "worker:error"
-REDIS_KEY_PREFIX_NODE_HEALTHY = "node:healthy"
+class DomainsConfigKey:
 
-# internal_redis - keys used internally only by cwm-worker-operator
-REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER = "worker:error_attempt_number:{}"
-REDIS_KEY_PREFIX_VOLUME_CONFIG = "worker:volume:config"
-REDIS_KEY_VOLUME_CONFIG = REDIS_KEY_PREFIX_VOLUME_CONFIG + ":{}"
-REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT = "worker:opstatus:ready_for_deployment"
-REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE = "worker:opstatus:waiting_for_deployment"
-REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE = "worker:force_update"
-REDIS_KEY_PREFIX_WORKER_FORCE_DELETE = "worker:force_delete"
-REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS = "worker:aggregated-metrics"
-REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE = "worker:aggregated-metrics-last-sent-update"
-REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES = "worker:total-used-bytes"
-REDIS_KEY_ALERTS = "alerts"
+    def __init__(self, redis_pool_name, domains_config, **extra_kwargs):
+        assert redis_pool_name in ['ingress', 'internal', 'metrics']
+        self.redis_pool_name = redis_pool_name
+        self.domains_config = domains_config
+        for k, v in extra_kwargs.items():
+            setattr(self, k, v)
 
-# metrics_redis - keys shared with deployments to get metrics
-REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION = "deploymentid:last_action"
-REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC = "deploymentid:minio-metrics"
+    @contextmanager
+    def get_redis(self):
+        with getattr(self.domains_config, 'get_{}_redis'.format(self.redis_pool_name))() as r:
+            yield r
 
+    def get(self, *args):
+        with self.get_redis() as r:
+            return r.get(self._(*args))
 
-ALL_REDIS_KEYS = {
-    # ingress redis pool
-    REDIS_KEY_PREFIX_WORKER_INITIALIZE: {'type': 'prefix', 'pool': 'ingress'},
-    REDIS_KEY_PREFIX_WORKER_AVAILABLE: {'type': 'prefix', 'pool': 'ingress'},
-    REDIS_KEY_WORKER_AVAILABLE: {'type': 'template', 'duplicate_of': REDIS_KEY_PREFIX_WORKER_AVAILABLE, 'pool': 'ingress'},
-    REDIS_KEY_WORKER_INGRESS_HOSTNAME: {'type': 'template', 'pool': 'ingress'},
-    REDIS_KEY_WORKER_ERROR: {'type': 'template', 'pool': 'ingress'},
-    REDIS_KEY_PREFIX_WORKER_ERROR: {'type': 'prefix', 'duplicate_of': REDIS_KEY_WORKER_ERROR, 'pool': 'ingress'},
+    def exists(self, *args):
+        with self.get_redis() as r:
+            return r.exists(self._(*args))
 
-    # internal redis pool
-    REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER: {'type': 'template', 'pool': 'internal'},
-    REDIS_KEY_PREFIX_VOLUME_CONFIG: {'type': 'prefix', 'pool': 'internal'},
-    REDIS_KEY_VOLUME_CONFIG: {'type': 'template', 'duplicate_of': REDIS_KEY_PREFIX_VOLUME_CONFIG, 'pool': 'internal'},
-    REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT: {'type': 'prefix', 'pool': 'internal'},
-    REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE: {'type': 'prefix', 'pool': 'internal'},
-    REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE: {'type': 'prefix', 'pool': 'internal'},
-    REDIS_KEY_PREFIX_WORKER_FORCE_DELETE: {'type': 'prefix', 'pool': 'internal'},
-    REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS: {'type': 'prefix', 'pool': 'internal'},
-    REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE: {'type': 'prefix', 'pool': 'internal'},
-    REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES: {'type': 'prefix', 'pool': 'internal'},
+    def delete(self, *args):
+        with self.get_redis() as r:
+            r.delete(self._(*args))
 
-    # metrics redis pool
-    REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION: {'type': 'prefix-subkeys', 'use_namespace': True, 'pool': 'metrics'},
-    REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC: {'type': 'prefix-subkeys', 'use_namespace': True, 'pool': 'metrics'},
-}
+class DomainsConfigKeyPrefix(DomainsConfigKey):
+
+    def __init__(self, key_prefix, redis_pool_name, domains_config, **extra_kwargs):
+        self.key_prefix = key_prefix
+        super(DomainsConfigKeyPrefix, self).__init__(redis_pool_name, domains_config, **extra_kwargs)
+
+    def _(self, param):
+        return '{}:{}'.format(self.key_prefix, param)
+
+    def iterate_prefix_key_suffixes(self):
+        with self.get_redis() as r:
+            for key in r.keys("{}:*".format(self.key_prefix)):
+                yield key.decode().replace('{}:'.format(self.key_prefix), '')
+
+    def set(self, param, value):
+        with self.get_redis() as r:
+            r.set(self._(param), value)
 
 
-class DomainsConfig(object):
+class DomainsConfigKeyTemplate(DomainsConfigKey):
+
+    def __init__(self, key_template, redis_pool_name, domains_config, **extra_kwargs):
+        self.key_template = key_template
+        super(DomainsConfigKeyTemplate, self).__init__(redis_pool_name, domains_config, **extra_kwargs)
+
+    def _(self, param):
+        return self.key_template.format(param)
+
+    def set(self, param, value):
+        with self.get_redis() as r:
+            r.set(self._(param), value)
+
+
+class DomainsConfigKeyStatic(DomainsConfigKey):
+
+    def __init__(self, key, redis_pool_name, domains_config, **extra_kwargs):
+        self.key = key
+        super(DomainsConfigKeyStatic, self).__init__(redis_pool_name, domains_config, **extra_kwargs)
+
+    def _(self):
+        return self.key
+
+
+class DomainsConfigKeys:
+
+    def __init__(self, domains_config=None):
+        self.domains_config = domains_config
+
+        # ingress_redis - keys shared with cwm-worker-ingress
+        self.hostname_initialize = DomainsConfigKeyPrefix("hostname:initialize", 'ingress', domains_config, keys_summary_param='hostname')
+        self.hostname_available = DomainsConfigKeyPrefix("hostname:available", 'ingress', domains_config, keys_summary_param='hostname')
+        self.hostname_ingress_hostname = DomainsConfigKeyTemplate("hostname:ingress:hostname:{}", 'ingress', domains_config, keys_summary_param='hostname')
+        self.hostname_error = DomainsConfigKeyPrefix("hostname:error", 'ingress', domains_config, keys_summary_param='hostname')
+        self.node_healthy = DomainsConfigKeyPrefix("node:healthy", 'ingress', domains_config, keys_summary_param='node')
+
+        # internal_redis - keys used internally only by cwm-worker-operator
+        self.hostname_error_attempt_number = DomainsConfigKeyTemplate("hostname:error_attempt_number:{}", 'internal', domains_config, keys_summary_param='hostname')
+        self.volume_config = DomainsConfigKeyPrefix("worker:volume:config", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_ready_for_deployment = DomainsConfigKeyPrefix("worker:opstatus:ready_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_waiting_for_deployment_complete = DomainsConfigKeyPrefix("worker:opstatus:waiting_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_force_update = DomainsConfigKeyPrefix("worker:force_update", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_force_delete = DomainsConfigKeyPrefix("worker:force_delete", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_aggregated_metrics = DomainsConfigKeyPrefix("worker:aggregated-metrics", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_aggregated_metrics_last_sent_update = DomainsConfigKeyPrefix("worker:aggregated-metrics-last-sent-update", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_total_used_bytes = DomainsConfigKeyPrefix("worker:total-used-bytes", 'internal', domains_config, keys_summary_param='worker_id')
+        self.alerts = DomainsConfigKeyStatic("alerts", 'internal', domains_config)
+
+        # metrics_redis - keys shared with deployments to get metrics
+        self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config,
+                                                             keys_summary_type='prefix-subkeys', keys_summary_param='namespace_name')
+        self.deployment_api_metric = DomainsConfigKeyPrefix("deploymentid:minio-metrics", 'metrics', domains_config,
+                                                             keys_summary_type='prefix-subkeys', keys_summary_param='namespace_name')
+
+
+class DomainsConfig:
     WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT = "TIMEOUT_WAITING_FOR_DEPLOYMENT"
     WORKER_ERROR_FAILED_TO_DEPLOY = "FAILED_TO_DEPLOY"
     WORKER_ERROR_INVALID_VOLUME_ZONE = "INVALID_VOLUME_ZONE"
     WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG = "FAILED_TO_GET_VOLUME_CONFIG"
 
     def __init__(self):
+        self.keys = DomainsConfigKeys(self)
         self.ingress_redis_pool = self.init_redis(
             'ingress',
             config.INGRESS_REDIS_HOST, config.INGRESS_REDIS_PORT,
@@ -125,261 +172,256 @@ class DomainsConfig(object):
         with self.get_redis(self.metrics_redis_pool) as r:
             yield r
 
-    def get_worker_domains_ready_for_deployment(self):
-        with self.get_internal_redis() as r:
-            worker_names = [
-                key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT), "")
-                for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT))
-            ]
-        return worker_names
+    def get_worker_ids_ready_for_deployment(self):
+        return list(self.keys.worker_ready_for_deployment.iterate_prefix_key_suffixes())
 
-    def get_worker_domains_waiting_for_deployment_complete(self):
-        with self.get_internal_redis() as r:
-            worker_names = [
-                key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE), "")
-                for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE))
-            ]
-        return worker_names
+    def get_worker_ids_waiting_for_deployment_complete(self):
+        return list(self.keys.worker_waiting_for_deployment_complete.iterate_prefix_key_suffixes())
 
-    def get_worker_domains_waiting_for_initlization(self):
-        with self.get_ingress_redis() as r:
-            worker_names = [
-                key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_INITIALIZE), "")
-                for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_INITIALIZE))
-            ]
-        return worker_names
+    def get_hostnames_waiting_for_initlization(self):
+        return list(self.keys.hostname_initialize.iterate_prefix_key_suffixes())
 
-    def get_cwm_api_volume_config(self, domain_name, metrics=None, force_update=False):
+    def _cwm_api_volume_config_api_call(self, query_param, query_value):
+        return requests.get("{}/volume/{}".format(config.CWM_API_URL, query_value)).json()
+
+    def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None):
+        if hostname:
+            assert not worker_id
+        elif worker_id:
+            assert not hostname
+        else:
+            raise Exception("either hostname or worker_id param is required")
         start_time = common.now()
-        if force_update:
+        if force_update or not worker_id:
+            # TODO: support cache for getting volume config based on hostname
             val = None
         else:
-            with self.get_internal_redis() as r:
-                val = r.get(REDIS_KEY_VOLUME_CONFIG.format(domain_name))
+            val = self.keys.volume_config.get(worker_id)
         if val is None:
             try:
-                volume_config = requests.get("{}/volume/{}".format(config.CWM_API_URL, domain_name)).json()
+                if hostname:
+                    query_param = 'hostname'
+                    query_value = hostname
+                else:
+                    query_param = 'id'
+                    query_value = worker_id
+                # currently we assume hostname and id are the same value
+                # TODO: once we move to the real API we need to use query_param to distinguish
+                volume_config = self._cwm_api_volume_config_api_call(query_param, query_value)
                 is_success = True
             except Exception as e:
                 if config.DEBUG and config.DEBUG_VERBOSITY > 5:
                     traceback.print_exc()
                 volume_config = {"__error": str(e)}
                 is_success = False
+            if worker_id:
+                if not volume_config.get('id') or volume_config['id'] != worker_id:
+                    is_success = False
+                    volume_config['__error'] = 'mismatched worker_id'
+                    volume_config.pop('id', None)
+            elif not volume_config.get('id'):
+                is_success = False
+                volume_config['__error'] = 'missing worker_id'
+                volume_config.pop('id', None)
+            else:
+                worker_id = volume_config['id']
             volume_config["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
-            # TODO: add support for multiple hostnames per domain / multiple domains per customer
-            if volume_config.get("hostname"):
-                volume_config["hostname"] = domain_name
-            with self.get_internal_redis() as r:
-                r.set(REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps(volume_config))
+            if worker_id:
+                self.keys.volume_config.set(worker_id, json.dumps(volume_config))
             if metrics:
                 if is_success:
-                    metrics.cwm_api_volume_config_success_from_api(domain_name, start_time)
+                    metrics.cwm_api_volume_config_success_from_api(worker_id or 'missing', start_time)
                 else:
-                    metrics.cwm_api_volume_config_error_from_api(domain_name, start_time)
+                    metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
             return volume_config
         else:
             if metrics:
-                metrics.cwm_api_volume_config_success_from_cache(domain_name, start_time)
+                # success from cache is only possible when we got a worker_id
+                # TODO: add support for cache based on hostname
+                metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
             return json.loads(val)
 
-    def set_worker_error(self, domain_name, error_msg):
-        with self.get_ingress_redis() as r:
-            r.set(REDIS_KEY_WORKER_ERROR.format(domain_name), error_msg)
-        self.del_worker_keys(domain_name, with_error=False, with_volume_config=False)
+    def set_worker_error(self, worker_id, error_msg):
+        for hostname in self.iterate_worker_hostnames(worker_id):
+            self.keys.hostname_error.set(hostname, error_msg)
+        self.del_worker_keys(worker_id, with_error=False, with_volume_config=False)
 
-    def increment_worker_error_attempt_number(self, domain_name):
-        with self.get_internal_redis() as r:
-            attempt_number = r.get(REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name))
-            attempt_number = int(attempt_number) if attempt_number else 0
-            r.set(REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name), str(attempt_number + 1))
+    def set_worker_error_by_hostname(self, hostname, error_msg):
+        self.keys.hostname_error.set(hostname, error_msg)
+        self.del_worker_hostname_keys(hostname, with_error=False)
+        try:
+            self.set_worker_error(self.get_cwm_api_volume_config(hostname=hostname)['id'], error_msg)
+        except:
+            pass
+
+    def increment_worker_error_attempt_number(self, hostname):
+        attempt_number = self.keys.hostname_error_attempt_number.get(hostname)
+        attempt_number = int(attempt_number) if attempt_number else 0
+        self.keys.hostname_error_attempt_number.set(hostname, str(attempt_number + 1))
         return attempt_number + 1
 
-    def set_worker_ready_for_deployment(self, domain_name):
-        with self.get_internal_redis() as r:
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name),
-                  common.now().strftime("%Y%m%dT%H%M%S.%f"))
+    def set_worker_ready_for_deployment(self, worker_id):
+        self.keys.worker_ready_for_deployment.set(worker_id, common.now().strftime("%Y%m%dT%H%M%S.%f"))
 
-    def get_worker_ready_for_deployment_start_time(self, domain_name):
-        with self.get_internal_redis() as r:
-            try:
-                dt = common.strptime(
-                    r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name)).decode(),
-                    "%Y%m%dT%H%M%S.%f")
-            except Exception as e:
-                logs.debug_info("exception: {}".format(e), domain_name=domain_name)
-                if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
-                    traceback.print_exc()
-                dt = common.now()
+    def get_worker_ready_for_deployment_start_time(self, worker_id):
+        try:
+            dt = common.strptime(self.keys.worker_ready_for_deployment.get(worker_id).decode(), "%Y%m%dT%H%M%S.%f")
+        except Exception as e:
+            logs.debug_info("exception: {}".format(e), worker_id=worker_id)
+            if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
+                traceback.print_exc()
+            dt = common.now()
         return dt
 
-    def get_volume_config_namespace_from_domain(self, metrics, domain_name):
-        volume_config = self.get_cwm_api_volume_config(domain_name, metrics)
-        if volume_config.get("hostname"):
-            return volume_config, volume_config["hostname"].replace(".", "--")
-        else:
-            self.set_worker_error(domain_name, self.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
-            return volume_config, None
+    def get_volume_config_namespace_from_worker_id(self, metrics, worker_id):
+        volume_config = self.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
+        namespace_name = common.get_namespace_name_from_worker_id(volume_config['id']) if volume_config.get('id') else None
+        return volume_config, namespace_name
 
-    def set_worker_waiting_for_deployment(self, domain_name):
-        with self.get_internal_redis() as r:
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE, domain_name), "")
+    def set_worker_waiting_for_deployment(self, worker_id):
+        self.keys.worker_waiting_for_deployment_complete.set(worker_id, '')
 
-    def is_worker_waiting_for_deployment(self, domain_name):
-        with self.get_ingress_redis() as r:
-            for key in [
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name),
-            ]:
-                if r.exists(key):
-                    return True
-        with self.get_internal_redis() as r:
-            for key in [
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name),
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE, domain_name)
-            ]:
-                if r.exists(key):
-                    return True
+    def is_worker_waiting_for_deployment(self, worker_id):
+        if self.keys.worker_waiting_for_deployment_complete.exists(worker_id):
+            return True
+        if self.keys.worker_ready_for_deployment.exists(worker_id):
+            return True
+        for hostname in self.iterate_worker_hostnames(worker_id):
+            if self.keys.hostname_initialize.exists(hostname):
+                return True
         return False
 
-    def set_worker_available(self, domain_name, ingress_hostname):
-        self.del_worker_keys(domain_name, with_volume_config=False, with_available=False, with_ingress=False)
-        with self.get_ingress_redis() as r:
-            r.set(REDIS_KEY_WORKER_AVAILABLE.format(domain_name), "")
-            r.set(REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name), json.dumps(ingress_hostname))
+    def iterate_worker_hostnames(self, worker_id):
+        volume_config = self.get_cwm_api_volume_config(worker_id=worker_id)
+        # TODO: iterate over multiple hostnames
+        yield volume_config['hostname']
 
-    def is_worker_available(self, domain_name):
-        with self.get_ingress_redis() as r:
-            return r.exists(REDIS_KEY_WORKER_AVAILABLE.format(domain_name))
+    def set_worker_available(self, worker_id, ingress_hostname):
+        self.del_worker_keys(worker_id, with_volume_config=False, with_available=False, with_ingress=False)
+        for hostname in self.iterate_worker_hostnames(worker_id):
+            self.keys.hostname_available.set(hostname, '')
+            self.keys.hostname_ingress_hostname.set(hostname, json.dumps(ingress_hostname))
 
-    def del_worker_keys(self, domain_name, with_error=True, with_volume_config=True, with_available=True, with_ingress=True, with_metrics=False):
-        namespace_name = domain_name.replace('.', '--')
-        with self.get_ingress_redis() as r:
-            r.delete(
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name),
-                *([
-                      REDIS_KEY_WORKER_AVAILABLE.format(domain_name)
-                  ] if with_available else []),
-                *([
-                      REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)
-                  ] if with_ingress else []),
-                *([
-                      REDIS_KEY_WORKER_ERROR.format(domain_name),
-                  ] if with_error else []),
-            )
-        with self.get_internal_redis() as r:
-            r.delete(
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_READY_FOR_DEPLOYMENT, domain_name),
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_WAITING_FOR_DEPLOYMENT_COMPLETE, domain_name),
-                *([
-                      REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name)
-                  ] if with_error else []),
-                *([
-                      REDIS_KEY_VOLUME_CONFIG.format(domain_name)
-                  ] if with_volume_config else []),
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE, domain_name),
-                "{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name),
-                *([
-                      '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name),
-                      '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name),
-                      '{}:{}'.format(REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES, domain_name),
-                  ] if with_metrics else [])
-            )
+    def is_worker_available(self, worker_id):
+        num_availale_hostnames = 0
+        for hostname in self.iterate_worker_hostnames(worker_id):
+            if not self.keys.hostname_available.exists(hostname):
+                return False
+            num_availale_hostnames += 1
+        return num_availale_hostnames > 0
+
+    def del_worker_hostname_keys(self, hostname, with_error=True, with_available=True, with_ingress=True):
+        self.keys.hostname_initialize.delete(hostname)
+        if with_available:
+            self.keys.hostname_available.delete(hostname)
+        if with_ingress:
+            self.keys.hostname_ingress_hostname.delete(hostname)
+        if with_error:
+            self.keys.hostname_error.delete(hostname)
+            self.keys.hostname_error_attempt_number.delete(hostname)
+
+    def del_worker_keys(self, worker_id, with_error=True, with_volume_config=True, with_available=True, with_ingress=True, with_metrics=False):
+        try:
+            for hostname in self.iterate_worker_hostnames(worker_id):
+                self.del_worker_hostname_keys(hostname, with_error=with_error, with_available=with_available, with_ingress=with_ingress)
+        except:
+            print("Failed to delete worker hostname keys")
+            traceback.print_exc()
+        self.keys.worker_ready_for_deployment.delete(worker_id)
+        self.keys.worker_waiting_for_deployment_complete.delete(worker_id)
+        self.keys.worker_force_update.delete(worker_id)
+        self.keys.worker_force_delete.delete(worker_id)
         if with_metrics:
-            with self.get_metrics_redis() as r:
-                keys = [key.decode() for key in
-                        r.keys('{}:{}:*'.format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name))]
+            self.keys.worker_aggregated_metrics.delete(worker_id)
+            self.keys.worker_aggregated_metrics_last_sent_update.delete(worker_id)
+            self.keys.worker_total_used_bytes.delete(worker_id)
+            namespace_name = common.get_namespace_name_from_worker_id(worker_id)
+            with self.keys.deployment_api_metric.get_redis() as r:
+                keys = [key.decode() for key in r.keys('{}:*'.format(self.keys.deployment_api_metric._(namespace_name)))]
                 if keys:
                     r.delete(*keys)
-                keys = [key.decode() for key in
-                        r.keys('{}:{}:*'.format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name))]
+            with self.keys.deployment_last_action.get_redis() as r:
+                keys = [key.decode() for key in r.keys('{}:*'.format(self.keys.deployment_last_action._(namespace_name)))]
                 if keys:
                     r.delete(*keys)
+        if with_volume_config:
+            self.keys.volume_config.delete(worker_id)
 
-    def set_worker_force_update(self, domain_name):
-        with self.get_internal_redis() as r:
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE, domain_name), "")
+    def set_worker_force_update(self, worker_id):
+        self.keys.worker_force_update.set(worker_id, '')
 
-    def set_worker_force_delete(self, domain_name, allow_cancel=False):
-        with self.get_internal_redis() as r:
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name), "allow_cancel" if allow_cancel else "")
+    def del_worker_force_update(self, worker_id):
+        self.keys.worker_force_update.delete(worker_id)
 
-    def del_worker_force_delete(self, domain_name):
-        with self.get_internal_redis() as r:
-            r.delete("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name))
+    def set_worker_force_delete(self, worker_id, allow_cancel=False):
+        self.keys.worker_force_delete.set(worker_id, "allow_cancel" if allow_cancel else "")
 
-    def get_worker_force_delete(self, domain_name):
-        with self.get_internal_redis() as r:
-            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE, domain_name))
-            if value is not None:
-                return {'domain_name': domain_name, 'allow_cancel': value == b"allow_cancel"}
-            else:
-                return None
+    def del_worker_force_delete(self, worker_id):
+        self.keys.worker_force_delete.delete(worker_id)
+
+    def get_worker_force_delete(self, worker_id):
+        value = self.keys.worker_force_delete.get(worker_id)
+        if value is not None:
+            return {'worker_id': worker_id, 'allow_cancel': value == b"allow_cancel"}
+        else:
+            return None
 
     def iterate_domains_to_delete(self):
-        with self.get_internal_redis() as r:
-            workers_to_delete = [
-                {
-                    "domain_name": key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE), ""),
-                    "allow_cancel": r.get(key) == b"allow_cancel"
-                }
-                for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_FORCE_DELETE))
-            ]
+        workers_to_delete = []
+        for worker_id in self.keys.worker_force_delete.iterate_prefix_key_suffixes():
+            workers_to_delete.append({
+                "worker_id": worker_id,
+                "allow_cancel": self.keys.worker_force_delete.get(worker_id) == b"allow_cancel"
+            })
         return workers_to_delete
 
-    def get_domains_force_update(self):
-        with self.get_internal_redis() as r:
-            worker_names = [
-                key.decode().replace("{}:".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE), "")
-                for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_WORKER_FORCE_UPDATE))
-            ]
-        return worker_names
+    def get_worker_ids_force_update(self):
+        return list(self.keys.worker_force_update.iterate_prefix_key_suffixes())
 
-    def get_worker_aggregated_metrics(self, domain_name, clear=False):
-        with self.get_internal_redis() as r:
+    def get_worker_aggregated_metrics(self, worker_id, clear=False):
+        with self.keys.worker_aggregated_metrics.get_redis() as r:
             if clear:
-                value = r.getset("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name), '')
+                value = r.getset(self.keys.worker_aggregated_metrics._(worker_id), '')
             else:
-                value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name))
+                value = r.get(self.keys.worker_aggregated_metrics._(worker_id))
             if value:
                 return json.loads(value.decode())
             else:
                 return None
 
     def get_deployment_api_metrics(self, namespace_name, bucket):
-        with self.get_metrics_redis() as r:
-            base_key = "{}:{}:{}:".format(REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC, namespace_name, bucket)
+        with self.keys.deployment_api_metric.get_redis() as r:
+            base_key = "{}:{}:".format(self.keys.deployment_api_metric._(namespace_name), bucket)
             return {
                 key.decode().replace(base_key, ""): r.get(key).decode()
                 for key in r.keys(base_key + "*")
             }
 
-    def set_worker_aggregated_metrics(self, domain_name, agg_metrics):
-        with self.get_internal_redis() as r:
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS, domain_name), json.dumps(agg_metrics))
+    def set_worker_aggregated_metrics(self, worker_id, agg_metrics):
+        self.keys.worker_aggregated_metrics.set(worker_id, json.dumps(agg_metrics))
 
     # returns tuple of datetimes (last_sent_update, last_update)
     # last_sent_update = the time when the last update was sent to cwm api
     # last_update = the time of the last update which was sent
-    def get_worker_aggregated_metrics_last_sent_update(self, domain_name):
-        with self.get_internal_redis() as r:
-            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name))
-            if value:
-                last_sent_update, last_update = value.decode().split(',')
-                last_sent_update = common.strptime(last_sent_update, '%Y%m%d%H%M%S')
-                last_update = common.strptime(last_update, '%Y%m%d%H%M%S')
-                return last_sent_update, last_update
-            else:
-                return None, None
+    def get_worker_aggregated_metrics_last_sent_update(self, worker_id):
+        value = self.keys.worker_aggregated_metrics_last_sent_update.get(worker_id)
+        if value:
+            last_sent_update, last_update = value.decode().split(',')
+            last_sent_update = common.strptime(last_sent_update, '%Y%m%d%H%M%S')
+            last_update = common.strptime(last_update, '%Y%m%d%H%M%S')
+            return last_sent_update, last_update
+        else:
+            return None, None
 
-    def set_worker_aggregated_metrics_last_sent_update(self, domain_name, last_update):
-        with self.get_internal_redis() as r:
-            value = '{},{}'.format(common.now().strftime('%Y%m%d%H%M%S'), last_update.strftime('%Y%m%d%H%M%S'))
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_AGGREGATED_METRICS_LAST_SENT_UPDATE, domain_name), value)
+    def set_worker_aggregated_metrics_last_sent_update(self, worker_id, last_update):
+        value = '{},{}'.format(common.now().strftime('%Y%m%d%H%M%S'), last_update.strftime('%Y%m%d%H%M%S'))
+        self.keys.worker_aggregated_metrics_last_sent_update.set(worker_id, value)
 
     def get_deployment_last_action(self, namespace_name, buckets=('http', 'https')):
         latest_value = None
-        with self.get_metrics_redis() as r:
+        with self.keys.deployment_last_action.get_redis() as r:
             for bucket in buckets:
-                value = r.get("{}:{}:{}".format(REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION, namespace_name, bucket))
+                value = r.get("{}:{}".format(self.keys.deployment_last_action._(namespace_name), bucket))
                 if value:
                     value = value.decode().split('.')[0].replace('-', '').replace(':', '')
                     value = common.strptime(value, "%Y%m%dT%H%M%S")
@@ -387,8 +429,11 @@ class DomainsConfig(object):
                         latest_value = value
         return latest_value if latest_value else None
 
-    def get_key_summary_single_multi_domain(self, r, key, max_keys_per_summary, pool):
-        match = '{}:*'.format(key)
+    def get_key_summary_single_multi_domain(self, r, key_name, key, max_keys_per_summary):
+        if isinstance(key, DomainsConfigKeyStatic):
+            match = key._()
+        else:
+            match = key._('*')
         _keys = []
         _total_keys = 0
         for _key in r.scan_iter(match):
@@ -396,96 +441,99 @@ class DomainsConfig(object):
             if len(_keys) < max_keys_per_summary:
                 _keys.append(_key.decode())
         return {
-            'title': key,
+            'title': key_name,
             'keys': _keys,
             'total': _total_keys,
-            'pool': pool
+            'pool': key.redis_pool_name
         }
 
-    def get_key_summary_single(self, key, key_config, domain_name, max_keys_per_summary):
-        with getattr(self, 'get_{}_redis'.format(key_config['pool']))() as r:
-            if key_config['type'] == 'template':
-                key = key.replace(':{}', '')
-            if domain_name:
-                _key = '{}:{}'.format(key, domain_name.replace('.', '--')) if key_config.get('use_namespace') else '{}:{}'.format(key, domain_name)
-                value = r.get(_key)
-                if value:
-                    value = value.decode()
-                return {
-                    'title': key,
-                    'keys': ['{} = {}'.format(_key, value)],
-                    'total': 1 if value else 0,
-                    'pool': key_config['pool']
-                }
+    def get_key_summary_single(self, key_name, key, worker_id, max_keys_per_summary):
+        with key.get_redis() as r:
+            key_summary_param = getattr(key, 'keys_summary_param', None)
+            if worker_id:
+                if key_summary_param in ['namespace_name', 'worker_id']:
+                    _key = key._(common.get_namespace_name_from_worker_id(worker_id) if key_summary_param == 'namespace_name' else worker_id)
+                    value = r.get(_key)
+                    if value:
+                        value = value.decode()
+                    return {
+                        'title': key_name,
+                        'keys': ['{} = {}'.format(_key, value)],
+                        'total': 1 if value else 0,
+                        'pool': key.redis_pool_name
+                    }
+                else:
+                    return None
             else:
-                return self.get_key_summary_single_multi_domain(r, key, max_keys_per_summary, key_config['pool'])
+                return self.get_key_summary_single_multi_domain(r, key_name, key, max_keys_per_summary)
 
-    def get_key_summary_prefix_subkeys(self, key, key_config, domain_name, max_keys_per_summary):
-        with getattr(self, 'get_{}_redis'.format(key_config['pool']))() as r:
-            if domain_name:
-                _key = '{}:{}'.format(key, domain_name.replace('.', '--')) if key_config.get('use_namespace') else '{}:{}'.format(key, domain_name)
-                match = '{}:*'.format(_key)
-                _keys = []
-                _total_keys = 0
-                for _key in r.scan_iter(match):
-                    _total_keys += 1
-                    if len(_keys) < max_keys_per_summary*3:
-                        _keys.append('{} = {}'.format(_key.decode(), r.get(_key).decode()))
-                return {
-                    'title': key,
-                    'keys': _keys,
-                    'total': _total_keys,
-                    'pool': key_config['pool']
-                }
+
+    def get_key_summary_prefix_subkeys(self, key_name, key, worker_id, max_keys_per_summary):
+        with key.get_redis() as r:
+            key_summary_param = getattr(key, 'keys_summary_param', None)
+            if worker_id:
+                if key_summary_param in ['namespace_name', 'worker_id']:
+                    _key = key._(common.get_namespace_name_from_worker_id(worker_id) if key_summary_param == 'namespace_name' else worker_id)
+                    match = '{}:*'.format(_key)
+                    _keys = []
+                    _total_keys = 0
+                    for _key in r.scan_iter(match):
+                        _total_keys += 1
+                        if len(_keys) < max_keys_per_summary*3:
+                            _keys.append('{} = {}'.format(_key.decode(), r.get(_key).decode()))
+                    return {
+                        'title': key_name,
+                        'keys': _keys,
+                        'total': _total_keys,
+                        'pool': key.redis_pool_name
+                    }
+                else:
+                    return None
             else:
-                return self.get_key_summary_single_multi_domain(r, key, max_keys_per_summary, key_config['pool'])
+                return self.get_key_summary_single_multi_domain(r, key_name, key, max_keys_per_summary)
 
-    def get_keys_summary(self, max_keys_per_summary=10, domain_name=None):
-        for key, key_config in ALL_REDIS_KEYS.items():
-            if key_config.get('duplicate_of'):
+    def get_keys_summary(self, max_keys_per_summary=10, worker_id=None):
+        for key_name in dir(self.keys):
+            key = getattr(self.keys, key_name)
+            if not isinstance(key, DomainsConfigKey):
                 continue
-            if key_config['type'] == 'prefix-subkeys':
-                yield self.get_key_summary_prefix_subkeys(key, key_config, domain_name, max_keys_per_summary)
-            elif key_config['type'] in ['prefix', 'template']:
-                yield self.get_key_summary_single(key, key_config, domain_name, max_keys_per_summary)
+            if getattr(key, 'keys_summary_type', None) == 'prefix-subkeys':
+                yield self.get_key_summary_prefix_subkeys(key_name, key, worker_id, max_keys_per_summary)
             else:
-                raise NotImplementedError('key_config type not supported yet: {}'.format(key_config['type']))
+                yield self.get_key_summary_single(key_name, key, worker_id, max_keys_per_summary)
 
-    def set_worker_total_used_bytes(self, domain_name, total_used_bytes):
-        with self.get_internal_redis() as r:
-            value = str(total_used_bytes)
-            r.set("{}:{}".format(REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES, domain_name), value)
+    def set_worker_total_used_bytes(self, worker_id, total_used_bytes):
+        value = str(total_used_bytes)
+        self.keys.worker_total_used_bytes.set(worker_id, value)
 
-    def get_worker_total_used_bytes(self, domain_name):
-        with self.get_internal_redis() as r:
-            value = r.get("{}:{}".format(REDIS_KEY_PREFIX_WORKER_TOTAL_USED_BYTES, domain_name))
-            if value:
-                try:
-                    value = int(value.decode())
-                except:
-                    value = 0
-            else:
+    def get_worker_total_used_bytes(self, worker_id):
+        value = self.keys.worker_total_used_bytes.get(worker_id)
+        if value:
+            try:
+                value = int(value.decode())
+            except:
                 value = 0
-            return value
+        else:
+            value = 0
+        return value
 
     def alerts_push(self, alert):
-        with self.get_internal_redis() as r:
-            r.rpush(REDIS_KEY_ALERTS, json.dumps(alert))
+        with self.keys.alerts.get_redis() as r:
+            r.rpush(self.keys.alerts._(), json.dumps(alert))
 
     def alerts_pop(self):
-        with self.get_internal_redis() as r:
-            alert = r.lpop(REDIS_KEY_ALERTS)
+        with self.keys.alerts.get_redis() as r:
+            alert = r.lpop(self.keys.alerts._())
         return json.loads(alert) if alert else None
 
     def set_node_healthy(self, node_name, is_healthy):
-        key = "{}:{}".format(REDIS_KEY_PREFIX_NODE_HEALTHY, node_name)
-        with self.get_ingress_redis() as r:
+        key = self.keys.node_healthy._(node_name)
+        with self.keys.node_healthy.get_redis() as r:
             if is_healthy:
                 r.set(key, "")
             else:
                 r.delete(key)
 
     def iterate_healthy_node_names(self):
-        with self.get_ingress_redis() as r:
-            for key in r.keys("{}:*".format(REDIS_KEY_PREFIX_NODE_HEALTHY)):
-                yield key.decode().replace(REDIS_KEY_PREFIX_NODE_HEALTHY + ":", "")
+        for node_name in self.keys.node_healthy.iterate_prefix_key_suffixes():
+            yield node_name

@@ -3,6 +3,7 @@ import pytz
 import datetime
 
 from cwm_worker_operator import metrics_updater
+from cwm_worker_operator import common
 
 from .mocks.metrics import MockMetricsUpdaterMetrics
 
@@ -38,9 +39,9 @@ def test_update_agg_metrics():
 
 
 def test_update_release_metrics(domains_config, deployments_manager):
-    domain_name = 'example.001.com'
-    namespace_name = "example--001--com"
-    aggregated_metrics_key = 'worker:aggregated-metrics:{}'.format(domain_name)
+    worker_id = 'worker1'
+    namespace_name = common.get_namespace_name_from_worker_id(worker_id)
+    aggregated_metrics_key = 'worker:aggregated-metrics:{}'.format(worker_id)
     minio_metrics_base_key = 'deploymentid:minio-metrics:{}:'.format(namespace_name)
     metrics_updater_metrics = MockMetricsUpdaterMetrics()
     deployments_manager.prometheus_metrics[namespace_name] = {}
@@ -50,24 +51,23 @@ def test_update_release_metrics(domains_config, deployments_manager):
     }
     now = datetime.datetime(2020, 1, 5, 4, 3, 2).astimezone(pytz.UTC)
     delete_all_redis_pools_keys(domains_config)
+    domains_config._set_mock_volume_config(worker_id)
 
     # no aggregated metrics, no current metrics - aggregated metrics are updated with empty metrics for current minute
     metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
-    with domains_config.get_internal_redis() as r:
-        assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
-            'lu': now.strftime("%Y%m%d%H%M%S"),
-            'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0}]
-        }
+    assert json.loads(domains_config.keys.worker_aggregated_metrics.get(worker_id)) == {
+        'lu': now.strftime("%Y%m%d%H%M%S"),
+        'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0}]
+    }
 
     # fast forward 61 seconds, another empty current metric is recorded in aggregated metrics
     now = now + datetime.timedelta(seconds=61)
     metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
-    with domains_config.get_internal_redis() as r:
-        assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
-            'lu': now.strftime("%Y%m%d%H%M%S"),
-            'm': [{'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0},
-                  {'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0}]
-        }
+    assert json.loads(domains_config.keys.worker_aggregated_metrics.get(worker_id)) == {
+        'lu': now.strftime("%Y%m%d%H%M%S"),
+        'm': [{'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0},
+              {'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0}]
+    }
 
     # clear all keys and set some current metrics (cpu and ram) - they are added to aggregated metrics
     with domains_config.get_internal_redis() as r:
@@ -78,11 +78,10 @@ def test_update_release_metrics(domains_config, deployments_manager):
         r.set(minio_metrics_base_key+'https:ram', '700.5')
     now = now + datetime.timedelta(seconds=61)
     metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
-    with domains_config.get_internal_redis() as r:
-        assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
-            'lu': now.strftime("%Y%m%d%H%M%S"),
-            'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500, 'ram': 700.5}]
-        }
+    assert json.loads(domains_config.keys.worker_aggregated_metrics.get(worker_id)) == {
+        'lu': now.strftime("%Y%m%d%H%M%S"),
+        'm': [{'t': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500, 'ram': 700.5}]
+    }
 
     # set different current metrics and fast-forward 61 seconds - they are appended to the aggregated metrics
     # in this case we also set the cpu and ram in different buckets which are also summed as all metrics for each bucket are summed
@@ -96,29 +95,27 @@ def test_update_release_metrics(domains_config, deployments_manager):
         r.set(minio_metrics_base_key + 'http:ram', '800.5')
     now = now + datetime.timedelta(seconds=61)
     metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
-    with domains_config.get_internal_redis() as r:
-        assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
-            'lu': now.strftime("%Y%m%d%H%M%S"),
-            'm': [
-                {'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500, 'ram': 700.5},
-                {
-                    't': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 600+500, 'ram': 800.5+700.5,
-                    'cpu_seconds': '1234', 'ram_bytes': '5678'
-                }
-            ]
-        }
+    assert json.loads(domains_config.keys.worker_aggregated_metrics.get(worker_id)) == {
+        'lu': now.strftime("%Y%m%d%H%M%S"),
+        'm': [
+            {'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500, 'ram': 700.5},
+            {
+                't': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 600+500, 'ram': 800.5+700.5,
+                'cpu_seconds': '1234', 'ram_bytes': '5678'
+            }
+        ]
+    }
 
     # fast forward 50 seconds (less than 1 minute), aggregated metrics are not updated
     now = now + datetime.timedelta(seconds=50)
     metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
-    with domains_config.get_internal_redis() as r:
-        assert json.loads(r.get('worker:aggregated-metrics:example.001.com')) == {
-            'lu': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"),
-            'm': [
-                {'t': (now - datetime.timedelta(seconds=50+61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500.0, 'ram': 700.5},
-                {
-                    't': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 1100.0, 'ram': 800.5+700.5,
-                    'cpu_seconds': '1234', 'ram_bytes': '5678'
-                }
-            ]
-        }
+    assert json.loads(domains_config.keys.worker_aggregated_metrics.get(worker_id)) == {
+        'lu': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"),
+        'm': [
+            {'t': (now - datetime.timedelta(seconds=50+61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500.0, 'ram': 700.5},
+            {
+                't': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 1100.0, 'ram': 800.5+700.5,
+                'cpu_seconds': '1234', 'ram_bytes': '5678'
+            }
+        ]
+    }

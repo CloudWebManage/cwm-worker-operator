@@ -1,70 +1,45 @@
-import pytz
-import datetime
-from collections import defaultdict
-from cwm_worker_operator.domains_config import DomainsConfig
+import json
+
+from cwm_worker_operator import domains_config
+from cwm_worker_operator import common
 
 
-class MockDomainsConfig(DomainsConfig):
+class MockDomainsConfig(domains_config.DomainsConfig):
+    _dc = domains_config
 
     def __init__(self):
+        self._cwm_api_volume_configs = {}
         super(MockDomainsConfig, self).__init__()
-        self.worker_domains_ready_for_deployment = []
-        self.worker_domains_waiting_for_deployment_complete = []
-        self.worker_domains_waiting_for_initlization = []
-        self.domain_cwm_api_volume_config = {}
-        self.domain_worker_error = {}
-        self.domain_worker_error_attempt_number = defaultdict(int)
-        self.domain_worker_ready_for_deployment = {}
-        self.domain_ready_for_deployment_start_time = {}
-        self.domain_volume_config_namespace = {}
-        self.domain_worker_waiting_for_deployment = {}
-        self.domain_worker_available_hostname = {}
-        self.domain_deleted_worker_keys = {}
-        self.domains_to_delete = []
-        self.worker_domains_force_update = []
-        self.get_cwm_api_volume_config_calls = {}
 
-    def get_worker_domains_ready_for_deployment(self):
-        return self.worker_domains_ready_for_deployment
+    def _cwm_api_volume_config_api_call(self, query_param, query_value):
+        return self._cwm_api_volume_configs['{}:{}'.format(query_param, query_value)]
 
-    def get_worker_domains_waiting_for_deployment_complete(self):
-        return self.worker_domains_waiting_for_deployment_complete
+    # test utility functions
 
-    def get_worker_domains_waiting_for_initlization(self):
-        return self.worker_domains_waiting_for_initlization
+    def _iterate_redis_pools(self):
+        for pool in ['ingress', 'internal', 'metrics']:
+            with getattr(self, 'get_{}_redis'.format(pool))() as r:
+                yield r
 
-    def get_cwm_api_volume_config(self, domain_name, metrics=None, force_update=False):
-        self.get_cwm_api_volume_config_calls.setdefault(domain_name, []).append({"force_update": force_update})
-        return self.domain_cwm_api_volume_config.get(domain_name, {})
+    def _get_all_redis_pools_keys(self):
+        all_keys = set()
+        for r in self._iterate_redis_pools():
+            for key in r.keys("*"):
+                assert key not in all_keys, 'duplicate key between redis pools: {}'.format(key)
+                all_keys.add(key.decode())
+        return all_keys
 
-    def set_worker_error(self, domain_name, error_msg):
-        self.domain_worker_error[domain_name] = error_msg
+    def _get_all_redis_pools_values(self, blank_keys=None):
+        all_values = {}
+        for r in self._iterate_redis_pools():
+            for key in r.keys("*"):
+                assert key not in all_values, 'duplicate key between redis pools: {}'.format(key)
+                all_values[key.decode()] = "" if blank_keys and key.decode() in blank_keys else r.get(key).decode()
+        return all_values
 
-    def increment_worker_error_attempt_number(self, domain_name):
-        self.domain_worker_error_attempt_number[domain_name] += 1
-        return self.domain_worker_error_attempt_number[domain_name]
-
-    def set_worker_ready_for_deployment(self, domain_name):
-        self.domain_worker_ready_for_deployment[domain_name] = True
-
-    def get_worker_ready_for_deployment_start_time(self, domain_name):
-        return self.domain_ready_for_deployment_start_time.get(domain_name, datetime.datetime.now(pytz.UTC))
-
-    def get_volume_config_namespace_from_domain(self, metrics, domain_name):
-        return self.domain_volume_config_namespace.get(domain_name)
-
-    def set_worker_waiting_for_deployment(self, domain_name):
-        self.domain_worker_waiting_for_deployment[domain_name] = True
-
-    def set_worker_available(self, domain_name, hostname):
-        self.domain_worker_available_hostname[domain_name] = hostname
-
-    def del_worker_keys(self, domain_name, **kwargs):
-        self.domain_deleted_worker_keys[domain_name] = kwargs
-
-    def iterate_domains_to_delete(self):
-        for domain in self.domains_to_delete:
-            yield domain
-
-    def get_domains_force_update(self):
-        return self.worker_domains_force_update
+    def _set_mock_volume_config(self, worker_id='worker1', hostname='example007.com'):
+        self.keys.volume_config.set(worker_id, json.dumps({
+            'id': worker_id,
+            'hostname': hostname
+        }))
+        return worker_id, hostname, common.get_namespace_name_from_worker_id(worker_id)

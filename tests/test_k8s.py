@@ -53,12 +53,12 @@ def test_k8s():
         returncode, output = subprocess.getstatusoutput('kubectl get ns {}'.format(domain_name.replace('.', '--')))
         assert returncode == 1, output
         wait_for_cmd('DEBUG= kubectl exec deployment/cwm-worker-operator-redis-ingress -- redis-cli '
-                     'set {}:{} ""'.format(domains_config.REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name),
+                     'set {}:{} ""'.format(domains_config.REDIS_KEY_PREFIX_HOSTNAME_INITIALIZE, domain_name),
                      0, 60, "Waited too long for setting redis key")
         wait_for_cmd('kubectl -n {} get pods | grep minio- | grep Running'.format(domain_name.replace('.', '--')),
                      0, 120, "Waited too long for worker")
         wait_for_cmd('DEBUG= kubectl exec deployment/cwm-worker-operator-redis-ingress -- redis-cli '
-                     '--raw exists {}'.format(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)),
+                     '--raw exists {}'.format(domains_config.REDIS_KEY_HOSTNAME_AVAILABLE.format(domain_name)),
                      0, 120, "Waited too long for redis domain availabile", expected_output='1')
     except Exception:
         for cmd in ['kubectl get ns',

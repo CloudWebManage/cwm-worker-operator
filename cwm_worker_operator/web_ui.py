@@ -7,15 +7,16 @@ from cwm_worker_operator import domains_config
 
 
 def get_header(server):
-    yield '<p><a href="/">index</a> | <a href="/domain/example007.com">domain</a> | <a href="/redis_key/ingress/worker:available:example007.com">redis key</a></p>'
+    yield '<p><a href="/">index</a> | <a href="/worker/worker1">worker</a> | <a href="/redis_key/ingress/hostname:available:example007.com">redis key</a></p>'
 
 
-def get_keys_summary(server, domain_name=None):
-    for key in server.dc.get_keys_summary(domain_name=domain_name):
-        yield "<b>{} ({})</b><br/>\n".format(key['title'], key['total'])
-        for _key in key['keys']:
-            yield "{}<br/>".format(_key)
-        yield "<br/>"
+def get_keys_summary(server, worker_id=None):
+    for key in server.dc.get_keys_summary(worker_id=worker_id):
+        if key:
+            yield "<b>{} ({})</b><br/>\n".format(key['title'], key['total'])
+            for _key in key['keys']:
+                yield "{}<br/>".format(_key)
+            yield "<br/>"
 
 
 def get_index(server):
@@ -23,20 +24,20 @@ def get_index(server):
     yield from get_keys_summary(server)
 
 
-def get_domain(server, domain_name):
+def get_worker(server, worker_id):
     yield from get_header(server)
-    if not domain_name:
-        yield "Please input a domain name"
+    if not worker_id:
+        yield "Please input a worker id"
         return
-    yield "<h3>Domain: {}</h3>".format(domain_name)
-    if domain_name.startswith('delete/'):
-        domain_name = domain_name.replace('delete/', '')
-        server.dc.del_worker_keys(domain_name)
-        yield '<p style="color:red;font-weight:bold;">Deleted all domain worker keys</p>'
+    yield "<h3>Worker ID: {}</h3>".format(worker_id)
+    if worker_id.startswith('delete/'):
+        worker_id = worker_id.replace('delete/', '')
+        server.dc.del_worker_keys(worker_id)
+        yield '<p style="color:red;font-weight:bold;">Deleted all worker keys</p>'
     else:
-        yield from get_keys_summary(server, domain_name)
+        yield from get_keys_summary(server, worker_id)
         yield '<hr/>'
-        yield '<p style="color:red;font-weight:bold;">Delete all domain worker keys? <a href="/domain/delete/{}">YES</a></p>'.format(domain_name)
+        yield '<p style="color:red;font-weight:bold;">Delete all worker keys? (may includes hostname keys not displayed here!) <a href="/worker/delete/{}">YES</a></p>'.format(worker_id)
 
 
 def get_redis_key(server, pool, key):
@@ -56,8 +57,8 @@ def get_redis_key(server, pool, key):
             if value:
                 value = value.decode()
             yield "{} = {}<br/>".format(key, value)
-            yield '<p style="color:red;font-weight:bold;"><a href="/redis_key/set/{}/VALUE">Set key (edit URL, replace VALUE)</a></p>'.format(key)
-            yield '<p style="color:red;font-weight:bold;">Delete key? <a href="/redis_key/delete/{}">YES</a></p>'.format(key)
+            yield '<p style="color:red;font-weight:bold;"><a href="/redis_key/{}/set/{}/VALUE">Set key (edit URL, replace VALUE)</a></p>'.format(pool, key)
+            yield '<p style="color:red;font-weight:bold;">Delete key? <a href="/redis_key/{}/delete/{}">YES</a></p>'.format(pool, key)
 
 
 class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -95,9 +96,9 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
         try:
             if self.path == '/':
                 self._send_html(get_index(self.server))
-            elif self.path.startswith('/domain/'):
-                domain_name = self.path.replace('/domain/', '')
-                self._send_html(get_domain(self.server, domain_name))
+            elif self.path.startswith('/worker/'):
+                worker_id = self.path.replace('/worker/', '')
+                self._send_html(get_worker(self.server, worker_id))
             elif self.path.startswith('/redis_key/'):
                 pool, *key = self.path.replace('/redis_key/', '').split('/')
                 key = '/'.join(key)

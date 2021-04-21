@@ -3,3 +3,4 @@
 venv
 *__pycache__*
 .cwm_worker_deployment_helm_cache
+.env

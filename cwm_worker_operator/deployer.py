@@ -10,14 +10,14 @@ from cwm_worker_operator import domains_config as domains_config_module
 from cwm_worker_operator.daemon import Daemon
 
 
-def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name, debug=False, extra_minio_extra_configs=None):
-    start_time = domains_config.get_worker_ready_for_deployment_start_time(domain_name)
-    log_kwargs = {"domain_name": domain_name, "start_time": start_time}
+def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id, debug=False, extra_minio_extra_configs=None):
+    start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
+    log_kwargs = {"worker_id": worker_id, "start_time": start_time}
     logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
     try:
-        volume_config, namespace_name = domains_config.get_volume_config_namespace_from_domain(deployer_metrics, domain_name)
+        volume_config, namespace_name = domains_config.get_volume_config_namespace_from_worker_id(deployer_metrics, worker_id)
         if not namespace_name:
-            deployer_metrics.failed_to_get_volume_config(domain_name, start_time)
+            deployer_metrics.failed_to_get_volume_config(worker_id, start_time)
             logs.debug_info("Failed to get volume config", **log_kwargs)
             return
         logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
@@ -42,7 +42,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
             *volume_config.get("cwm_worker_extra_objects", [])
         ]
         minio = {
-            'domain_name': domain_name
+            # TODO: when we have multiple hostnames this should use the first one as the main domain_name
+            'domain_name': volume_config['hostname']
         }
         if config.PULL_SECRET:
             minio['createPullSecret'] = config.PULL_SECRET
@@ -70,10 +71,10 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
             "REDIS_POOL_MAX_CONNECTIONS": config.METRICS_REDIS_POOL_MAX_CONNECTIONS,
             "REDIS_POOL_TIMEOUT": config.METRICS_REDIS_POOL_TIMEOUT,
             "REDIS_DB": config.METRICS_REDIS_DB,
-            "REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION,
+            "REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION": domains_config.keys.deployment_last_action.key_prefix,
             "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS,
             "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,
-            "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config_module.REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC,
+            "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config.keys.deployment_api_metric.key_prefix,
             **minio_extra_configs.pop('metricsLogger', {})
         }
         minio['cache'] = {
@@ -122,29 +123,29 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_
             if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
                 traceback.print_exc(file=sys.stdout)
                 print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
-            domains_config.set_worker_error(domain_name, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
-            deployer_metrics.deploy_failed(domain_name, start_time)
+            domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
+            deployer_metrics.deploy_failed(worker_id, start_time)
             logs.debug_info("failed to deploy", **log_kwargs)
             return
         logs.debug("deployed", debug_verbosity=4, **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY > 5:
             print(deploy_output, flush=True)
-        deployer_metrics.deploy_success(domain_name, start_time)
-        domains_config.set_worker_waiting_for_deployment(domain_name)
+        deployer_metrics.deploy_success(worker_id, start_time)
+        domains_config.set_worker_waiting_for_deployment(worker_id)
         logs.debug_info("success", **log_kwargs)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        deployer_metrics.exception(domain_name, start_time)
+        deployer_metrics.exception(worker_id, start_time)
 
 
-def run_single_iteration(domains_config, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
+def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
     deployer_metrics = metrics
-    domain_names_waiting_for_deployment_complete = domains_config.get_worker_domains_waiting_for_deployment_complete()
-    for domain_name in domains_config.get_worker_domains_ready_for_deployment():
-        if domain_name not in domain_names_waiting_for_deployment_complete:
-            deploy_worker(domains_config, deployer_metrics, deployments_manager, domain_name, extra_minio_extra_configs=extra_minio_extra_configs)
+    worker_ids_waiting_for_deployment_complete = domains_config.get_worker_ids_waiting_for_deployment_complete()
+    for worker_id in domains_config.get_worker_ids_ready_for_deployment():
+        if worker_id not in worker_ids_waiting_for_deployment_complete:
+            deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id, extra_minio_extra_configs=extra_minio_extra_configs)
 
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):

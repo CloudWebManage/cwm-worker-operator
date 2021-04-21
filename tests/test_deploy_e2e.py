@@ -9,39 +9,70 @@ from cwm_worker_operator import deleter
 from cwm_worker_operator import initializer
 from cwm_worker_operator import deployer
 from cwm_worker_operator import waiter
-from cwm_worker_operator import domains_config
 from cwm_worker_operator import config
+from cwm_worker_operator import common
 
 from .mocks.metrics import MockInitializerMetrics, MockDeployerMetrics, MockWaiterMetrics
 
 
+EXAMPLE007_COM_WORKER_ID = 'worker1'
+EXAMPLE007_COM_HOSTNAME = 'example007.com'
+
+MISSING1_WORKER_ID = 'worker2'
+MISSING1_HOSTNAME = 'missing.domain1'
+
+MISSING2_WORKER_ID = 'worker3'
+MISSING2_HOSTNAME = 'missing.domain2'
+
+INVALIDZONE1_WORKER_ID = 'worker4'
+INVALIDZONE1_HOSTNAME = 'invalid.zone1'
+
+INVALIDZONE2_WORKER_ID = 'worker5'
+INVALIDZONE2_HOSTNAME = 'invalid.zone2'
+
+FAILTODEPLOY_WORKER_ID = 'worker6'
+FAILTODEPLOY_HOSTNAME = 'failtodeploy.domain'
+
+TIMEOUTDEPLOY_WORKER_ID = 'worker7'
+TIMEOUTDEPLOY_HOSTNAME = 'timeout.deploy'
+
 WORKERS = {
-    'example007.com': {
+    EXAMPLE007_COM_WORKER_ID: {
+        'hostname': EXAMPLE007_COM_HOSTNAME,
+        'volume_config': {
+            "id": EXAMPLE007_COM_WORKER_ID, "hostname": EXAMPLE007_COM_HOSTNAME, "zone": "EU"
+        },
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'waiting_for_deployment',
         'after_waiter': 'valid',
     },
-    'missing1.domain': {
+    MISSING1_WORKER_ID: {
+        'hostname': MISSING1_HOSTNAME,
         'after_initializer': 'error_attempts',
     },
-    'missing2.domain': {
+    MISSING2_WORKER_ID: {
+        'hostname': MISSING2_HOSTNAME,
         'after_initializer': 'error_attempts',
     },
-    'invalidzone1.domain': {
-        'volume_config': {"hostname": "invalidzone1.domain", "zone": "US"},
+    INVALIDZONE1_WORKER_ID: {
+        "hostname": INVALIDZONE1_HOSTNAME,
+        'volume_config': {"id": INVALIDZONE1_WORKER_ID, "hostname": INVALIDZONE1_HOSTNAME, "zone": "US"},
         'after_initializer': 'error',
     },
-    'invalidzone2.domain': {
-        'volume_config': {"hostname": "invalidzone2.domain", "zone": "IL"},
+    INVALIDZONE2_WORKER_ID: {
+        "hostname": INVALIDZONE2_HOSTNAME,
+        'volume_config': {"id": INVALIDZONE2_WORKER_ID, "hostname": INVALIDZONE2_HOSTNAME, "zone": "IL"},
         'after_initializer': 'error',
     },
-    'failtodeploy.domain': {
-        'volume_config': {"hostname": "failtodeploy.domain", "zone": "EU", "minio_extra_configs": {"httpResources": "---invalid---"}},
+    FAILTODEPLOY_WORKER_ID: {
+        "hostname": FAILTODEPLOY_HOSTNAME,
+        'volume_config': {"id": FAILTODEPLOY_WORKER_ID, "hostname": FAILTODEPLOY_HOSTNAME, "zone": "EU", "minio_extra_configs": {"httpResources": "---invalid---"}},
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'error',
     },
-    'timeoutdeploy.domain': {
-        'volume_config': {"hostname": "timeoutdeploy.domain", "zone": "EU", "certificate_pem": "invalid", "certificate_key": "invalid", "protocol": "https"},
+    TIMEOUTDEPLOY_WORKER_ID: {
+        "hostname": TIMEOUTDEPLOY_HOSTNAME,
+        'volume_config': {"id": TIMEOUTDEPLOY_WORKER_ID, "hostname": TIMEOUTDEPLOY_HOSTNAME, "zone": "EU", "certificate_pem": "invalid", "certificate_key": "invalid", "protocol": "https"},
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'waiting_for_deployment',
         'after_waiter': 'error'
@@ -49,54 +80,49 @@ WORKERS = {
 }
 
 
-def _assert_after_initializer(domain_name, test_config, dc, attempt_number=1):
+def _assert_after_initializer(worker_id, test_config, dc, attempt_number=1):
     if test_config['after_initializer'] == 'ready_for_deployment':
-        assert domain_name in dc.get_worker_domains_ready_for_deployment()
+        assert worker_id in dc.get_worker_ids_ready_for_deployment()
     else:
-        assert domain_name not in dc.get_worker_domains_ready_for_deployment()
+        assert worker_id not in dc.get_worker_ids_ready_for_deployment()
         if test_config['after_initializer'] == 'error':
-            with dc.get_ingress_redis() as r:
-                assert r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))
+            assert dc.keys.hostname_error.get(test_config['hostname']), worker_id
         elif test_config['after_initializer'] == 'error_attempts':
-            with dc.get_internal_redis() as r:
-                assert r.get(domains_config.REDIS_KEY_WORKER_ERROR_ATTEMPT_NUMBER.format(domain_name)).decode() == str(attempt_number)
+            assert dc.keys.hostname_error_attempt_number.get(test_config['hostname']).decode() == str(attempt_number)
         else:
             raise Exception('unknown after initializer assertion: {}'.format(test_config['after_initializer']))
 
 
-def _assert_after_deployer(domain_name, test_config, dc):
+def _assert_after_deployer(worker_id, test_config, dc):
     if test_config.get('after_deployer') == 'waiting_for_deployment':
-        assert domain_name in dc.get_worker_domains_waiting_for_deployment_complete()
+        assert worker_id in dc.get_worker_ids_waiting_for_deployment_complete()
     elif test_config.get('after_deployer') == 'error':
-        with dc.get_ingress_redis() as r:
-            assert r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))
+        assert dc.keys.hostname_error.get(test_config['hostname'])
     elif test_config.get('after_deployer') is not None:
         raise Exception('unknown after deployer assertion: {}'.format(test_config.get('after_deployer')))
 
 
-def _assert_after_waiter(domain_name, test_config, dc, debug=False):
+def _assert_after_waiter(worker_id, test_config, dc, debug=False):
     if test_config.get('after_waiter') == 'valid':
-        with dc.get_ingress_redis() as r:
-            if (
-                r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name)) == b''
-                and json.loads(r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name)).decode()) == {proto: "minio-{}.{}.svc.cluster.local".format(proto, domain_name.replace('.', '--')) for proto in ['http', 'https']}
-                and domain_name not in dc.get_worker_domains_waiting_for_initlization()
-            ):
-                return True
-            else:
-                if debug:
-                    print("REDIS_KEY_WORKER_AVAILABLE={}".format(r.get(domains_config.REDIS_KEY_WORKER_AVAILABLE.format(domain_name))))
-                    print("REDIS_KEY_WORKER_INGRESS_HOSTNAME={}".format(r.get(domains_config.REDIS_KEY_WORKER_INGRESS_HOSTNAME.format(domain_name))))
-                    print("domains_waiting_for_initialization={}".format(list(dc.get_worker_domains_waiting_for_initlization())))
-                return False
+        if (
+            dc.keys.hostname_available.get(test_config['hostname']) == b''
+            and json.loads(dc.keys.hostname_ingress_hostname.get(test_config['hostname']).decode()) == {proto: "minio-{}.{}.svc.cluster.local".format(proto, common.get_namespace_name_from_worker_id(worker_id)) for proto in ['http', 'https']}
+            and test_config['hostname'] not in dc.get_hostnames_waiting_for_initlization()
+        ):
+            return True
+        else:
+            if debug:
+                print("hostname_available={}".format(dc.keys.hostname_available.get(test_config['hostname'])))
+                print("hostname_ingress_hostname={}".format(dc.keys.hostname_ingress_hostname.get(test_config['hostname'])))
+                print("hostnames_waiting_for_initlization={}".format(list(dc.get_hostnames_waiting_for_initlization())))
+            return False
     elif test_config.get('after_waiter') == 'error':
-        with dc.get_ingress_redis() as r:
-            if bool(r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))):
-                return True
-            else:
-                if debug:
-                    print("REDIS_KEY_WORKER_ERROR={}".format(r.get(domains_config.REDIS_KEY_WORKER_ERROR.format(domain_name))))
-                return False
+        if bool(dc.keys.hostname_error.get(test_config['hostname'])):
+            return True
+        else:
+            if debug:
+                print("hostname_error={}".format(dc.keys.hostname_error.get(test_config['hostname'])))
+            return False
     elif test_config.get('after_waiter') is not None:
         raise Exception('unkonwn after waiter assertion: {}'.format(test_config.get('after_waiter')))
     else:
@@ -110,13 +136,20 @@ def _parse_metrics(metrics):
     return dict(res)
 
 
+def _set_volume_configs(dc, worker_id, test_config):
+    if test_config.get('volume_config'):
+        dc._cwm_api_volume_configs['id:{}'.format(worker_id)] = test_config['volume_config']
+        dc._cwm_api_volume_configs['hostname:{}'.format(test_config['hostname'])] = test_config['volume_config']
+
+
 def _delete_workers(dc):
     print("Deleting workers..")
-    for domain_name in WORKERS.keys():
-        deleter.delete(domain_name, deployment_timeout_string='5m', delete_namespace=True, delete_helm=True,
+    for worker_id, test_config in WORKERS.items():
+        _set_volume_configs(dc, worker_id, test_config)
+        deleter.delete(worker_id, deployment_timeout_string='5m', delete_namespace=True, delete_helm=True,
                        domains_config=dc)
-    for domain_name in WORKERS.keys():
-        namespace_name = domain_name.replace('.', '--')
+    for worker_id in WORKERS.keys():
+        namespace_name = common.get_namespace_name_from_worker_id(worker_id)
         start_time = datetime.datetime.now(pytz.UTC)
         while True:
             returncode, _ = subprocess.getstatusoutput('kubectl get ns {}'.format(namespace_name))
@@ -127,58 +160,33 @@ def _delete_workers(dc):
             time.sleep(1)
 
 
-def iterate_redis_pools(dc):
-    for pool in ['ingress', 'internal', 'metrics']:
-        with getattr(dc, 'get_{}_redis'.format(pool))() as r:
-            yield r
-
-
-def get_all_redis_pools_keys(dc):
-    all_keys = []
-    for r in iterate_redis_pools(dc):
-        for key in r.keys("*"):
-            all_keys.append(key.decode())
-    return all_keys
-
-
-def _clear_redis(dc):
-    for r in iterate_redis_pools(dc):
-        all_keys = [key.decode() for key in r.keys('*')]
-        if len(all_keys) > 0:
-            r.delete(*all_keys)
-    yield dc
-
-
 def _set_redis_keys(dc):
     print("Setting redis keys..")
-    with dc.get_ingress_redis() as ingress_redis:
-        with dc.get_internal_redis() as internal_redis:
-            for domain_name, worker_test_config in WORKERS.items():
-                ingress_redis.set('{}:{}'.format(domains_config.REDIS_KEY_PREFIX_WORKER_INITIALIZE, domain_name), '')
-                if worker_test_config.get('volume_config'):
-                    internal_redis.set(domains_config.REDIS_KEY_VOLUME_CONFIG.format(domain_name), json.dumps(worker_test_config['volume_config']))
+    for worker_id, test_config in WORKERS.items():
+        dc.keys.hostname_initialize.set(test_config['hostname'], '')
+        _set_volume_configs(dc, worker_id, test_config)
 
 
-def test():
-    dc = domains_config.DomainsConfig()
-    _clear_redis(dc)
+def test(domains_config):
+    dc = domains_config
     _delete_workers(dc)
     _set_redis_keys(dc)
 
     print("Running initializer iteration 1")
     mock_initializer_metrics = MockInitializerMetrics()
     initializer.start_daemon(True, with_prometheus=False, initializer_metrics=mock_initializer_metrics, domains_config=dc)
-    for domain_name, test_config in WORKERS.items():
-        _assert_after_initializer(domain_name, test_config, dc)
+    for worker_id, test_config in WORKERS.items():
+        _assert_after_initializer(worker_id, test_config, dc)
     assert _parse_metrics(mock_initializer_metrics) == {
-        'error': 2, 'failed_to_get_volume_config': 2, 'success_cache': 4, 'invalid_volume_zone': 2, 'initialized': 3, 'success': 1}
+        'error': 2, 'failed_to_get_volume_config': 2, 'invalid_volume_zone': 2, 'initialized': 3, 'success': 5
+    }
 
     print("Running initializer iteration 2")
     initializer.start_daemon(True, with_prometheus=False, initializer_metrics=mock_initializer_metrics, domains_config=dc)
-    for domain_name, test_config in WORKERS.items():
-        _assert_after_initializer(domain_name, test_config, dc, attempt_number=2)
+    for worker_id, test_config in WORKERS.items():
+        _assert_after_initializer(worker_id, test_config, dc, attempt_number=2)
     assert _parse_metrics(mock_initializer_metrics) == {
-        'error': 2, 'failed_to_get_volume_config': 4, 'success_cache': 6, 'invalid_volume_zone': 2, 'initialized': 3, 'success': 1}
+        'error': 4, 'failed_to_get_volume_config': 4, 'invalid_volume_zone': 2, 'initialized': 3, 'success': 8}
 
     print("Running deployer iteration")
     mock_deployer_metrics = MockDeployerMetrics()
@@ -189,8 +197,8 @@ def test():
                                   "REDIS_HOST": "localhost"
                               }
                           })
-    for domain_name, test_config in WORKERS.items():
-        _assert_after_deployer(domain_name, test_config, dc)
+    for worker_id, test_config in WORKERS.items():
+        _assert_after_deployer(worker_id, test_config, dc)
     assert _parse_metrics(mock_deployer_metrics) == {'failed': 1, 'success': 2, 'success_cache': 3}
 
     print("Running waiter iterations")
@@ -199,12 +207,12 @@ def test():
     start_time = datetime.datetime.now(pytz.UTC)
     while True:
         waiter.start_daemon(True, with_prometheus=False, waiter_metrics=mock_waiter_metrics, domains_config=dc)
-        if all([_assert_after_waiter(domain_name, test_config, dc) for domain_name, test_config in WORKERS.items()]):
+        if all([_assert_after_waiter(worker_id, test_config, dc) for worker_id, test_config in WORKERS.items()]):
             break
         if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 120:
-            for domain_name, test_config in WORKERS.items():
-                if not _assert_after_waiter(domain_name, test_config, dc, debug=True):
-                    print("Failed asserting after waiter for domain: {} test_config: {}".format(domain_name, test_config))
+            for worker_id, test_config in WORKERS.items():
+                if not _assert_after_waiter(worker_id, test_config, dc, debug=True):
+                    print("Failed asserting after waiter for domain: {} test_config: {}".format(worker_id, test_config))
             raise Exception("Waiting too long for workers to be ready")
         time.sleep(5)
     observations = _parse_metrics(mock_waiter_metrics)
