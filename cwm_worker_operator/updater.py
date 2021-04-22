@@ -21,8 +21,8 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
     start_time = common.now()
     worker_id = common.get_worker_id_from_namespace_name(namespace_name)
     volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
-    disable_force_delete = volume_config.get("disable_force_delete")
-    disable_force_update = volume_config.get("disable_force_update")
+    disable_force_delete = volume_config.disable_force_delete
+    disable_force_update = volume_config.disable_force_update
     try:
         hours_since_last_update = (common.now() - last_updated).total_seconds() / 60 / 60
         is_deployed = status == "deployed"

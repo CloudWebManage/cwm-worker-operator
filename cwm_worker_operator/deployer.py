@@ -21,43 +21,30 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             logs.debug_info("Failed to get volume config", **log_kwargs)
             return
         logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
-        protocol = volume_config.get("protocol", "http")
-        certificate_key = volume_config.get("certificate_key")
-        certificate_key = "\n".join(certificate_key) if certificate_key else None
-        certificate_pem = volume_config.get("certificate_pem")
-        certificate_pem = "\n".join(certificate_pem) if certificate_pem else None
-        client_id = volume_config.get("client_id")
-        secret = volume_config.get("secret")
         minio_extra_configs = {
             **config.MINIO_EXTRA_CONFIG,
-            **volume_config.get("minio_extra_configs", {}),
+            **volume_config.minio_extra_configs,
             **(extra_minio_extra_configs if extra_minio_extra_configs else {})
         }
         cwm_worker_deployment_extra_configs = {
             **config.CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG,
-            **volume_config.get("cwm_worker_deployment_extra_configs", {})
+            **volume_config.cwm_worker_deployment_extra_configs
         }
         extra_objects = [
             *config.CWM_WORKER_EXTRA_OBJECTS,
-            *volume_config.get("cwm_worker_extra_objects", [])
+            *volume_config.cwm_worker_extra_objects
         ]
         minio = {
-            # TODO: when we have multiple hostnames this should use the first one as the main domain_name
-            'domain_name': volume_config['hostname']
+            'domain_name': volume_config.hostnames[0] if len(volume_config.hostnames) else ''
         }
         if config.PULL_SECRET:
             minio['createPullSecret'] = config.PULL_SECRET
-        if protocol == "https" and certificate_key and certificate_pem:
-            minio["enabledProtocols"] = ["http", "https"]
-            minio["certificate_pem"] = certificate_pem
-            minio["certificate_key"] = certificate_key
-        else:
-            minio["enabledProtocols"] = ["http"]
-            minio["certificate_pem"] = ""
-            minio["certificate_key"] = ""
-        if client_id and secret:
-            minio["access_key"] = client_id
-            minio["secret_key"] = secret
+        minio["enabledProtocols"] = volume_config.enabled_protocols
+        minio["certificate_pem"] = volume_config.certificate_pem
+        minio["certificate_key"] = volume_config.certificate_key
+        if volume_config.client_id and volume_config.secret:
+            minio["access_key"] = volume_config.client_id
+            minio["secret_key"] = volume_config.secret
         if config.DEPLOYER_USE_EXTERNAL_SERVICE:
             minio["service"] = {
                 "enabled": False

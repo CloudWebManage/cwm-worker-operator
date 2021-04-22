@@ -71,27 +71,24 @@ def test_worker_keys(domains_config):
     metrics = MockMetrics()
     dc._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'id': worker_id, 'hostname': hostname, 'zone': 'EU'}
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
-    assert set(volume_config.keys()) == {'id', 'hostname', 'zone', '__last_update'}
-    assert volume_config['id'] == worker_id
-    assert volume_config['hostname'] == hostname
-    assert volume_config['zone'] == 'EU'
-    assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
+    assert volume_config.id == worker_id
+    assert volume_config.hostnames == [hostname]
+    assert volume_config.zone == 'EU'
+    assert isinstance(strptime(volume_config._last_update, "%Y%m%dT%H%M%S"), datetime.datetime)
     assert worker_id in metrics.domain_volume_config_success_from_api
     # second call with valid domain - success from cache
     metrics = MockMetrics()
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
-    assert set(volume_config.keys()) == {'id', 'hostname', 'zone', '__last_update'}
-    assert volume_config['id'] == worker_id
-    assert volume_config['hostname'] == hostname
-    assert volume_config['zone'] == 'EU'
-    assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
+    assert volume_config.id == worker_id
+    assert volume_config.hostnames == [hostname]
+    assert volume_config.zone == 'EU'
+    assert isinstance(strptime(volume_config._last_update, "%Y%m%dT%H%M%S"), datetime.datetime)
     assert worker_id in metrics.domain_volume_config_success_from_cache
     # get volume config namespace
     volume_config, namespace = dc.get_volume_config_namespace_from_worker_id(None, worker_id)
-    assert set(volume_config.keys()) == {'id', 'hostname', 'zone', '__last_update'}
-    assert volume_config['id'] == worker_id
-    assert volume_config['hostname'] == hostname
-    assert volume_config['zone'] == 'EU'
+    assert volume_config.id == worker_id
+    assert volume_config.hostnames == [hostname]
+    assert volume_config.zone == 'EU'
     assert namespace == get_namespace_name_from_worker_id(worker_id)
 
     ## worker domain deployment complete - worker ingress hostname is available
@@ -128,18 +125,19 @@ def test_get_volume_config_error(domains_config):
     # first call with invalid domain - error from api
     metrics = MockMetrics()
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
-    assert set(volume_config.keys()) == {'__error', '__last_update'}
-    assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
+    assert volume_config._error
+    assert isinstance(strptime(volume_config._last_update, "%Y%m%dT%H%M%S"), datetime.datetime)
     assert worker_id in metrics.domain_volume_config_error_from_api
     # second call with invalid domain - error from cache
     metrics = MockMetrics()
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
-    assert set(volume_config.keys()) == {'__error', '__last_update'}
-    assert isinstance(strptime(volume_config['__last_update'], "%Y%m%dT%H%M%S"), datetime.datetime)
+    assert volume_config._error
+    assert isinstance(strptime(volume_config._last_update, "%Y%m%dT%H%M%S"), datetime.datetime)
     assert worker_id in metrics.domain_volume_config_success_from_cache
     # get volume config namespace
     volume_config, namespace = dc.get_volume_config_namespace_from_worker_id(None, worker_id)
-    assert set(volume_config.keys()) == {'__error', '__last_update'}
+    assert volume_config._error
+    assert volume_config._last_update
     assert namespace == None
 
 
@@ -149,12 +147,16 @@ def test_volume_config_force_update(domains_config):
     hostname = 'example007.com'
     metrics = MockMetrics()
     # set volume config in redis
-    dc.keys.volume_config.set(worker_id, json.dumps({'id': worker_id, 'hostname': hostname, "foo": "bar"}))
+    dc.keys.volume_config.set(worker_id, json.dumps({'id': worker_id, 'hostname': hostname, "zone": "FOOBAR"}))
     # without force update, this volume config is returned
-    assert dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics) == {'id': worker_id, 'hostname': hostname, "foo": "bar"}
+    volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
+    assert volume_config.id == worker_id
+    assert volume_config.hostnames == [hostname]
+    assert volume_config.zone == 'FOOBAR'
     # with force update, we get an error as worker_id does not exist
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics, force_update=True)
-    assert set(volume_config.keys()) == {'__error', '__last_update'}
+    assert volume_config._error
+    assert volume_config._last_update
 
 
 def test_worker_forced_delete_update(domains_config):

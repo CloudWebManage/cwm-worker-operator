@@ -19,10 +19,7 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
             waiter_metrics.failed_to_get_volume_config(worker_id, start_time)
             logs.debug_info("Failed to get volume config", **log_kwargs)
             return
-        if volume_config.get("protocol", "http") == "https" and volume_config.get("certificate_key") and volume_config.get("certificate_pem"):
-            enabledProtocols = ['http', 'https']
-        else:
-            enabledProtocols = ['http']
+        enabledProtocols = volume_config.enabled_protocols
         if deployments_manager.is_ready(namespace_name, "minio", enabledProtocols=enabledProtocols):
             internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")
             ok = True

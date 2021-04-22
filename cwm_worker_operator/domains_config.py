@@ -109,6 +109,30 @@ class DomainsConfigKeys:
                                                              keys_summary_type='prefix-subkeys', keys_summary_param='namespace_name')
 
 
+class VolumeConfig:
+
+    def __init__(self, data):
+        self.id = data.get('id')
+        self._error = data.get('__error')
+        self._last_update = data.get('__last_update')
+        self.hostnames = []
+        if data.get('hostname'):
+            self.hostnames.append(data['hostname'])
+        self.enabled_protocols = ['http']
+        self.certificate_key = "\n".join(data['certificate_key']) if data.get("certificate_key") else ''
+        self.certificate_pem = "\n".join(data['certificate_pem']) if data.get("certificate_pem") else ''
+        if data.get('protocol') == 'https' and self.certificate_pem and self.certificate_key:
+            self.enabled_protocols.append('https')
+        self.client_id = data.get("client_id")
+        self.secret = data.get("secret")
+        self.minio_extra_configs = data.get("minio_extra_configs", {})
+        self.cwm_worker_deployment_extra_configs = data.get("cwm_worker_deployment_extra_configs", {})
+        self.cwm_worker_extra_objects = data.get("cwm_worker_extra_objects", [])
+        self.zone = data.get('zone')
+        self.disable_force_delete = data.get("disable_force_delete")
+        self.disable_force_update = data.get("disable_force_update")
+
+
 class DomainsConfig:
     WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT = "TIMEOUT_WAITING_FOR_DEPLOYMENT"
     WORKER_ERROR_FAILED_TO_DEPLOY = "FAILED_TO_DEPLOY"
@@ -197,7 +221,7 @@ class DomainsConfig:
         else:
             return requests.get("{}/volume/{}".format(config.CWM_API_URL, query_value)).json()
 
-    def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None):
+    def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None) -> VolumeConfig:
         if hostname:
             assert not worker_id
         elif worker_id:
@@ -246,13 +270,13 @@ class DomainsConfig:
                     metrics.cwm_api_volume_config_success_from_api(worker_id or 'missing', start_time)
                 else:
                     metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
-            return volume_config
+            return VolumeConfig(volume_config)
         else:
             if metrics:
                 # success from cache is only possible when we got a worker_id
                 # TODO: add support for cache based on hostname
                 metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
-            return json.loads(val)
+            return VolumeConfig(json.loads(val))
 
     def set_worker_error(self, worker_id, error_msg):
         for hostname in self.iterate_worker_hostnames(worker_id):
@@ -263,7 +287,7 @@ class DomainsConfig:
         self.keys.hostname_error.set(hostname, error_msg)
         self.del_worker_hostname_keys(hostname, with_error=False)
         try:
-            self.set_worker_error(self.get_cwm_api_volume_config(hostname=hostname)['id'], error_msg)
+            self.set_worker_error(self.get_cwm_api_volume_config(hostname=hostname).id, error_msg)
         except:
             pass
 
@@ -288,7 +312,7 @@ class DomainsConfig:
 
     def get_volume_config_namespace_from_worker_id(self, metrics, worker_id):
         volume_config = self.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
-        namespace_name = common.get_namespace_name_from_worker_id(volume_config['id']) if volume_config.get('id') else None
+        namespace_name = common.get_namespace_name_from_worker_id(volume_config.id) if volume_config.id else None
         return volume_config, namespace_name
 
     def set_worker_waiting_for_deployment(self, worker_id):
@@ -305,9 +329,8 @@ class DomainsConfig:
         return False
 
     def iterate_worker_hostnames(self, worker_id):
-        volume_config = self.get_cwm_api_volume_config(worker_id=worker_id)
-        # TODO: iterate over multiple hostnames
-        yield volume_config['hostname']
+        for hostname in self.get_cwm_api_volume_config(worker_id=worker_id).hostnames:
+            yield hostname
 
     def set_worker_available(self, worker_id, ingress_hostname):
         self.del_worker_keys(worker_id, with_volume_config=False, with_available=False, with_ingress=False)
