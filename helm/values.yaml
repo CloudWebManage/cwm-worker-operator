@@ -113,6 +113,8 @@ operator:
   AWS_SECRET_ACCESS_KEY: ""
   AWS_ROUTE53_HOSTEDZONE_ID: ""
   AWS_ROUTE53_HOSTEDZONE_DOMAIN: ""
+  DUMMY_TEST_WORKER_ID: "cwdummytst"
+  DUMMY_TEST_HOSTNAME: "cwdummytst.example007.com"
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}

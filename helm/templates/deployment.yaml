@@ -199,6 +199,10 @@ spec:
         - name: AWS_ROUTE53_HOSTEDZONE_DOMAIN
           value: {{ $.Values.operator.AWS_ROUTE53_HOSTEDZONE_DOMAIN | quote }}
         {{ end }}
+        - name: DUMMY_TEST_WORKER_ID
+          value: {{ $.Values.operator.DUMMY_TEST_WORKER_ID | quote }}
+        - name: DUMMY_TEST_HOSTNAME
+          value: {{ $.Values.operator.DUMMY_TEST_HOSTNAME | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}

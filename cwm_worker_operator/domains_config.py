@@ -182,7 +182,20 @@ class DomainsConfig:
         return list(self.keys.hostname_initialize.iterate_prefix_key_suffixes())
 
     def _cwm_api_volume_config_api_call(self, query_param, query_value):
-        return requests.get("{}/volume/{}".format(config.CWM_API_URL, query_value)).json()
+        if (
+            config.DUMMY_TEST_WORKER_ID and config.DUMMY_TEST_HOSTNAME
+            and (
+                (query_param == 'hostname' and query_value == config.DUMMY_TEST_HOSTNAME)
+                or (query_param == 'id' and query_value == config.DUMMY_TEST_WORKER_ID)
+            )
+        ):
+            return {
+                'id': config.DUMMY_TEST_WORKER_ID,
+                'hostname': config.DUMMY_TEST_HOSTNAME,
+                'zone': config.CWM_ZONE
+            }
+        else:
+            return requests.get("{}/volume/{}".format(config.CWM_API_URL, query_value)).json()
 
     def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None):
         if hostname:

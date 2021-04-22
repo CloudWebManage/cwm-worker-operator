@@ -97,3 +97,6 @@ NODES_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS = int(os.environ.get("NODES_
 DNS_RECORDS_PREFIX = os.environ.get("DNS_RECORDS_PREFIX") or "cwmc-operator-test"
 AWS_ROUTE53_HOSTEDZONE_ID = os.environ.get("AWS_ROUTE53_HOSTEDZONE_ID") or ""
 AWS_ROUTE53_HOSTEDZONE_DOMAIN = os.environ.get("AWS_ROUTE53_HOSTEDZONE_DOMAIN") or "example.com"
+
+DUMMY_TEST_WORKER_ID = os.environ.get('DUMMY_TEST_WORKER_ID') or 'cwdummytst'
+DUMMY_TEST_HOSTNAME = os.environ.get('DUMMY_TEST_HOSTNAME') or 'cwdummytst.example007.com'

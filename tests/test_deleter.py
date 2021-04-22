@@ -19,7 +19,7 @@ def test_deleter_daemon(domains_config, deployments_manager, deleter_metrics):
     domains_config.keys.volume_config.set('worker2', json.dumps({'id': 'worker2', 'hostname': 'www.worker.two'}))
     deleter.run_single_iteration(domains_config, deleter_metrics, deployments_manager)
     assert [o['labels'][1] for o in deleter_metrics.observations] == ['success', 'success']
-    assert [c[0] + '-' + c[1][0] for c in deployments_manager.calls] == ['delete-worker2', 'delete-worker1']
+    assert set([c[0] + '-' + c[1][0] for c in deployments_manager.calls]) == {'delete-worker2', 'delete-worker1'}
 
 
 def test_deleter_cancel_if_worker_deployment(domains_config, deployments_manager, deleter_metrics):
@@ -29,5 +29,5 @@ def test_deleter_cancel_if_worker_deployment(domains_config, deployments_manager
     domains_config.set_worker_force_delete('worker2', allow_cancel=True)
     domains_config.keys.volume_config.set('worker2', json.dumps({'id': 'worker2', 'hostname': 'domain2.com'}))
     deleter.run_single_iteration(domains_config, deleter_metrics, deployments_manager)
-    assert [o['labels'][1] for o in deleter_metrics.observations] == ['success', 'delete_canceled']
+    assert set([o['labels'][1] for o in deleter_metrics.observations]) == {'success', 'delete_canceled'}
     assert [c[0] + '-' + c[1][0] for c in deployments_manager.calls] == ['delete-worker2']
