@@ -151,9 +151,11 @@ class DeploymentsManager:
             for protocol in ['http', 'https']
         }
 
-    def verify_worker_access(self, internal_hostname, log_kwargs):
+    def verify_worker_access(self, internal_hostname, log_kwargs, enabledProtocols=None):
+        if not enabledProtocols:
+            enabledProtocols = ["http", "https"]
         ok = True
-        for proto in ["http", "https"]:
+        for proto in enabledProtocols:
             url = {"http": "http://{}:8080".format(internal_hostname[proto]), "https": "https://{}:8443".format(internal_hostname[proto])}[proto]
             requests_kwargs = {"http": {}, "https": {"verify": False}}[proto]
             try:

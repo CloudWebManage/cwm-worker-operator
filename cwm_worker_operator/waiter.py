@@ -27,7 +27,7 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
             internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")
             ok = True
             if config.WAITER_VERIFY_WORKER_ACCESS:
-                ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs)
+                ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs, enabledProtocols=enabledProtocols)
             if ok:
                 domains_config.set_worker_available(worker_id, internal_hostname)
                 waiter_metrics.deployment_success(worker_id, start_time)

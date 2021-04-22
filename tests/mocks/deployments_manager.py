@@ -82,8 +82,8 @@ class MockDeploymentsManager(DeploymentsManager):
         self.calls.append(('get_hostname', [namespace_name, deployment_type]))
         return self.namespace_deployment_type_hostname.get('{}-{}'.format(namespace_name, deployment_type))
 
-    def verify_worker_access(self, hostname, log_kwargs):
-        self.calls.append(('verify_worker_access', [hostname, log_kwargs]))
+    def verify_worker_access(self, hostname, log_kwargs, enabledProtocols=None):
+        self.calls.append(('verify_worker_access', [hostname, log_kwargs, enabledProtocols]))
         return self.hostname_verify_worker_access.get(hostname, False)
 
     def delete(self, namespace_name, deployment_type, **kwargs):
