@@ -19,12 +19,11 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
             waiter_metrics.failed_to_get_volume_config(worker_id, start_time)
             logs.debug_info("Failed to get volume config", **log_kwargs)
             return
-        enabledProtocols = volume_config.enabled_protocols
-        if deployments_manager.is_ready(namespace_name, "minio", enabledProtocols=enabledProtocols):
+        if deployments_manager.is_ready(namespace_name, "minio"):
             internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")
             ok = True
             if config.WAITER_VERIFY_WORKER_ACCESS:
-                ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs, enabledProtocols=enabledProtocols)
+                ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs)
             if ok:
                 domains_config.set_worker_available(worker_id, internal_hostname)
                 waiter_metrics.deployment_success(worker_id, start_time)

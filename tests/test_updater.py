@@ -151,8 +151,7 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
             namespace_name_deployed_has_action_recent_update: now() - datetime.timedelta(minutes=25),
             namespace_name_deployed_has_action_old_update: now() - datetime.timedelta(minutes=25)
         }.items():
-            r.set('deploymentid:last_action:{}:http'.format(namespace_name), (last_action - datetime.timedelta(minutes=2)).strftime("%Y%m%dT%H%M%S"))
-            r.set('deploymentid:last_action:{}:https'.format(namespace_name), last_action.strftime("%Y%m%dT%H%M%S"))
+            r.set('deploymentid:last_action:{}'.format(namespace_name), last_action.strftime("%Y%m%dT%H%M%S"))
         recent_update_t1 = datetime.datetime(2021,3,2,1,2,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
         recent_update_t2 = datetime.datetime(2021,3,2,1,3,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
         recent_update_t3 = datetime.datetime(2021,3,2,1,4,5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')

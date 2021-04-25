@@ -69,7 +69,7 @@ def test_worker_keys(domains_config):
 
     # first call with valid domain - success from api
     metrics = MockMetrics()
-    dc._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'id': worker_id, 'hostname': hostname, 'zone': 'EU'}
+    dc._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'id': worker_id, 'hostnames': [{'hostname': hostname}], 'zone': 'EU'}
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
     assert volume_config.id == worker_id
     assert volume_config.hostnames == [hostname]
@@ -147,7 +147,7 @@ def test_volume_config_force_update(domains_config):
     hostname = 'example007.com'
     metrics = MockMetrics()
     # set volume config in redis
-    dc.keys.volume_config.set(worker_id, json.dumps({'id': worker_id, 'hostname': hostname, "zone": "FOOBAR"}))
+    dc.keys.volume_config.set(worker_id, json.dumps({'id': worker_id, 'hostnames': [{'hostname': hostname}], "zone": "FOOBAR"}))
     # without force update, this volume config is returned
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
     assert volume_config.id == worker_id
@@ -200,20 +200,18 @@ def test_worker_aggregated_metrics(domains_config):
 def test_deployment_api_metrics(domains_config):
     dc = domains_config
     namespace_name = 'worker1'
-    assert dc.get_deployment_api_metrics(namespace_name, 'http') == {}
-    dc.keys.deployment_api_metric.set(namespace_name + ':http:mymetric', '5')
-    assert dc.get_deployment_api_metrics(namespace_name, 'http') == {'mymetric': '5'}
+    assert dc.get_deployment_api_metrics(namespace_name) == {}
+    dc.keys.deployment_api_metric.set(namespace_name + ':mymetric', '5')
+    assert dc.get_deployment_api_metrics(namespace_name) == {'mymetric': '5'}
 
 
 def test_deployment_last_action(domains_config):
     dc = domains_config
     namespace_name = 'worker1'
     assert dc.get_deployment_last_action(namespace_name) == None
-    dc.keys.deployment_last_action.set('{}:http'.format(namespace_name), '20201102T221112.123456')
-    dc.keys.deployment_last_action.set('{}:https'.format(namespace_name), '20201103T221112.123456')
+    dc.keys.deployment_last_action.set(namespace_name, '20201103T221112.123456')
     assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
-    dc.keys.deployment_last_action.set('{}:https'.format(namespace_name), '2020-11-03T22:11:12.123456')
-    dc.keys.deployment_last_action.set('{}:http'.format(namespace_name), '2020-11-02T22:11:12.123456')
+    dc.keys.deployment_last_action.set(namespace_name, '2020-11-03T22:11:12.123456')
     assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
 
 
@@ -235,11 +233,10 @@ def test_del_worker_keys(domains_config):
         keys_summary_param = getattr(key, 'keys_summary_param', None)
         if not isinstance(key, DomainsConfigKey) or key_name == 'alerts' or keys_summary_param == 'node':
             continue
-        if key_name in ['deployment_last_action', 'deployment_api_metric']:
-            key.set('{}:http'.format(namespace_name), '')
-            key.set('{}:https'.format(namespace_name), '')
+        if key_name == 'deployment_api_metric':
+            key.set('{}:foo'.format(namespace_name), '')
         elif key_name == 'volume_config':
-            key.set(worker_id, json.dumps({'id': worker_id, 'hostname': hostname}))
+            key.set(worker_id, json.dumps({'id': worker_id, 'hostnames': [{'hostname': hostname}]}))
         elif keys_summary_param == 'hostname':
             key.set(hostname, '')
         elif keys_summary_param == 'worker_id':
@@ -250,10 +247,8 @@ def test_del_worker_keys(domains_config):
             raise Exception("Invalid keys_summary_param: {}".format(keys_summary_param))
     domains_config.del_worker_keys(worker_id)
     assert domains_config._get_all_redis_pools_keys() == {
-        'deploymentid:last_action:worker1:http',
-        'deploymentid:last_action:worker1:https',
-        'deploymentid:minio-metrics:worker1:http',
-        'deploymentid:minio-metrics:worker1:https',
+        'deploymentid:last_action:worker1',
+        'deploymentid:minio-metrics:worker1:foo',
         'worker:aggregated-metrics-last-sent-update:worker1',
         'worker:aggregated-metrics:worker1',
         'worker:total-used-bytes:worker1',

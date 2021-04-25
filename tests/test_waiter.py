@@ -38,7 +38,7 @@ def test_deployment_not_ready(domains_config, waiter_metrics, deployments_manage
         volume_config_key: ''
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache']
-    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio', ['http']])]
+    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio'])]
 
 
 def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployments_manager):
@@ -55,7 +55,7 @@ def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployment
         volume_config_key: ''
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',timeout']
-    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio', ['http']])]
+    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio'])]
 
 
 def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
@@ -79,7 +79,7 @@ def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',success']
     print(deployments_manager.calls)
     assert len(deployments_manager.calls) == 3
-    assert deployments_manager.calls[0] == ('is_ready', [namespace_name, 'minio', ['http']])
+    assert deployments_manager.calls[0] == ('is_ready', [namespace_name, 'minio'])
     assert deployments_manager.calls[1] == ('get_hostname', [namespace_name, 'minio'])
     assert deployments_manager.calls[2][0] == 'verify_worker_access'
     assert deployments_manager.calls[2][1][0] == internal_hostname

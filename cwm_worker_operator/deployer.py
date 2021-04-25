@@ -39,9 +39,6 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
         }
         if config.PULL_SECRET:
             minio['createPullSecret'] = config.PULL_SECRET
-        minio["enabledProtocols"] = volume_config.enabled_protocols
-        minio["certificate_pem"] = volume_config.certificate_pem
-        minio["certificate_key"] = volume_config.certificate_key
         if volume_config.client_id and volume_config.secret:
             minio["access_key"] = volume_config.client_id
             minio["secret_key"] = volume_config.secret
@@ -49,8 +46,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             minio["service"] = {
                 "enabled": False
             }
-        minio["MINIO_GATEWAY_DEPLOYMENT_ID_http"] = '{}:http'.format(namespace_name)
-        minio["MINIO_GATEWAY_DEPLOYMENT_ID_https"] = '{}:https'.format(namespace_name)
+        minio["MINIO_GATEWAY_DEPLOYMENT_ID"] = namespace_name
         minio["metricsLogger"] = {
             "withRedis": False,
             "REDIS_HOST": config.METRICS_REDIS_HOST,
@@ -73,6 +69,16 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             "watermark_low": 70,
             "watermark_high": 90,
             **minio_extra_configs.pop('cache', {})
+        }
+        nginx_hostnames = []
+        for i, hostname in enumerate(volume_config.hostnames):
+            nginx_hostname = {'id': i, 'name': hostname}
+            if hostname in volume_config.hostname_certs:
+                nginx_hostname.update(pem=volume_config.hostname_certs[hostname]['pem'], key=volume_config.hostname_certs[hostname]['key'])
+            nginx_hostnames.append(nginx_hostname)
+        minio['nginx'] = {
+            'hostnames': nginx_hostnames,
+            **minio_extra_configs.pop('nginx', {})
         }
         deployment_config_json = json.dumps({
             "cwm-worker-deployment": {

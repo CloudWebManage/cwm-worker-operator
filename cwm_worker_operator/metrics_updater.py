@@ -22,19 +22,18 @@ def update_agg_metrics(agg_metrics, now, current_metrics, limit=20):
         agg_metrics[MINUTES_KEY] = agg_metrics[MINUTES_KEY][1:limit+1]
 
 
-def get_deployment_api_metrics(domains_config, namespace_name, buckets=('http', 'https')):
+def get_deployment_api_metrics(domains_config, namespace_name):
     values = defaultdict(float)
-    for bucket in buckets:
-        for metric, value in domains_config.get_deployment_api_metrics(namespace_name, bucket).items():
-            try:
-                if '.' in str(value):
-                    value = float(value)
-                else:
-                    value = int(value)
-            except:
-                value = None
-            if value:
-                values[metric] += value
+    for metric, value in domains_config.get_deployment_api_metrics(namespace_name).items():
+        try:
+            if '.' in str(value):
+                value = float(value)
+            else:
+                value = int(value)
+        except:
+            value = None
+        if value:
+            values[metric] += value
     return dict(values)
 
 

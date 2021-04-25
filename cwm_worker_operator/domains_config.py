@@ -103,10 +103,8 @@ class DomainsConfigKeys:
         self.alerts = DomainsConfigKeyStatic("alerts", 'internal', domains_config)
 
         # metrics_redis - keys shared with deployments to get metrics
-        self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config,
-                                                             keys_summary_type='prefix-subkeys', keys_summary_param='namespace_name')
-        self.deployment_api_metric = DomainsConfigKeyPrefix("deploymentid:minio-metrics", 'metrics', domains_config,
-                                                             keys_summary_type='prefix-subkeys', keys_summary_param='namespace_name')
+        self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config, keys_summary_param='namespace_name')
+        self.deployment_api_metric = DomainsConfigKeyPrefix("deploymentid:minio-metrics", 'metrics', domains_config, keys_summary_param='namespace_name')
 
 
 class VolumeConfig:
@@ -116,13 +114,14 @@ class VolumeConfig:
         self._error = data.get('__error')
         self._last_update = data.get('__last_update')
         self.hostnames = []
-        if data.get('hostname'):
-            self.hostnames.append(data['hostname'])
-        self.enabled_protocols = ['http']
-        self.certificate_key = "\n".join(data['certificate_key']) if data.get("certificate_key") else ''
-        self.certificate_pem = "\n".join(data['certificate_pem']) if data.get("certificate_pem") else ''
-        if data.get('protocol') == 'https' and self.certificate_pem and self.certificate_key:
-            self.enabled_protocols.append('https')
+        self.hostname_certs = {}
+        for hostname in data.get('hostnames', []):
+            self.hostnames.append(hostname['hostname'])
+            if hostname.get('key') and hostname.get('pem'):
+                self.hostname_certs[hostname['hostname']] = {
+                    'key': hostname['key'],
+                    'pem': hostname['pem']
+                }
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
         self.minio_extra_configs = data.get("minio_extra_configs", {})
@@ -215,7 +214,7 @@ class DomainsConfig:
         ):
             return {
                 'id': config.DUMMY_TEST_WORKER_ID,
-                'hostname': config.DUMMY_TEST_HOSTNAME,
+                'hostnames': [{'hostname': config.DUMMY_TEST_HOSTNAME}],
                 'zone': config.CWM_ZONE
             }
         else:
@@ -372,12 +371,9 @@ class DomainsConfig:
             self.keys.worker_aggregated_metrics_last_sent_update.delete(worker_id)
             self.keys.worker_total_used_bytes.delete(worker_id)
             namespace_name = common.get_namespace_name_from_worker_id(worker_id)
+            self.keys.deployment_last_action.delete(namespace_name)
             with self.keys.deployment_api_metric.get_redis() as r:
-                keys = [key.decode() for key in r.keys('{}:*'.format(self.keys.deployment_api_metric._(namespace_name)))]
-                if keys:
-                    r.delete(*keys)
-            with self.keys.deployment_last_action.get_redis() as r:
-                keys = [key.decode() for key in r.keys('{}:*'.format(self.keys.deployment_last_action._(namespace_name)))]
+                keys = r.keys(self.keys.deployment_api_metric._('{}:*'.format(namespace_name)))
                 if keys:
                     r.delete(*keys)
         if with_volume_config:
@@ -425,9 +421,9 @@ class DomainsConfig:
             else:
                 return None
 
-    def get_deployment_api_metrics(self, namespace_name, bucket):
+    def get_deployment_api_metrics(self, namespace_name):
         with self.keys.deployment_api_metric.get_redis() as r:
-            base_key = "{}:{}:".format(self.keys.deployment_api_metric._(namespace_name), bucket)
+            base_key = "{}:".format(self.keys.deployment_api_metric._(namespace_name))
             return {
                 key.decode().replace(base_key, ""): r.get(key).decode()
                 for key in r.keys(base_key + "*")
@@ -453,16 +449,14 @@ class DomainsConfig:
         value = '{},{}'.format(common.now().strftime('%Y%m%d%H%M%S'), last_update.strftime('%Y%m%d%H%M%S'))
         self.keys.worker_aggregated_metrics_last_sent_update.set(worker_id, value)
 
-    def get_deployment_last_action(self, namespace_name, buckets=('http', 'https')):
+    def get_deployment_last_action(self, namespace_name):
         latest_value = None
-        with self.keys.deployment_last_action.get_redis() as r:
-            for bucket in buckets:
-                value = r.get("{}:{}".format(self.keys.deployment_last_action._(namespace_name), bucket))
-                if value:
-                    value = value.decode().split('.')[0].replace('-', '').replace(':', '')
-                    value = common.strptime(value, "%Y%m%dT%H%M%S")
-                    if latest_value is None or value > latest_value:
-                        latest_value = value
+        value = self.keys.deployment_last_action.get(namespace_name)
+        if value:
+            value = value.decode().split('.')[0].replace('-', '').replace(':', '')
+            value = common.strptime(value, "%Y%m%dT%H%M%S")
+            if latest_value is None or value > latest_value:
+                latest_value = value
         return latest_value if latest_value else None
 
     def get_key_summary_single_multi_domain(self, r, key_name, key, max_keys_per_summary):

@@ -74,8 +74,8 @@ def test_update_release_metrics(domains_config, deployments_manager):
         [r.delete(key) for key in [aggregated_metrics_key]]
     with domains_config.get_metrics_redis() as r:
         [r.delete(key) for key in r.keys(minio_metrics_base_key + '*')]
-        r.set(minio_metrics_base_key+'http:cpu', '500')
-        r.set(minio_metrics_base_key+'https:ram', '700.5')
+        r.set(minio_metrics_base_key+'cpu', '500')
+        r.set(minio_metrics_base_key+'ram', '700.5')
     now = now + datetime.timedelta(seconds=61)
     metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
     assert json.loads(domains_config.keys.worker_aggregated_metrics.get(worker_id)) == {
@@ -91,16 +91,16 @@ def test_update_release_metrics(domains_config, deployments_manager):
         'ram_bytes': '5678'
     }
     with domains_config.get_metrics_redis() as r:
-        r.set(minio_metrics_base_key + 'https:cpu', '600')
-        r.set(minio_metrics_base_key + 'http:ram', '800.5')
+        r.set(minio_metrics_base_key + 'cpu', '600')
+        r.set(minio_metrics_base_key + 'ram', '800.5')
     now = now + datetime.timedelta(seconds=61)
     metrics_updater.update_release_metrics(domains_config, deployments_manager, metrics_updater_metrics, namespace_name, now=now, update_interval_seconds=59)
     assert json.loads(domains_config.keys.worker_aggregated_metrics.get(worker_id)) == {
         'lu': now.strftime("%Y%m%d%H%M%S"),
         'm': [
-            {'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500, 'ram': 700.5},
+            {'t': (now-datetime.timedelta(seconds=61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500.0, 'ram': 700.5},
             {
-                't': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 600+500, 'ram': 800.5+700.5,
+                't': now.strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 600.0, 'ram': 800.5,
                 'cpu_seconds': '1234', 'ram_bytes': '5678'
             }
         ]
@@ -114,7 +114,7 @@ def test_update_release_metrics(domains_config, deployments_manager):
         'm': [
             {'t': (now - datetime.timedelta(seconds=50+61)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 500.0, 'ram': 700.5},
             {
-                't': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 1100.0, 'ram': 800.5+700.5,
+                't': (now - datetime.timedelta(seconds=50)).strftime("%Y%m%d%H%M%S"), 'disk_usage_bytes': 0, 'ram_limit_bytes': 0, 'ram_requests_bytes': 0, 'cpu': 600.0, 'ram': 800.5,
                 'cpu_seconds': '1234', 'ram_bytes': '5678'
             }
         ]
