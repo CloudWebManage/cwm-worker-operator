@@ -30,7 +30,7 @@ for daemon in [
     }},
     {'name': 'updater'},
     {'name': 'metrics-updater'},
-    {'name': 'web-ui'},
+    {'name': 'web-ui', 'with_once': False},
     {'name': 'disk-usage-updater'},
     {'name': 'alerter'},
     {'name': 'cleaner'},
@@ -42,7 +42,9 @@ for daemon in [
             'start_daemon': click.Command(
                 name='start_daemon',
                 callback=importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_'))).start_daemon,
-                params=[click.Option(['--once'], is_flag=True)]
+                params=[
+                    *([click.Option(['--once'], is_flag=True)] if daemon.get('with_once') != False else [])
+                ]
             ),
             **{
                 extra_command_name: click.Command(

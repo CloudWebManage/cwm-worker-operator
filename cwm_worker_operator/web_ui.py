@@ -7,11 +7,16 @@ from cwm_worker_operator import domains_config
 
 
 def get_header(server):
-    yield '<p><a href="/">index</a> | <a href="/worker/worker1">worker</a> | <a href="/redis_key/ingress/hostname:available:example007.com">redis key</a></p>'
+    yield '<p>' + ' | '.join([
+        '<a href="/">index</a>',
+        '<a href="/worker/cldtst">worker</a>',
+        '<a href="/hostname/loadtest.cwmc-eu-test2.cloudwm-obj.com">hostname</a>',
+        '<a href="/redis_key/ingress/hostname:error:loadtest.cwmc-eu-test2.cloudwm-obj.com">redis key</a>'
+    ]) + '</p>'
 
 
-def get_keys_summary(server, worker_id=None):
-    for key in server.dc.get_keys_summary(worker_id=worker_id):
+def get_keys_summary(server, worker_id=None, hostname=None):
+    for key in server.dc.get_keys_summary(worker_id=worker_id, hostname=hostname):
         if key:
             yield "<b>{} ({})</b><br/>\n".format(key['title'], key['total'])
             for _key in key['keys']:
@@ -33,11 +38,29 @@ def get_worker(server, worker_id):
     if worker_id.startswith('delete/'):
         worker_id = worker_id.replace('delete/', '')
         server.dc.del_worker_keys(worker_id)
-        yield '<p style="color:red;font-weight:bold;">Deleted all worker keys</p>'
+        yield '<p style="color:red;font-weight:bold;">Deleted all worker keys</p>' \
+              '<p><a href="/worker/{}">back to worker</a></p>'.format(worker_id)
     else:
         yield from get_keys_summary(server, worker_id)
         yield '<hr/>'
         yield '<p style="color:red;font-weight:bold;">Delete all worker keys? (may includes hostname keys not displayed here!) <a href="/worker/delete/{}">YES</a></p>'.format(worker_id)
+
+
+def get_hostname(server, hostname):
+    yield from get_header(server)
+    if not hostname:
+        yield "Please input a hostname"
+        return
+    yield "<h3>Hostname: {}</h3>".format(hostname)
+    if hostname.startswith('delete/'):
+        hostname = hostname.replace('delete/', '')
+        server.dc.del_worker_hostname_keys(hostname)
+        yield '<p style="color:red;font-weight:bold;">Deleted all hostname keys (related worker keys were not deleted!)</p>' \
+              '<p><a href="/hostname/{}">back to hostname</a></p>'.format(hostname)
+    else:
+        yield from get_keys_summary(server, hostname=hostname)
+        yield '<hr/>'
+        yield '<p style="color:red;font-weight:bold;">Delete all hostname keys? (will not delete related worker keys!) <a href="/hostname/delete/{}">YES</a></p>'.format(hostname)
 
 
 def get_redis_key(server, pool, key):
@@ -99,6 +122,9 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
             elif self.path.startswith('/worker/'):
                 worker_id = self.path.replace('/worker/', '')
                 self._send_html(get_worker(self.server, worker_id))
+            elif self.path.startswith('/hostname/'):
+                hostname = self.path.replace('/hostname/', '')
+                self._send_html(get_hostname(self.server, hostname))
             elif self.path.startswith('/redis_key/'):
                 pool, *key = self.path.replace('/redis_key/', '').split('/')
                 key = '/'.join(key)
