@@ -218,7 +218,7 @@ class DomainsConfig:
                 'zone': config.CWM_ZONE
             }
         else:
-            return requests.get("{}/volume/{}".format(config.CWM_API_URL, query_value)).json()
+            return json.loads(requests.get("{}/volume/{}".format(config.CWM_API_URL, query_value)).text, strict=False)
 
     def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None) -> VolumeConfig:
         if hostname:
