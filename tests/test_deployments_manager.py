@@ -117,7 +117,7 @@ def test_verify_worker_access():
     assert DeploymentsManager().verify_worker_access({
         'http': 'localhost',
         'https': 'localhost'
-    }, {}, port=8080)
+    }, {})
 
 
 def test_iterate_cluster_nodes():

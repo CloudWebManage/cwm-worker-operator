@@ -149,13 +149,9 @@ class DeploymentsManager:
             for protocol in ['http', 'https']
         }
 
-    def verify_worker_access(self, internal_hostname, log_kwargs, port=None):
+    def verify_worker_access(self, internal_hostname, log_kwargs):
         internal_hostname = internal_hostname['http']
-        if ':' in internal_hostname:
-            assert port is None, 'cannot specify port in arg and also in internal_hostname'
-        elif port is not None:
-            internal_hostname = '{}:{}'.format(internal_hostname, port)
-        url = "http://{}".format(internal_hostname)
+        url = "http://{}:8080".format(internal_hostname)
         try:
             res = requests.get(url, headers={"User-Agent": "Mozilla"}, timeout=2)
         except Exception as e:
