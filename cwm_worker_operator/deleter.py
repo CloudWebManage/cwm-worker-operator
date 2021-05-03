@@ -9,8 +9,8 @@ from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
 
 
-def delete(worker_id, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
-           domains_config=None, deployments_manager=None, with_metrics=False):
+def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
+           domains_config=None, deployments_manager=None, with_metrics=False, hostname=None):
     if domains_config is None:
         domains_config = DomainsConfig()
     if deployments_manager is None:
@@ -19,12 +19,22 @@ def delete(worker_id, deployment_timeout_string=None, delete_namespace=None, del
         delete_namespace = config.DELETER_DEFAULT_DELETE_NAMESPACE
     if delete_helm is None:
         delete_helm = config.DELETER_DEFAULT_DELETE_HELM
-    namespace_name = common.get_namespace_name_from_worker_id(worker_id)
-    domains_config.del_worker_keys(worker_id, with_metrics=with_metrics)
-    deployments_manager.delete(
-        namespace_name, "minio", timeout_string=deployment_timeout_string, delete_namespace=delete_namespace,
-        delete_helm=delete_helm
-    )
+    if hostname:
+        assert not worker_id, 'cannot specify both worker_id and hostname'
+        try:
+            worker_id = domains_config.get_cwm_api_volume_config(hostname=hostname).id
+        except:
+            pass
+        domains_config.del_worker_hostname_keys(hostname)
+    else:
+        assert worker_id, 'must specify either worker_id or hostname'
+    if worker_id:
+        domains_config.del_worker_keys(worker_id, with_metrics=with_metrics)
+        deployments_manager.delete(
+            common.get_namespace_name_from_worker_id(worker_id), "minio", timeout_string=deployment_timeout_string, delete_namespace=delete_namespace,
+            delete_helm=delete_helm
+        )
+    return True
 
 
 def run_single_iteration(domains_config, metrics, deployments_manager, **_):

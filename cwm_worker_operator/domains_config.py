@@ -234,13 +234,13 @@ class DomainsConfig:
         else:
             val = self.keys.volume_config.get(worker_id)
         if val is None:
+            if hostname:
+                query_param = 'hostname'
+                query_value = hostname
+            else:
+                query_param = 'id'
+                query_value = worker_id
             try:
-                if hostname:
-                    query_param = 'hostname'
-                    query_value = hostname
-                else:
-                    query_param = 'id'
-                    query_value = worker_id
                 # currently we assume hostname and id are the same value
                 # TODO: once we move to the real API we need to use query_param to distinguish
                 volume_config = self._cwm_api_volume_config_api_call(query_param, query_value)
@@ -248,6 +248,7 @@ class DomainsConfig:
             except Exception as e:
                 if config.DEBUG and config.DEBUG_VERBOSITY > 5:
                     traceback.print_exc()
+                    print("Failed to get volume config for {}={}".format(query_param, query_value))
                 volume_config = {"__error": str(e)}
                 is_success = False
             if worker_id:

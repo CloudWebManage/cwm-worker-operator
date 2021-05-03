@@ -3,3 +3,4 @@ redis==3.5.3
 prometheus-client==0.8.0
 pytz==2021.1
 boto3==1.17.49
+click==7.1.2

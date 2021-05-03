@@ -1,77 +1,55 @@
-import os
-import sys
+import importlib
 
-from cwm_worker_operator import initializer
-from cwm_worker_operator import deployer
-from cwm_worker_operator import waiter
-from cwm_worker_operator import deleter
-from cwm_worker_operator import updater
-from cwm_worker_operator import metrics_updater
-from cwm_worker_operator import web_ui
-from cwm_worker_operator import disk_usage_updater
-from cwm_worker_operator import alerter
-from cwm_worker_operator import cleaner
-from cwm_worker_operator import nodes_checker
+import click
 
 
+@click.group(context_settings={'max_content_width': 200})
 def main():
-    if sys.argv[1] == "initializer":
-        if sys.argv[2] == "start_daemon":
-            initializer.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid initializer command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "deployer":
-        if sys.argv[2] == "start_daemon":
-            deployer.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid deployer command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "waiter":
-        if sys.argv[2] == "start_daemon":
-            waiter.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid waiter command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "deleter":
-        if sys.argv[2] == "delete":
-            worker_id = sys.argv[3] if len(sys.argv) >= 4 else None
-            deployment_timeout_string = sys.argv[4] if len(sys.argv) >= 5 else None
-            with_metrics = True if os.environ.get('CLI_DELETER_DELETE_WITH_METRICS') == 'yes' else False
-            deleter.delete(worker_id, deployment_timeout_string=deployment_timeout_string, with_metrics=with_metrics)
-        elif sys.argv[2] == "start_daemon":
-            deleter.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid deleter command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "updater":
-        if sys.argv[2] == "start_daemon":
-            updater.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid updater command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "metrics-updater":
-        if sys.argv[2] == "start_daemon":
-            metrics_updater.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid metrics-updater command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == 'web-ui':
-        if sys.argv[2] == 'start_daemon':
-            web_ui.start_daemon()
-    elif sys.argv[1] == "disk-usage-updater":
-        if sys.argv[2] == "start_daemon":
-            disk_usage_updater.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid disk-usage-updater command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "alerter":
-        if sys.argv[2] == "start_daemon":
-            alerter.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid alerter command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "cleaner":
-        if sys.argv[2] == "start_daemon":
-            cleaner.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid cleaner command: {}".format(" ".join(sys.argv[2:])))
-    elif sys.argv[1] == "nodes-checker":
-        if sys.argv[2] == "start_daemon":
-            nodes_checker.start_daemon('--once' in sys.argv)
-        else:
-            raise Exception("Invalid nodes_checker command: {}".format(" ".join(sys.argv[2:])))
-    else:
-        raise Exception("Invalid command: {}".format(" ".join(sys.argv[1:])))
+    pass
+
+
+def extra_commands_callback_decorator(callback):
+
+    def _callback(*args, **kwargs):
+        exit(0 if callback(*args, **kwargs) else 1)
+
+    return _callback
+
+
+for daemon in [
+    {'name': 'initializer'},
+    {'name': 'deployer'},
+    {'name': 'waiter'},
+    {'name': 'deleter', 'extra_commands': {
+        'delete': {'callback_method': 'delete', 'params': [
+            click.Option(['--worker-id']),
+            click.Option(['--hostname']),
+            click.Option(['--deployment-timeout-string']),
+            click.Option(['--with-metrics'], is_flag=True)
+        ]}
+    }},
+    {'name': 'updater'},
+    {'name': 'metrics-updater'},
+    {'name': 'web-ui'},
+    {'name': 'disk-usage-updater'},
+    {'name': 'alerter'},
+    {'name': 'cleaner'},
+    {'name': 'nodes-checker'},
+]:
+    main.add_command(click.Group(
+        name=daemon['name'],
+        commands={
+            'start_daemon': click.Command(
+                name='start_daemon',
+                callback=importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_'))).start_daemon,
+                params=[click.Option(['--once'], is_flag=True)]
+            ),
+            **{
+                extra_command_name: click.Command(
+                    name=extra_command_name,
+                    callback=extra_commands_callback_decorator(getattr(importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_'))), extra_command['callback_method'])),
+                    params=extra_command['params']
+                ) for extra_command_name, extra_command in daemon.get('extra_commands', {}).items()
+            }
+        }
+    ))

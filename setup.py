@@ -16,6 +16,7 @@ setup(
     entry_points={
         'console_scripts': [
             'cwm_worker_operator = cwm_worker_operator.cli:main',
+            'cwm-worker-operator = cwm_worker_operator.cli:main',
         ]
     },
 )
