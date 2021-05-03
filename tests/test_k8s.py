@@ -59,7 +59,7 @@ def test_k8s(domains_config):
                 domains_config.keys.hostname_initialize._(hostname)
             ), 0, 60, "Waited too long for setting redis key"
         )
-        wait_for_cmd('kubectl -n {} get pods | grep minio- | grep Running'.format(namespace_name), 0, 120, "Waited too long for worker")
+        wait_for_cmd('kubectl -n {} get pods | grep minio- | grep Running'.format(namespace_name), 0, 240, "Waited too long for worker")
         wait_for_cmd(
             'DEBUG= kubectl exec deployment/cwm-worker-operator-redis-{} -- redis-cli --raw exists {}'.format(
                 domains_config.keys.hostname_available.redis_pool_name,
