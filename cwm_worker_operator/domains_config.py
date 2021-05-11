@@ -235,8 +235,8 @@ class DomainsConfig:
             )
         ):
             return {
-                'id': config.DUMMY_TEST_WORKER_ID,
-                'hostnames': [{'hostname': config.DUMMY_TEST_HOSTNAME}],
+                'instanceId': config.DUMMY_TEST_WORKER_ID,
+                'hostname': config.DUMMY_TEST_HOSTNAME,
                 'zone': config.CWM_ZONE
             }
         else:
