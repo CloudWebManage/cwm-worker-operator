@@ -13,7 +13,7 @@ def get_ssl_keys(name):
         pem_filename = 'tests/mocks/example002.com.pem'
     with open(key_filename) as key_f:
         with open(pem_filename) as pem_f:
-            return {'key': key_f.read(), 'pem': pem_f.read()}
+            return {'certificate_key': key_f.read().split(), 'certificate_pem': pem_f.read().split()}
 
 
 class MockDomainsConfig(domains_config.DomainsConfig):
@@ -53,10 +53,12 @@ class MockDomainsConfig(domains_config.DomainsConfig):
         if not additional_hostnames:
             additional_hostnames = []
         self.keys.volume_config.set(worker_id, json.dumps({
-            'id': worker_id,
-            'hostnames': [
-                {'hostname': hostname, **(get_ssl_keys(hostname) if with_ssl else {})},
-                *additional_hostnames
-            ]
+            'type': 'instance',
+            'instanceId': worker_id,
+            'hostname': hostname,
+            **(get_ssl_keys(hostname) if with_ssl else {}),
+            'minio_extra_configs': {
+                'hostnames': [*additional_hostnames]
+            }
         }))
         return worker_id, hostname, common.get_namespace_name_from_worker_id(worker_id)

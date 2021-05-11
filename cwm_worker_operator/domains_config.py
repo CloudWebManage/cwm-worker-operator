@@ -1,3 +1,4 @@
+import os
 import json
 import redis
 import requests
@@ -110,21 +111,42 @@ class DomainsConfigKeys:
 class VolumeConfig:
 
     def __init__(self, data):
-        self.id = data.get('id')
+        self.id = data.get('instanceId')
         self._error = data.get('__error')
         self._last_update = data.get('__last_update')
         self.hostnames = []
         self.hostname_certs = {}
-        for hostname in data.get('hostnames', []):
+        if data.get('hostname'):
+            self.hostnames.append(data['hostname'])
+            if data.get('certificate_key') and data.get('certificate_pem'):
+                self.hostname_certs[data['hostname']] = {
+                    'key': "\n".join(data['certificate_key']),
+                    'pem': "\n".join(data['certificate_pem'])
+                }
+        minio_extra_configs = data.get('minio_extra_configs', {})
+        for hostname in minio_extra_configs.pop('hostnames', []):
             self.hostnames.append(hostname['hostname'])
-            if hostname.get('key') and hostname.get('pem'):
+            if hostname.get('certificate_key') and hostname.get('certificate_pem'):
                 self.hostname_certs[hostname['hostname']] = {
-                    'key': hostname['key'],
-                    'pem': hostname['pem']
+                    'key': hostname['certificate_key'],
+                    'pem': hostname['certificate_pem']
                 }
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
-        self.minio_extra_configs = data.get("minio_extra_configs", {})
+        if data.get('cache'):
+            minio_extra_configs['cache'] = {
+                'enabled': True,
+                'exclude': ','.join(['*.{}'.format(ext.strip()) for ext in data.get('cache-exclude', '').split('|') if ext.strip()])
+            }
+        else:
+            minio_extra_configs['cache'] = {
+                'enabled': False
+            }
+        if 'browser' not in minio_extra_configs:
+            minio_extra_configs['browser'] = bool(data.get('minio-browser'))
+        minio_extra_configs.pop('protocols-enabled', None)
+        minio_extra_configs.pop('debug-mode', None)
+        self.minio_extra_configs = minio_extra_configs
         self.cwm_worker_deployment_extra_configs = data.get("cwm_worker_deployment_extra_configs", {})
         self.cwm_worker_extra_objects = data.get("cwm_worker_extra_objects", [])
         self.zone = data.get('zone')
@@ -218,7 +240,16 @@ class DomainsConfig:
                 'zone': config.CWM_ZONE
             }
         else:
-            return json.loads(requests.get("{}/volume/{}".format(config.CWM_API_URL, query_value)).text, strict=False)
+            url = "{}?{}={}".format(
+                os.path.join(config.CWM_API_URL, 'svc', 'instances', 'getConfiguration'),
+                query_param, query_value
+            )
+            print(url)
+            headers = {
+                'AuthClientId': config.CWM_API_KEY,
+                'AuthSecret': config.CWM_API_SECRET
+            }
+            return json.loads(requests.get(url, headers=headers).text, strict=False)
 
     def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None) -> VolumeConfig:
         if hostname:
@@ -241,8 +272,6 @@ class DomainsConfig:
                 query_param = 'id'
                 query_value = worker_id
             try:
-                # currently we assume hostname and id are the same value
-                # TODO: once we move to the real API we need to use query_param to distinguish
                 volume_config = self._cwm_api_volume_config_api_call(query_param, query_value)
                 is_success = True
             except Exception as e:
@@ -252,16 +281,16 @@ class DomainsConfig:
                 volume_config = {"__error": str(e)}
                 is_success = False
             if worker_id:
-                if not volume_config.get('id') or volume_config['id'] != worker_id:
+                if not volume_config.get('instanceId') or volume_config['instanceId'] != worker_id:
                     is_success = False
                     volume_config['__error'] = 'mismatched worker_id'
-                    volume_config.pop('id', None)
-            elif not volume_config.get('id'):
+                    volume_config.pop('instanceId', None)
+            elif not volume_config.get('instanceId'):
                 is_success = False
                 volume_config['__error'] = 'missing worker_id'
-                volume_config.pop('id', None)
+                volume_config.pop('instanceId', None)
             else:
-                worker_id = volume_config['id']
+                worker_id = volume_config['instanceId']
             volume_config["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
             if worker_id:
                 self.keys.volume_config.set(worker_id, json.dumps(volume_config))

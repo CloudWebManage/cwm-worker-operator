@@ -36,11 +36,15 @@ def test_k8s(domains_config):
         print('deploying k8s')
         helmargs = "--set " \
                    "cwm_api_url={CWM_API_URL}," \
+                   "cwm_api_key={CWM_API_KEY}," \
+                   "cwm_api_secret={CWM_API_SECRET}," \
                    "packages_reader_github_user={PACKAGES_READER_GITHUB_USER}," \
                    "packages_reader_github_token={PACKAGES_READER_GITHUB_TOKEN}," \
                    "operator.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS=120," \
                    "operator.daemons={daemons_helm_list}".format(
             CWM_API_URL=os.environ['CWM_API_URL'],
+            CWM_API_KEY=os.environ['CWM_API_KEY'],
+            CWM_API_SECRET=os.environ['CWM_API_SECRET'],
             PACKAGES_READER_GITHUB_USER=os.environ['PACKAGES_READER_GITHUB_USER'],
             PACKAGES_READER_GITHUB_TOKEN=os.environ['PACKAGES_READER_GITHUB_TOKEN'],
             daemons_helm_list='{initializer,deployer,waiter,updater,deleter,metrics-updater}',

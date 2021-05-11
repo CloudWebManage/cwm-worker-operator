@@ -40,7 +40,7 @@ WORKERS = {
     EXAMPLE007_COM_WORKER_ID: {
         'hostname': EXAMPLE007_COM_HOSTNAME,
         'volume_config': {
-            "id": EXAMPLE007_COM_WORKER_ID, "hostnames": [{'hostname': EXAMPLE007_COM_HOSTNAME}], "zone": "EU"
+            "instanceId": EXAMPLE007_COM_WORKER_ID, 'hostname': EXAMPLE007_COM_HOSTNAME, "zone": "EU"
         },
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'waiting_for_deployment',
@@ -56,24 +56,24 @@ WORKERS = {
     },
     INVALIDZONE1_WORKER_ID: {
         "hostname": INVALIDZONE1_HOSTNAME,
-        'volume_config': {"id": INVALIDZONE1_WORKER_ID, "hostnames": [{'hostname': INVALIDZONE1_HOSTNAME}], "zone": "US"},
+        'volume_config': {"instanceId": INVALIDZONE1_WORKER_ID, 'hostname': INVALIDZONE1_HOSTNAME, "zone": "US"},
         'after_initializer': 'error',
     },
     INVALIDZONE2_WORKER_ID: {
         "hostname": INVALIDZONE2_HOSTNAME,
-        'volume_config': {"id": INVALIDZONE2_WORKER_ID, "hostnames": [{'hostname': INVALIDZONE2_HOSTNAME}], "zone": "IL"},
+        'volume_config': {"instanceId": INVALIDZONE2_WORKER_ID, 'hostname': INVALIDZONE2_HOSTNAME, "zone": "IL"},
         'after_initializer': 'error',
     },
     FAILTODEPLOY_WORKER_ID: {
         "hostname": FAILTODEPLOY_HOSTNAME,
-        'volume_config': {"id": FAILTODEPLOY_WORKER_ID, "hostnames": [{'hostname': FAILTODEPLOY_HOSTNAME}], "zone": "EU",
+        'volume_config': {"instanceId": FAILTODEPLOY_WORKER_ID, 'hostname': FAILTODEPLOY_HOSTNAME, "zone": "EU",
                           "minio_extra_configs": {"resources": "---invalid---"}},
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'error',
     },
     TIMEOUTDEPLOY_WORKER_ID: {
         "hostname": TIMEOUTDEPLOY_HOSTNAME,
-        'volume_config': {"id": TIMEOUTDEPLOY_WORKER_ID, "hostnames": [{'hostname': TIMEOUTDEPLOY_HOSTNAME, 'pem': 'invalid', 'key': 'invalid'}], "zone": "EU"},
+        'volume_config': {"instanceId": TIMEOUTDEPLOY_WORKER_ID, 'hostname': TIMEOUTDEPLOY_HOSTNAME, 'certificate_pem': 'invalid', 'certificate_key': 'invalid', "zone": "EU"},
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'waiting_for_deployment',
         'after_waiter': 'error'

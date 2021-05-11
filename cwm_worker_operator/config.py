@@ -31,6 +31,8 @@ METRICS_REDIS_POOL_TIMEOUT = int(os.environ.get("METRICS_REDIS_POOL_TIMEOUT") or
 METRICS_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB") or "2")
 
 CWM_API_URL = os.environ["CWM_API_URL"]
+CWM_API_KEY = os.environ["CWM_API_KEY"]
+CWM_API_SECRET = os.environ["CWM_API_SECRET"]
 CWM_ZONE = os.environ["CWM_ZONE"]
 
 PACKAGES_READER_GITHUB_USER = os.environ.get("PACKAGES_READER_GITHUB_USER")

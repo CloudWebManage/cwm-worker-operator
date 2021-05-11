@@ -1,7 +1,7 @@
 import json
 import pytz
 import datetime
-from cwm_worker_operator.domains_config import DomainsConfigKey
+from cwm_worker_operator.domains_config import DomainsConfigKey, DomainsConfig
 from cwm_worker_operator.common import strptime, get_namespace_name_from_worker_id
 
 
@@ -69,7 +69,7 @@ def test_worker_keys(domains_config):
 
     # first call with valid domain - success from api
     metrics = MockMetrics()
-    dc._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'id': worker_id, 'hostnames': [{'hostname': hostname}], 'zone': 'EU'}
+    dc._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': 'EU'}
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
     assert volume_config.id == worker_id
     assert volume_config.hostnames == [hostname]
@@ -147,7 +147,7 @@ def test_volume_config_force_update(domains_config):
     hostname = 'example007.com'
     metrics = MockMetrics()
     # set volume config in redis
-    dc.keys.volume_config.set(worker_id, json.dumps({'id': worker_id, 'hostnames': [{'hostname': hostname}], "zone": "FOOBAR"}))
+    dc.keys.volume_config.set(worker_id, json.dumps({'instanceId': worker_id, 'hostname': hostname, "zone": "FOOBAR"}))
     # without force update, this volume config is returned
     volume_config = dc.get_cwm_api_volume_config(worker_id=worker_id, metrics=metrics)
     assert volume_config.id == worker_id
@@ -236,7 +236,7 @@ def test_del_worker_keys(domains_config):
         if key_name == 'deployment_api_metric':
             key.set('{}:foo'.format(namespace_name), '')
         elif key_name == 'volume_config':
-            key.set(worker_id, json.dumps({'id': worker_id, 'hostnames': [{'hostname': hostname}]}))
+            key.set(worker_id, json.dumps({'instanceId': worker_id, 'hostname': hostname}))
         elif keys_summary_param == 'hostname':
             key.set(hostname, '')
         elif keys_summary_param == 'worker_id':
@@ -264,3 +264,23 @@ def test_redis_pools(domains_config):
             with dc.get_ingress_redis() as ingress_redis:
                 internal_redis.set('foo', 'bar')
                 assert internal_redis.exists('foo') and not metrics_redis.exists('foo') and not ingress_redis.exists('foo')
+
+
+def test_get_volume_config_api_call():
+    domains_config = DomainsConfig()
+    worker_id = '4ee4ab056c'
+    res = domains_config._cwm_api_volume_config_api_call('id', worker_id)
+    assert res['type'] == 'instance'
+    assert res['instanceId'] == worker_id
+    assert res['hostname'] == '{}.eu.cloudwm-obj.com'.format(worker_id)
+    assert res['zone'] == 'EU'
+    assert len(res['client_id']) > 10
+    assert len(res['secret']) > 10
+    assert isinstance(res['certificate_key'], list)
+    assert isinstance(res['certificate_pem'], list)
+    assert res['cache'] is True
+    assert res['cache-expiry'] == 60
+    assert res['cache-exclude'] == ''
+    assert res['minio-browser'] is True
+    mec = res['minio_extra_configs']
+    assert isinstance(mec['hostnames'], list)

@@ -65,6 +65,10 @@ spec:
         env:
         - name: CWM_API_URL
           valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"CWM_API_URL"}}
+        - name: CWM_API_KEY
+          valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"CWM_API_KEY"}}
+        - name: CWM_API_SECRET
+          valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"CWM_API_SECRET"}}
         - name: PACKAGES_READER_GITHUB_USER
           valueFrom: {"secretKeyRef":{"name":"cwm-worker-operator", "key":"PACKAGES_READER_GITHUB_USER"}}
         - name: PACKAGES_READER_GITHUB_TOKEN

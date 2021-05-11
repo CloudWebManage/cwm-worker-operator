@@ -25,9 +25,9 @@ def test_deleter_daemon(domains_config, deployments_manager, deleter_metrics):
 def test_deleter_cancel_if_worker_deployment(domains_config, deployments_manager, deleter_metrics):
     domains_config.keys.hostname_initialize.set('domain1.com', '')
     domains_config.set_worker_force_delete('worker1', allow_cancel=True)
-    domains_config.keys.volume_config.set('worker1', json.dumps({'id': 'worker1', 'hostnames': [{'hostname': 'domain1.com'}]}))
+    domains_config.keys.volume_config.set('worker1', json.dumps({'instanceId': 'worker1', 'hostname': 'domain1.com'}))
     domains_config.set_worker_force_delete('worker2', allow_cancel=True)
-    domains_config.keys.volume_config.set('worker2', json.dumps({'id': 'worker2', 'hostnames': [{'hostname': 'domain2.com'}]}))
+    domains_config.keys.volume_config.set('worker2', json.dumps({'instanceId': 'worker2', 'hostname': 'domain2.com'}))
     deleter.run_single_iteration(domains_config, deleter_metrics, deployments_manager)
     assert set([o['labels'][1] for o in deleter_metrics.observations]) == {'success', 'delete_canceled'}
     assert [c[0] + '-' + c[1][0] for c in deployments_manager.calls] == ['delete-worker2']

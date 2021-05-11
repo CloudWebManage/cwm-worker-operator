@@ -8,8 +8,8 @@ from cwm_worker_operator import common
 
 def assert_volume_config(domains_config, worker_id, expected_data, msg):
     volume_config = json.loads(domains_config.keys.volume_config.get(worker_id))
-    assert set(volume_config.keys()) == set(['id', '__last_update', 'hostname', *expected_data.keys()]), msg
-    assert volume_config['id'] == worker_id, msg
+    assert set(volume_config.keys()) == set(['instanceId', '__last_update', 'hostname', *expected_data.keys()]), msg
+    assert volume_config['instanceId'] == worker_id, msg
     assert isinstance(common.strptime(volume_config['__last_update'], '%Y%m%dT%H%M%S'), datetime.datetime), msg
     for key, value in expected_data.items():
         assert volume_config[key] == value, '{}: {}'.format(key, msg)
@@ -49,7 +49,7 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
     # set mock volume config in api with invalid zone
-    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'id': worker_id, 'hostname': hostname, 'zone': 'INVALID'}
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': 'INVALID'}
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         volume_config_key: "",
@@ -70,7 +70,7 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
     hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     # set mock volume config in api with valid zone
-    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'id': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key]) == {
         hostname_initialize_key: '',
@@ -93,7 +93,7 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
     # set forced update for the worker
     domains_config.keys.worker_force_update.set(worker_id, '')
     # set valid mock volume config in api
-    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'id': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key]) == {
         worker_ready_for_deployment_key: '',
@@ -135,7 +135,7 @@ def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metr
     force_delete_domain_key = domains_config.keys.worker_force_delete._(worker_id)
     domains_config.keys.worker_force_delete.set(worker_id, '')
     domains_config.keys.hostname_initialize.set(hostname, '')
-    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'id': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         hostname_initialize_key: '',

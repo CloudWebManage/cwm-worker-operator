@@ -7,6 +7,8 @@ strategy: |
 imagePullSecrets: |
   - name: github
 cwm_api_url: ""
+cwm_api_key: ""
+cwm_api_secret: ""
 cwm_zone: "EU"
 packages_reader_github_user: ""
 packages_reader_github_token: ""
