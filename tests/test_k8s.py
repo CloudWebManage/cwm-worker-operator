@@ -40,7 +40,7 @@ def test_k8s(domains_config):
                    "cwm_api_secret={CWM_API_SECRET}," \
                    "packages_reader_github_user={PACKAGES_READER_GITHUB_USER}," \
                    "packages_reader_github_token={PACKAGES_READER_GITHUB_TOKEN}," \
-                   "operator.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS=120," \
+                   "operator.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS=240," \
                    "operator.daemons={daemons_helm_list}".format(
             CWM_API_URL=os.environ['CWM_API_URL'],
             CWM_API_KEY=os.environ['CWM_API_KEY'],
@@ -49,7 +49,9 @@ def test_k8s(domains_config):
             PACKAGES_READER_GITHUB_TOKEN=os.environ['PACKAGES_READER_GITHUB_TOKEN'],
             daemons_helm_list='{initializer,deployer,waiter,updater,deleter,metrics-updater}',
         )
-        returncode, output = subprocess.getstatusoutput('helm upgrade --install cwm-worker-operator ./helm {}'.format(helmargs))
+        cmd = 'helm upgrade --install cwm-worker-operator ./helm {}'.format(helmargs)
+        print(cmd)
+        returncode, output = subprocess.getstatusoutput(cmd)
         assert returncode == 0, output
         print('deleting existing namespace')
         subprocess.getstatusoutput('kubectl delete ns {}'.format(namespace_name))
@@ -68,7 +70,7 @@ def test_k8s(domains_config):
             'DEBUG= kubectl exec deployment/cwm-worker-operator-redis-{} -- redis-cli --raw exists {}'.format(
                 domains_config.keys.hostname_available.redis_pool_name,
                 domains_config.keys.hostname_available._(hostname)
-            ), 0, 120, "Waited too long for redis domain availabile", expected_output='1'
+            ), 0, 240, "Waited too long for redis domain availabile", expected_output='1'
         )
     except Exception:
         for cmd in ['kubectl get ns',
