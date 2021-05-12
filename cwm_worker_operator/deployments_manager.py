@@ -149,9 +149,9 @@ class DeploymentsManager:
             for protocol in ['http', 'https']
         }
 
-    def verify_worker_access(self, internal_hostname, log_kwargs):
+    def verify_worker_access(self, internal_hostname, log_kwargs, path='/minio/health/live'):
         internal_hostname = internal_hostname['http']
-        url = "http://{}:8080/minio/health/live".format(internal_hostname)
+        url = "http://{}:8080{}".format(internal_hostname, path)
         try:
             res = requests.get(url, timeout=2)
         except Exception as e:
