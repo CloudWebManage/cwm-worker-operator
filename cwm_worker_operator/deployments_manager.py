@@ -151,9 +151,9 @@ class DeploymentsManager:
 
     def verify_worker_access(self, internal_hostname, log_kwargs):
         internal_hostname = internal_hostname['http']
-        url = "http://{}:8080".format(internal_hostname)
+        url = "http://{}:8080/minio/health/live".format(internal_hostname)
         try:
-            res = requests.get(url, headers={"User-Agent": "Mozilla"}, timeout=2)
+            res = requests.get(url, timeout=2)
         except Exception as e:
             logs.debug("Failed readiness check", debug_verbosity=3, exception=str(e), **log_kwargs)
             res = None
@@ -161,9 +161,6 @@ class DeploymentsManager:
             return False
         elif res.status_code != 200:
             logs.debug("Failed readiness check", debug_verbosity=3, status_code=res.status_code, **log_kwargs)
-            return False
-        elif '<title>MinIO Browser</title>' not in res.text:
-            logs.debug("Failed readiness check", debug_verbosity=3, missing_title=True, **log_kwargs)
             return False
         else:
             return True
