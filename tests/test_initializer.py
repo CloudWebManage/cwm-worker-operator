@@ -65,25 +65,41 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
 
 def test_initialize_valid_domain(domains_config, initializer_metrics):
     worker_id, hostname = 'worker1', 'valid-domain.com'
+    worker_id_2, hostname_2 = 'worker2', 'valid-domain-2.com'
     domains_config.keys.hostname_initialize.set(hostname, '')
+    domains_config.keys.hostname_initialize.set(hostname_2, '')
     volume_config_key = domains_config.keys.volume_config._(worker_id)
+    volume_config_key_2 = domains_config.keys.volume_config._(worker_id_2)
     hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
+    hostname_initialize_key_2 = domains_config.keys.hostname_initialize._(hostname_2)
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
+    worker_ready_for_deployment_key_2 = domains_config.keys.worker_ready_for_deployment._(worker_id_2)
     # set mock volume config in api with valid zone
     domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname_2)] = {'instanceId': worker_id_2, 'hostname': hostname_2, 'zone': 'US'}
     initializer.run_single_iteration(domains_config, initializer_metrics)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        volume_config_key, worker_ready_for_deployment_key,
+        volume_config_key_2, worker_ready_for_deployment_key_2
+    ]) == {
         hostname_initialize_key: '',
         worker_ready_for_deployment_key: "",
-        volume_config_key: ""
+        volume_config_key: "",
+        hostname_initialize_key_2: '',
+        worker_ready_for_deployment_key_2: "",
+        volume_config_key_2: ""
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': config.CWM_ZONE
     }, '')
+    assert_volume_config(domains_config, worker_id_2, {
+        'zone': 'US'
+    }, '')
     assert isinstance(common.strptime(domains_config.keys.worker_ready_for_deployment.get(worker_id).decode(), '%Y%m%dT%H%M%S.%f'), datetime.datetime)
+    assert isinstance(common.strptime(domains_config.keys.worker_ready_for_deployment.get(worker_id_2).decode(), '%Y%m%dT%H%M%S.%f'), datetime.datetime)
     # success observation is for success getting volume config from api
     # initialized is from initializer
-    assert [','.join(o['labels']) for o in initializer_metrics.observations] == [',success', ',initialized']
+    assert [','.join(o['labels']) for o in initializer_metrics.observations] == [',success', ',initialized', ',success', ',initialized']
 
 
 def test_force_update_valid_domain(domains_config, initializer_metrics):

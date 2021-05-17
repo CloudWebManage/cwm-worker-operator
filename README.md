@@ -47,6 +47,7 @@ Create a `.env` file with the following:
 ```
 export REDIS_HOST=172.17.0.1
 export CWM_ZONE=EU
+export CWM_ADDITIONAL_ZONES=iL,Us
 export ENABLE_DEBUG=yes
 export DEBUG_VERBOSITY=10
 export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="120.0"
