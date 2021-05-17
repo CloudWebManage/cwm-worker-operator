@@ -34,6 +34,7 @@ CWM_API_URL = os.environ["CWM_API_URL"]
 CWM_API_KEY = os.environ["CWM_API_KEY"]
 CWM_API_SECRET = os.environ["CWM_API_SECRET"]
 CWM_ZONE = os.environ["CWM_ZONE"]
+CWM_ADDITIONAL_ZONES = [z.strip() for z in (os.environ.get("CWM_ADDITIONAL_ZONES") or '').split(',') if z.strip()]
 
 PACKAGES_READER_GITHUB_USER = os.environ.get("PACKAGES_READER_GITHUB_USER")
 PACKAGES_READER_GITHUB_TOKEN = os.environ.get("PACKAGES_READER_GITHUB_TOKEN")

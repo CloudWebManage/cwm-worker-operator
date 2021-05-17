@@ -55,3 +55,21 @@ for daemon in [
             }
         }
     ))
+
+
+@main.command()
+@click.argument('QUERY_PARAM')
+@click.argument('QUERY_VALUE')
+def cwm_api_volume_config_api_call(query_param, query_value):
+    import json
+    from cwm_worker_operator.cwm_api_manager import CwmApiManager
+    print(json.dumps(CwmApiManager().volume_config_api_call(query_param, query_value)))
+
+
+@main.command()
+@click.option('--force-update', is_flag=True)
+@click.option('--hostname')
+@click.option('--worker-id')
+def get_cwm_api_volume_config(force_update=False, hostname=None, worker_id=None):
+    from cwm_worker_operator import domains_config
+    print(domains_config.DomainsConfig().get_cwm_api_volume_config(force_update=force_update, hostname=hostname, worker_id=worker_id))

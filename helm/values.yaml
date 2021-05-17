@@ -10,6 +10,7 @@ cwm_api_url: ""
 cwm_api_key: ""
 cwm_api_secret: ""
 cwm_zone: "EU"
+cwm_additional_zones: ""
 packages_reader_github_user: ""
 packages_reader_github_token: ""
 #tolerations: []

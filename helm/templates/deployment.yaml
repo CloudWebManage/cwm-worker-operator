@@ -111,6 +111,8 @@ spec:
           value: {{ $.Values.operator.METRICS_REDIS_DB | quote }}
         - name: CWM_ZONE
           value: {{ $.Values.cwm_zone | quote }}
+        - name: CWM_ADDITIONAL_ZONES
+          value: {{ $.Values.cwm_additional_zones | quote }}
         - name: INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.operator.INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS

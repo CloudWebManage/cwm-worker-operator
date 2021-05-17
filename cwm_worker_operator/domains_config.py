@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from cwm_worker_operator import config
 from cwm_worker_operator import logs
 from cwm_worker_operator import common
+from cwm_worker_operator import cwm_api_manager
 
 
 class DomainsConfigKey:
@@ -153,6 +154,17 @@ class VolumeConfig:
         self.disable_force_delete = data.get("disable_force_delete")
         self.disable_force_update = data.get("disable_force_update")
 
+    def __str__(self):
+        res = {}
+        for key in dir(self):
+            if key.startswith('__') and key.endswith('__'):
+                continue
+            value = getattr(self, key)
+            if key == 'hostname_certs':
+                value = '--'
+            res[key] = value
+        return json.dumps(res)
+
 
 class DomainsConfig:
     WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT = "TIMEOUT_WAITING_FOR_DEPLOYMENT"
@@ -240,16 +252,7 @@ class DomainsConfig:
                 'zone': config.CWM_ZONE
             }
         else:
-            url = "{}?{}={}".format(
-                os.path.join(config.CWM_API_URL, 'svc', 'instances', 'getConfiguration'),
-                query_param, query_value
-            )
-            print(url)
-            headers = {
-                'AuthClientId': config.CWM_API_KEY,
-                'AuthSecret': config.CWM_API_SECRET
-            }
-            return json.loads(requests.get(url, headers=headers).text, strict=False)
+            return cwm_api_manager.CwmApiManager().volume_config_api_call(query_param, query_value)
 
     def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None) -> VolumeConfig:
         if hostname:

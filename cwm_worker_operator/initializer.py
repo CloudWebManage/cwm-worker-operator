@@ -25,7 +25,7 @@ def initialize_worker(domains_config, initializer_metrics, worker_id, volume_con
     logs.debug("Start initialize_worker", debug_verbosity=4, **log_kwargs)
     try:
         volume_zone = volume_config.zone
-        if not volume_zone or volume_zone != config.CWM_ZONE:
+        if not volume_zone or volume_zone.lower() != config.CWM_ZONE.lower() or volume_zone.lower() not in map(str.lower, config.CWM_ADDITIONAL_ZONES):
             if config.DEBUG and config.DEBUG_VERBOSITY > 5:
                 print("ERROR! Invalid volume zone (worker_id={} volume_zone={} CWM_ZONE={})".format(worker_id, volume_zone, config.CWM_ZONE), flush=True)
             if hostname:
@@ -67,6 +67,8 @@ def run_single_iteration(domains_config, metrics, **_):
             volume_config = domains_config.get_cwm_api_volume_config(hostname=hostname, metrics=initializer_metrics)
             worker_id = volume_config.id
             if not worker_id or volume_config._error:
+                if config.DEBUG and config.DEBUG_VERBOSITY >= 5:
+                    print(volume_config)
                 failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time)
             elif worker_id not in worker_ids_ready_for_deployment and worker_id not in worker_ids_waiting_for_deployment_complete and worker_id not in worker_ids_force_update:
                 initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time, hostname=hostname)

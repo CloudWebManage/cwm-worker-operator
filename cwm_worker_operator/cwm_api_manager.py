@@ -1,5 +1,10 @@
-from cwm_worker_operator.metrics_updater import DATEFORMAT
+import os
+import json
+
+import requests
+
 from cwm_worker_operator import common
+from cwm_worker_operator import config
 
 
 CWM_DATEFORMAT = "%Y%m%d%H%M%S"
@@ -12,6 +17,7 @@ class CwmApiManager:
         pass
 
     def get_utc_timestamp(self, t):
+        from cwm_worker_operator.metrics_updater import DATEFORMAT
         return common.strptime(t, DATEFORMAT).strftime(CWM_DATEFORMAT)
 
     def get_gib_measurement(self, m, key):
@@ -52,3 +58,15 @@ class CwmApiManager:
             'instance_id': worker_id,
             'measurements': self.get_measurements(minutes)
         })
+
+    def volume_config_api_call(self, query_param, query_value):
+        url = "{}?{}={}".format(
+            os.path.join(config.CWM_API_URL, 'svc', 'instances', 'getConfiguration'),
+            query_param, query_value
+        )
+        # print(url)
+        headers = {
+            'AuthClientId': config.CWM_API_KEY,
+            'AuthSecret': config.CWM_API_SECRET
+        }
+        return json.loads(requests.get(url, headers=headers).text, strict=False)
