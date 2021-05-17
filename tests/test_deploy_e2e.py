@@ -56,12 +56,12 @@ WORKERS = {
     },
     INVALIDZONE1_WORKER_ID: {
         "hostname": INVALIDZONE1_HOSTNAME,
-        'volume_config': {"instanceId": INVALIDZONE1_WORKER_ID, 'hostname': INVALIDZONE1_HOSTNAME, "zone": "US"},
+        'volume_config': {"instanceId": INVALIDZONE1_WORKER_ID, 'hostname': INVALIDZONE1_HOSTNAME, "zone": "FR"},
         'after_initializer': 'error',
     },
     INVALIDZONE2_WORKER_ID: {
         "hostname": INVALIDZONE2_HOSTNAME,
-        'volume_config': {"instanceId": INVALIDZONE2_WORKER_ID, 'hostname': INVALIDZONE2_HOSTNAME, "zone": "IL"},
+        'volume_config': {"instanceId": INVALIDZONE2_WORKER_ID, 'hostname': INVALIDZONE2_HOSTNAME, "zone": "NL"},
         'after_initializer': 'error',
     },
     FAILTODEPLOY_WORKER_ID: {
