@@ -129,8 +129,8 @@ class VolumeConfig:
             self.hostnames.append(hostname['hostname'])
             if hostname.get('certificate_key') and hostname.get('certificate_pem'):
                 self.hostname_certs[hostname['hostname']] = {
-                    'key': hostname['certificate_key'],
-                    'pem': hostname['certificate_pem']
+                    'key': "\n".join(hostname['certificate_key']),
+                    'pem': "\n".join(hostname['certificate_pem'])
                 }
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
