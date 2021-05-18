@@ -18,6 +18,7 @@ jobs:
         AWS_ROUTE53_HOSTEDZONE_DOMAIN: ${{ secrets.AWS_ROUTE53_HOSTEDZONE_DOMAIN }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        TEST_WORKER_ID: ${{ secrets.TEST_WORKER_ID }}
       run: |
         sudo bin/install_minikube.sh && minikube version &&\
         bin/minikube_start.sh &&\

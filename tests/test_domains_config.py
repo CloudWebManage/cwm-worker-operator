@@ -1,6 +1,9 @@
+import os
 import json
-import pytz
 import datetime
+
+import pytz
+
 from cwm_worker_operator.domains_config import DomainsConfigKey, DomainsConfig
 from cwm_worker_operator.common import strptime, get_namespace_name_from_worker_id
 
@@ -289,7 +292,7 @@ def test_redis_pools(domains_config):
 
 def test_get_volume_config_api_call():
     domains_config = DomainsConfig()
-    worker_id = '4ee4ab056c'
+    worker_id = os.environ['TEST_WORKER_ID']
     res = domains_config._cwm_api_volume_config_api_call('id', worker_id)
     assert res['type'] == 'instance'
     assert res['instanceId'] == worker_id

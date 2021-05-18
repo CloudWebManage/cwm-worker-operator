@@ -67,6 +67,12 @@ export AWS_ACCESS_KEY_ID=
 export AWS_SECRET_ACCESS_KEY=
 ```
 
+Add the test worker id, you can get it from cwm-worker-cluster repo at `cwm_worker_cluster.config.LOAD_TESTING_WORKER_ID`
+
+```
+export TEST_WORKER_ID=
+```
+
 Source the `.env` file
 
 ```
