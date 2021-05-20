@@ -109,7 +109,16 @@ class DomainsConfigKeys:
         self.deployment_api_metric = DomainsConfigKeyPrefix("deploymentid:minio-metrics", 'metrics', domains_config, keys_summary_param='namespace_name')
 
 
+class VolumeConfigGatewayTypeS3:
+
+    def __init__(self, url, access_key, secret_access_key):
+        self.url = url
+        self.access_key = access_key
+        self.secret_access_key = secret_access_key
+
+
 class VolumeConfig:
+    GATEWAY_TYPE_S3 = 's3'
 
     def __init__(self, data):
         self.id = data.get('instanceId')
@@ -153,6 +162,14 @@ class VolumeConfig:
         self.zone = data.get('zone')
         self.disable_force_delete = data.get("disable_force_delete")
         self.disable_force_update = data.get("disable_force_update")
+        if data.get('instanceType') == 'gateway_s3':
+            self.gateway = VolumeConfigGatewayTypeS3(
+                url=data.get('gatewayS3Url') or '',
+                access_key=data.get('gatewayS3AccessKey') or '',
+                secret_access_key=data.get('gatewayS3SecretAccessKey') or ''
+            )
+        else:
+            self.gateway = None
 
     def __str__(self):
         res = {}

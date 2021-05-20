@@ -49,9 +49,11 @@ class MockDomainsConfig(domains_config.DomainsConfig):
                 all_values[key.decode()] = "" if blank_keys and key.decode() in blank_keys else r.get(key).decode()
         return all_values
 
-    def _set_mock_volume_config(self, worker_id='worker1', hostname='example002.com', with_ssl=False, additional_hostnames=None):
+    def _set_mock_volume_config(self, worker_id='worker1', hostname='example002.com', with_ssl=False, additional_hostnames=None, additional_volume_config=None):
         if not additional_hostnames:
             additional_hostnames = []
+        if not additional_volume_config:
+            additional_volume_config = {}
         self.keys.volume_config.set(worker_id, json.dumps({
             'type': 'instance',
             'instanceId': worker_id,
@@ -59,6 +61,7 @@ class MockDomainsConfig(domains_config.DomainsConfig):
             **(get_ssl_keys(hostname) if with_ssl else {}),
             'minio_extra_configs': {
                 'hostnames': [*additional_hostnames]
-            }
+            },
+            **additional_volume_config
         }))
         return worker_id, hostname, common.get_namespace_name_from_worker_id(worker_id)

@@ -80,6 +80,12 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             'hostnames': nginx_hostnames,
             **minio_extra_configs.pop('nginx', {})
         }
+        if volume_config.gateway and isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeS3):
+            minio['INSTANCE_TYPE'] = 'gateway_s3'
+            if volume_config.gateway.url:
+                minio['GATEWAY_ARGS'] = volume_config.gateway.url
+            minio['AWS_ACCESS_KEY_ID'] = volume_config.gateway.access_key
+            minio['AWS_SECRET_ACCESS_KEY'] = volume_config.gateway.secret_access_key
         deployment_config_json = json.dumps({
             "cwm-worker-deployment": {
                 "type": "minio",
