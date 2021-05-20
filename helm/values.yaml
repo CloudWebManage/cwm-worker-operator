@@ -118,6 +118,7 @@ operator:
   AWS_ROUTE53_HOSTEDZONE_DOMAIN: ""
   DUMMY_TEST_WORKER_ID: "cwdummytst"
   DUMMY_TEST_HOSTNAME: "cwdummytst.example007.com"
+  MOCK_GATEWAYS: "{}"
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}

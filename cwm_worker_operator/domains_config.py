@@ -120,7 +120,7 @@ class VolumeConfigGatewayTypeS3:
 class VolumeConfig:
     GATEWAY_TYPE_S3 = 's3'
 
-    def __init__(self, data):
+    def __init__(self, data, request_hostname=None):
         self.id = data.get('instanceId')
         self._error = data.get('__error')
         self._last_update = data.get('__last_update')
@@ -162,14 +162,16 @@ class VolumeConfig:
         self.zone = data.get('zone')
         self.disable_force_delete = data.get("disable_force_delete")
         self.disable_force_update = data.get("disable_force_update")
+        self.is_valid_zone_for_cluster = bool(self.zone and (self.zone.lower() == config.CWM_ZONE.lower() or self.zone.lower() in map(str.lower, config.CWM_ADDITIONAL_ZONES)))
+        self.gateway = self._original_gateway = None
         if data.get('instanceType') == 'gateway_s3':
-            self.gateway = VolumeConfigGatewayTypeS3(
+            self._original_gateway = self.gateway = VolumeConfigGatewayTypeS3(
                 url=data.get('gatewayS3Url') or '',
                 access_key=data.get('gatewayS3AccessKey') or '',
                 secret_access_key=data.get('gatewayS3SecretAccessKey') or ''
             )
-        else:
-            self.gateway = None
+        self.gateway_updated_for_request_hostname = None
+        self.update_for_hostname(request_hostname)
 
     def __str__(self):
         res = {}
@@ -177,10 +179,27 @@ class VolumeConfig:
             if key.startswith('__') and key.endswith('__'):
                 continue
             value = getattr(self, key)
+            if callable(value):
+                continue
             if key == 'hostname_certs':
                 value = '--'
+            elif key == 'gateway':
+                value = str(value)
             res[key] = value
         return json.dumps(res)
+
+    def update_for_hostname(self, hostname):
+        if not self._original_gateway and hostname:
+            if not self.is_valid_zone_for_cluster and self.hostnames and hostname.lower() != self.hostnames[0].lower():
+                protocol = 'https' if self.hostname_certs.get(self.hostnames[0]) else 'http'
+                self.gateway = VolumeConfigGatewayTypeS3('{}://{}'.format(protocol, self.hostnames[0]), self.client_id, self.secret)
+                self.gateway_updated_for_request_hostname = hostname
+            elif hostname.lower() in config.MOCK_GATEWAYS.keys():
+                self.gateway = VolumeConfigGatewayTypeS3(**config.MOCK_GATEWAYS[hostname.lower()])
+                self.gateway_updated_for_request_hostname = hostname
+        else:
+            self.gateway = self._original_gateway
+            self.gateway_updated_for_request_hostname = None
 
 
 class DomainsConfig:
@@ -319,13 +338,13 @@ class DomainsConfig:
                     metrics.cwm_api_volume_config_success_from_api(worker_id or 'missing', start_time)
                 else:
                     metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
-            return VolumeConfig(volume_config)
+            return VolumeConfig(volume_config, request_hostname=hostname)
         else:
             if metrics:
                 # success from cache is only possible when we got a worker_id
                 # TODO: add support for cache based on hostname
                 metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
-            return VolumeConfig(json.loads(val))
+            return VolumeConfig(json.loads(val), request_hostname=hostname)
 
     def set_worker_error(self, worker_id, error_msg):
         for hostname in self.iterate_worker_hostnames(worker_id):
