@@ -1,7 +1,7 @@
 from cwm_worker_operator import deployer
 from cwm_worker_operator import common
 
-from .mocks.domains_config import get_ssl_keys
+from .common import get_volume_config_ssl_keys
 
 
 def assert_domain_deployer_metrics(deployer_metrics, observation):
@@ -80,7 +80,7 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
 def test_deployment_success(domains_config, deployer_metrics, deployments_manager):
     worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl=True, additional_hostnames=[
         {'hostname': 'example001.com'},
-        {'hostname': 'example003.com', **get_ssl_keys('example003.com')}
+        {'hostname': 'example003.com', **get_volume_config_ssl_keys('example003.com')}
     ])
     deployment_config = assert_deployment_success(
         worker_id, hostname, namespace_name, domains_config, deployer_metrics, deployments_manager,
@@ -95,7 +95,7 @@ def test_deployment_success(domains_config, deployer_metrics, deployments_manage
 def test_deployment_gateway_s3(domains_config, deployer_metrics, deployments_manager):
     worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl=True, additional_hostnames=[
         {'hostname': 'example001.com'},
-        {'hostname': 'example003.com', **get_ssl_keys('example003.com')}
+        {'hostname': 'example003.com', **get_volume_config_ssl_keys('example003.com')}
     ], additional_volume_config={
         'instanceType': 'gateway_s3',
         'gatewayS3Url': 'https://minio-source.example.com',
@@ -115,7 +115,7 @@ def test_deployment_gateway_s3(domains_config, deployer_metrics, deployments_man
 def test_deployment_gateway_s3_aws(domains_config, deployer_metrics, deployments_manager):
     worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl=True, additional_hostnames=[
         {'hostname': 'example001.com'},
-        {'hostname': 'example003.com', **get_ssl_keys('example003.com')}
+        {'hostname': 'example003.com', **get_volume_config_ssl_keys('example003.com')}
     ], additional_volume_config={
         'instanceType': 'gateway_s3',
         'gatewayS3AccessKey': 'username',

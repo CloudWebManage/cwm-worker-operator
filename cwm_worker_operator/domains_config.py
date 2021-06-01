@@ -1,7 +1,5 @@
-import os
 import json
 import redis
-import requests
 import traceback
 from contextlib import contextmanager
 
@@ -126,13 +124,6 @@ class VolumeConfig:
         self._last_update = data.get('__last_update')
         self.hostnames = []
         self.hostname_certs = {}
-        if data.get('hostname'):
-            self.hostnames.append(data['hostname'])
-            if data.get('certificate_key') and data.get('certificate_pem'):
-                self.hostname_certs[data['hostname']] = {
-                    'key': "\n".join(data['certificate_key']),
-                    'pem': "\n".join(data['certificate_pem'])
-                }
         minio_extra_configs = data.get('minio_extra_configs', {})
         for hostname in minio_extra_configs.pop('hostnames', []):
             self.hostnames.append(hostname['hostname'])

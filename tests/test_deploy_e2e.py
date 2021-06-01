@@ -13,6 +13,7 @@ from cwm_worker_operator import config
 from cwm_worker_operator import common
 
 from .mocks.metrics import MockInitializerMetrics, MockDeployerMetrics, MockWaiterMetrics
+from .common import get_volume_config_dict
 
 
 EXAMPLE007_COM_WORKER_ID = 'worker1'
@@ -39,9 +40,10 @@ TIMEOUTDEPLOY_HOSTNAME = 'timeout.deploy'
 WORKERS = {
     EXAMPLE007_COM_WORKER_ID: {
         'hostname': EXAMPLE007_COM_HOSTNAME,
-        'volume_config': {
-            "instanceId": EXAMPLE007_COM_WORKER_ID, 'hostname': EXAMPLE007_COM_HOSTNAME, "zone": "EU"
-        },
+        'volume_config': get_volume_config_dict(
+            worker_id=EXAMPLE007_COM_WORKER_ID, hostname=EXAMPLE007_COM_HOSTNAME,
+            additional_volume_config={"zone": "EU"}
+        ),
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'waiting_for_deployment',
         'after_waiter': 'valid',
@@ -56,24 +58,36 @@ WORKERS = {
     },
     INVALIDZONE1_WORKER_ID: {
         "hostname": INVALIDZONE1_HOSTNAME,
-        'volume_config': {"instanceId": INVALIDZONE1_WORKER_ID, 'hostname': INVALIDZONE1_HOSTNAME, "zone": "FR"},
+        'volume_config': get_volume_config_dict(
+            worker_id=INVALIDZONE1_WORKER_ID, hostname=INVALIDZONE1_HOSTNAME,
+            additional_volume_config={"zone": "FR"}
+        ),
         'after_initializer': 'error',
     },
     INVALIDZONE2_WORKER_ID: {
         "hostname": INVALIDZONE2_HOSTNAME,
-        'volume_config': {"instanceId": INVALIDZONE2_WORKER_ID, 'hostname': INVALIDZONE2_HOSTNAME, "zone": "NL"},
+        'volume_config': get_volume_config_dict(
+            worker_id=INVALIDZONE2_WORKER_ID, hostname=INVALIDZONE2_HOSTNAME,
+            additional_volume_config={"zone": "NL"}
+        ),
         'after_initializer': 'error',
     },
     FAILTODEPLOY_WORKER_ID: {
         "hostname": FAILTODEPLOY_HOSTNAME,
-        'volume_config': {"instanceId": FAILTODEPLOY_WORKER_ID, 'hostname': FAILTODEPLOY_HOSTNAME, "zone": "EU",
-                          "minio_extra_configs": {"resources": "---invalid---"}},
+        'volume_config': get_volume_config_dict(
+            worker_id=FAILTODEPLOY_WORKER_ID, hostname=FAILTODEPLOY_HOSTNAME,
+            additional_volume_config={"zone": "EU", "minio_extra_configs": {"resources": "---invalid---"}}
+        ),
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'error',
     },
     TIMEOUTDEPLOY_WORKER_ID: {
         "hostname": TIMEOUTDEPLOY_HOSTNAME,
-        'volume_config': {"instanceId": TIMEOUTDEPLOY_WORKER_ID, 'hostname': TIMEOUTDEPLOY_HOSTNAME, 'certificate_pem': 'invalid', 'certificate_key': 'invalid', "zone": "EU"},
+        'volume_config': get_volume_config_dict(
+            worker_id=TIMEOUTDEPLOY_WORKER_ID, hostname=TIMEOUTDEPLOY_HOSTNAME,
+            with_ssl={'certificate_pem': 'invalid', 'certificate_key': 'invalid'},
+            additional_volume_config={"zone": "EU"}
+        ),
         'after_initializer': 'ready_for_deployment',
         'after_deployer': 'waiting_for_deployment',
         'after_waiter': 'error'
