@@ -275,8 +275,8 @@ class DomainsConfig:
         ):
             return {
                 'instanceId': config.DUMMY_TEST_WORKER_ID,
-                'hostname': config.DUMMY_TEST_HOSTNAME,
-                'zone': config.CWM_ZONE
+                'zone': config.CWM_ZONE,
+                'minio_extra_configs': {'hostnames': [{'hostname': config.DUMMY_TEST_HOSTNAME}]},
             }
         else:
             return cwm_api_manager.CwmApiManager().volume_config_api_call(query_param, query_value)
