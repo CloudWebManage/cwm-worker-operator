@@ -56,7 +56,8 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
         hostname_error_key: 'INVALID_VOLUME_ZONE'
     }
     assert_volume_config(domains_config, worker_id, {
-        'zone': 'INVALID'
+        'zone': 'INVALID',
+        '__request_hostname': hostname
     }, '')
     # success observation is for success getting volume config from api
     # invalid_volume_zone is from initializer
@@ -90,10 +91,12 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
         volume_config_key_2: ""
     }
     assert_volume_config(domains_config, worker_id, {
-        'zone': config.CWM_ZONE
+        'zone': config.CWM_ZONE,
+        '__request_hostname': hostname
     }, '')
     assert_volume_config(domains_config, worker_id_2, {
-        'zone': 'US'
+        'zone': 'US',
+        '__request_hostname': hostname_2
     }, '')
     assert isinstance(common.strptime(domains_config.keys.worker_ready_for_deployment.get(worker_id).decode(), '%Y%m%dT%H%M%S.%f'), datetime.datetime)
     assert isinstance(common.strptime(domains_config.keys.worker_ready_for_deployment.get(worker_id_2).decode(), '%Y%m%dT%H%M%S.%f'), datetime.datetime)
@@ -116,7 +119,8 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
         volume_config_key: ''
    }
     assert_volume_config(domains_config, worker_id, {
-        'zone': config.CWM_ZONE
+        'zone': config.CWM_ZONE,
+        '__request_hostname': None
     }, '')
     # success observation is for success getting volume config from api
     # initialized is from initializer
@@ -136,8 +140,9 @@ def test_force_update_invalid_domain(domains_config, initializer_metrics):
         volume_config_key: ''
     }
     volume_config = json.loads(domains_config.keys.volume_config.get(worker_id))
-    assert set(volume_config.keys()) == {'__error', '__last_update'}
+    assert set(volume_config.keys()) == {'__error', '__last_update', '__request_hostname'}
     assert volume_config['__error'] == 'mismatched worker_id'
+    assert volume_config['__request_hostname'] == None
     assert isinstance(common.strptime(volume_config['__last_update'], '%Y%m%dT%H%M%S'), datetime.datetime)
     # error observation is for error getting volume config from api
     # invalid_volume_zone is from initializer
@@ -159,7 +164,8 @@ def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metr
         volume_config_key: ''
    }
     assert_volume_config(domains_config, worker_id, {
-        'zone': config.CWM_ZONE
+        'zone': config.CWM_ZONE,
+        '__request_hostname': hostname
     }, '')
     # success observation is for success getting volume config from api
     assert [','.join(o['labels']) for o in initializer_metrics.observations] == [',success']

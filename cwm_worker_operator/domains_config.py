@@ -1,6 +1,7 @@
 import json
 import redis
 import traceback
+from copy import deepcopy
 from contextlib import contextmanager
 
 from cwm_worker_operator import config
@@ -118,7 +119,8 @@ class VolumeConfigGatewayTypeS3:
 class VolumeConfig:
     GATEWAY_TYPE_S3 = 's3'
 
-    def __init__(self, data, request_hostname=None):
+    def __init__(self, data, request_hostname=None, is_data_from_cache=False, domains_config=None, request_worker_id=None):
+        request_data = deepcopy(data)
         self.id = data.get('instanceId')
         self._error = data.get('__error')
         self._last_update = data.get('__last_update')
@@ -162,7 +164,12 @@ class VolumeConfig:
                 secret_access_key=data.get('gatewayS3SecretAccessKey') or ''
             )
         self.gateway_updated_for_request_hostname = None
-        self.update_for_hostname(request_hostname)
+        self.update_for_hostname(request_hostname or data.get('__request_hostname'))
+        if domains_config and request_worker_id and (not is_data_from_cache or (request_hostname is not None and data.get('__request_hostname') != request_hostname)):
+            request_data['__request_hostname'] = request_hostname
+            self._last_update = request_data["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
+            domains_config.keys.volume_config.set(request_worker_id, json.dumps(request_data))
+
 
     def __str__(self):
         res = {}
@@ -321,21 +328,19 @@ class DomainsConfig:
                 volume_config.pop('instanceId', None)
             else:
                 worker_id = volume_config['instanceId']
-            volume_config["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
-            if worker_id:
-                self.keys.volume_config.set(worker_id, json.dumps(volume_config))
             if metrics:
                 if is_success:
                     metrics.cwm_api_volume_config_success_from_api(worker_id or 'missing', start_time)
                 else:
                     metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
-            return VolumeConfig(volume_config, request_hostname=hostname)
+            return VolumeConfig(volume_config, request_hostname=hostname, is_data_from_cache=False, domains_config=self, request_worker_id=worker_id)
         else:
             if metrics:
                 # success from cache is only possible when we got a worker_id
                 # TODO: add support for cache based on hostname
                 metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
-            return VolumeConfig(json.loads(val), request_hostname=hostname)
+            return VolumeConfig(json.loads(val), request_hostname=hostname, is_data_from_cache=True, domains_config=self, request_worker_id=worker_id)
+
 
     def set_worker_error(self, worker_id, error_msg):
         for hostname in self.iterate_worker_hostnames(worker_id):
