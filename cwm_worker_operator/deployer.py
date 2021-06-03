@@ -1,6 +1,7 @@
 import sys
 import json
 import traceback
+import urllib.parse
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
@@ -58,6 +59,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS,
             "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,
             "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config.keys.deployment_api_metric.key_prefix,
+            **({"LOG_PROVIDER": "stdout"} if volume_config.debug_mode else {}),
             **minio_extra_configs.pop('metricsLogger', {})
         }
         minio['cache'] = {
@@ -84,6 +86,12 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             minio['INSTANCE_TYPE'] = 'gateway_s3'
             if volume_config.gateway.url:
                 minio['GATEWAY_ARGS'] = volume_config.gateway.url
+                try:
+                    parse_result = urllib.parse.urlparse(volume_config.gateway.url)
+                    port = parse_result.port or (80 if parse_result.scheme == 'http' else 443)
+                except:
+                    port = 443
+                minio['gatewayNetworkPolicyExtraEgressPorts'] = [port]
             minio['AWS_ACCESS_KEY_ID'] = volume_config.gateway.access_key
             minio['AWS_SECRET_ACCESS_KEY'] = volume_config.gateway.secret_access_key
         deployment_config_json = json.dumps({

@@ -148,7 +148,7 @@ class VolumeConfig:
         if 'browser' not in minio_extra_configs:
             minio_extra_configs['browser'] = bool(data.get('minio-browser', True))
         minio_extra_configs.pop('protocols-enabled', None)
-        minio_extra_configs.pop('debug-mode', None)
+        self.debug_mode = bool(minio_extra_configs.pop('debug-mode', None))
         self.minio_extra_configs = minio_extra_configs
         self.cwm_worker_deployment_extra_configs = data.get("cwm_worker_deployment_extra_configs", {})
         self.cwm_worker_extra_objects = data.get("cwm_worker_extra_objects", [])
