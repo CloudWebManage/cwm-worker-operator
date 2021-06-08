@@ -224,7 +224,7 @@ def test(domains_config):
         waiter.start_daemon(True, with_prometheus=False, waiter_metrics=mock_waiter_metrics, domains_config=dc)
         if all([_assert_after_waiter(worker_id, test_config, dc) for worker_id, test_config in WORKERS.items()]):
             break
-        if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 120:
+        if (datetime.datetime.now(pytz.UTC) - start_time).total_seconds() > 240:
             for worker_id, test_config in WORKERS.items():
                 if not _assert_after_waiter(worker_id, test_config, dc, debug=True):
                     print("Failed asserting after waiter for domain: {} test_config: {}".format(worker_id, test_config))

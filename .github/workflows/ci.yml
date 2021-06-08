@@ -38,7 +38,7 @@ jobs:
         export REDIS_HOST=172.17.0.1 &&\
         export CWM_ZONE=EU &&\
         export CWM_ADDITIONAL_ZONES=iL,Us &&\
-        export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="30.0" &&\
+        export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="240.0" &&\
         export CWM_WORKER_DEPLOYMENT_HELM_CACHE_DIR="$(pwd)/.cwm_worker_deployment_helm_cache" &&\
         export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633 &&\
         export WAITER_VERIFY_WORKER_ACCESS=no &&\
