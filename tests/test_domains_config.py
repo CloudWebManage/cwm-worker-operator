@@ -4,7 +4,7 @@ import datetime
 
 import pytz
 
-from cwm_worker_operator.domains_config import DomainsConfigKey, DomainsConfig
+from cwm_worker_operator.domains_config import DomainsConfigKey, DomainsConfig, VolumeConfigGatewayTypeS3
 from cwm_worker_operator.common import strptime, get_namespace_name_from_worker_id
 
 from .common import set_volume_config_key, get_volume_config_dict, get_volume_config_json
@@ -312,3 +312,87 @@ def test_get_volume_config_api_call():
     assert mech['hostname'] == '{}.eu.cloudwm-obj.com'.format(worker_id)
     assert isinstance(mech['certificate_key'], list)
     assert isinstance(mech['certificate_pem'], list)
+    assert set(mec['protocols-enabled']) == {'HTTP', 'HTTPS'}
+
+
+def test_get_volume_config_api_call_gateway():
+    domains_config = DomainsConfig()
+    worker_id = os.environ['TEST_GATEWAY_WORKER_ID']
+    res = domains_config._cwm_api_volume_config_api_call('id', worker_id)
+    print(res)
+    assert res['type'] == 'gateway'
+    assert res['instanceId'] == worker_id
+    assert res['provider'] == 'cwm'
+    assert len(res['client_id']) > 10
+    assert len(res['secret']) > 10
+    assert len(res['credentials']['instanceId']) > 5
+    assert len(res['credentials']['clientId']) > 10
+    assert len(res['credentials']['secret']) > 10
+    assert res['cache'] is True
+    assert res['cache-expiry'] == 60
+    assert res['cache-exclude'] == ''
+    assert res['minio-browser'] is True
+    mec = res['minio_extra_configs']
+    assert isinstance(mec['hostnames'], list)
+    got_hostname = False
+    for mech in mec['hostnames']:
+        if mech['hostname'] == '{}.eu.cloudwm-obj.com'.format(worker_id):
+            assert isinstance(mech['certificate_key'], list)
+            assert isinstance(mech['certificate_pem'], list)
+            got_hostname = True
+    assert got_hostname
+
+
+def test_volume_config_gateway(domains_config):
+    worker_id, hostname = 'worker1', 'worker1.com'
+    gateway_worker_id, gateway_hostname = 'worker2', 'worker2.com'
+
+    # first request - set values in mock api, they will be saved in redis cache
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = get_volume_config_dict(
+        worker_id=worker_id, hostname=hostname, with_ssl=True, additional_volume_config={
+            'type': 'gateway',
+            'provider': 'cwm',
+            'credentials': {
+                'instanceId': 'worker2',
+                'clientId': 'accesskey',
+                'secret': 'secret'
+            }
+        }
+    )
+    domains_config._cwm_api_volume_configs['id:{}'.format(gateway_worker_id)] = get_volume_config_dict(
+        worker_id=gateway_worker_id, hostname=gateway_hostname, with_ssl=True
+    )
+    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
+    assert volume_config.id == worker_id
+    assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
+    assert volume_config.gateway.url == 'https://worker2.com'
+    assert volume_config.gateway.access_key == 'accesskey'
+    assert volume_config.gateway.secret_access_key == 'secret'
+
+    # second request - delete the values in mock api, but cached values will be returned from redis cache
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = {}
+    domains_config._cwm_api_volume_configs['id:{}'.format(gateway_worker_id)] = {}
+    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
+    assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
+    assert volume_config.gateway.url == 'https://worker2.com'
+
+    # third request - change values in mock api (disable minio-browser) and force update, so values will be returned from api
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = get_volume_config_dict(
+        worker_id=worker_id, hostname=hostname, with_ssl=True, additional_volume_config={
+            'type': 'gateway',
+            'provider': 'cwm',
+            'credentials': {
+                'instanceId': 'worker2',
+                'clientId': 'accesskey',
+                'secret': 'secret'
+            },
+            'minio-browser': False
+        }
+    )
+    domains_config._cwm_api_volume_configs['id:{}'.format(gateway_worker_id)] = get_volume_config_dict(
+        worker_id=gateway_worker_id, hostname=gateway_hostname + '.modified', with_ssl=True
+    )
+    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id, force_update=True)
+    assert volume_config.minio_extra_configs['browser'] is False
+    assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
+    assert volume_config.gateway.url == 'https://worker2.com.modified'

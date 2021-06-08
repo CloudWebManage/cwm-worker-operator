@@ -119,7 +119,7 @@ class VolumeConfigGatewayTypeS3:
 class VolumeConfig:
     GATEWAY_TYPE_S3 = 's3'
 
-    def __init__(self, data, request_hostname=None, is_data_from_cache=False, domains_config=None, request_worker_id=None):
+    def __init__(self, data, domains_config, request_hostname=None, is_data_from_cache=False, request_worker_id=None):
         request_data = deepcopy(data)
         self.id = data.get('instanceId')
         self._error = data.get('__error')
@@ -127,13 +127,18 @@ class VolumeConfig:
         self.hostnames = []
         self.hostname_certs = {}
         minio_extra_configs = data.get('minio_extra_configs', {})
-        for hostname in minio_extra_configs.pop('hostnames', []):
-            self.hostnames.append(hostname['hostname'])
-            if hostname.get('certificate_key') and hostname.get('certificate_pem'):
-                self.hostname_certs[hostname['hostname']] = {
-                    'key': "\n".join(hostname['certificate_key']),
-                    'pem': "\n".join(hostname['certificate_pem'])
-                }
+        self.protocols_enabled = set()
+        for protocol in minio_extra_configs.pop('protocols-enabled', ['http', 'https']):
+            if protocol.lower() in ['http', 'https']:
+                self.protocols_enabled.add(protocol.lower())
+        if len(self.protocols_enabled) > 0:
+            for hostname in minio_extra_configs.pop('hostnames', []):
+                self.hostnames.append(hostname['hostname'])
+                if 'https' in self.protocols_enabled and hostname.get('certificate_key') and hostname.get('certificate_pem'):
+                    self.hostname_certs[hostname['hostname']] = {
+                        'key': "\n".join(hostname['certificate_key']),
+                        'pem': "\n".join(hostname['certificate_pem'])
+                    }
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
         if data.get('cache'):
@@ -147,7 +152,6 @@ class VolumeConfig:
             }
         if 'browser' not in minio_extra_configs:
             minio_extra_configs['browser'] = bool(data.get('minio-browser', True))
-        minio_extra_configs.pop('protocols-enabled', None)
         self.debug_mode = bool(minio_extra_configs.pop('debug-mode', None))
         self.minio_extra_configs = minio_extra_configs
         self.cwm_worker_deployment_extra_configs = data.get("cwm_worker_deployment_extra_configs", {})
@@ -156,13 +160,7 @@ class VolumeConfig:
         self.disable_force_delete = data.get("disable_force_delete")
         self.disable_force_update = data.get("disable_force_update")
         self.is_valid_zone_for_cluster = bool(self.zone and (self.zone.lower() == config.CWM_ZONE.lower() or self.zone.lower() in map(str.lower, config.CWM_ADDITIONAL_ZONES)))
-        self.gateway = self._original_gateway = None
-        if data.get('instanceType') == 'gateway_s3':
-            self._original_gateway = self.gateway = VolumeConfigGatewayTypeS3(
-                url=data.get('gatewayS3Url') or '',
-                access_key=data.get('gatewayS3AccessKey') or '',
-                secret_access_key=data.get('gatewayS3SecretAccessKey') or ''
-            )
+        self.gateway = self._original_gateway = self.get_volume_config_gateway(data, domains_config, is_data_from_cache)
         self.gateway_updated_for_request_hostname = None
         self.update_for_hostname(request_hostname or data.get('__request_hostname'))
         if domains_config and request_worker_id and (not is_data_from_cache or (request_hostname is not None and data.get('__request_hostname') != request_hostname)):
@@ -183,8 +181,14 @@ class VolumeConfig:
                 value = '--'
             elif key == 'gateway':
                 value = str(value)
+            elif key == 'protocols_enabled':
+                value = list(value)
             res[key] = value
-        return json.dumps(res)
+        try:
+            return json.dumps(res)
+        except:
+            print(res)
+            raise
 
     def update_for_hostname(self, hostname):
         if not self._original_gateway and hostname:
@@ -198,6 +202,30 @@ class VolumeConfig:
         else:
             self.gateway = self._original_gateway
             self.gateway_updated_for_request_hostname = None
+
+    def get_volume_config_gateway(self, data, domains_config, is_data_from_cache):
+        if data.get('type') == 'gateway':
+            provider = data.get('provider')
+            if provider == 'cwm':
+                credentials = data.get('credentials') or {}
+                credentials_instanceId = credentials.get('instanceId')
+                credentials_clientId = credentials.get('clientId')
+                credentials_secret = credentials.get('secret')
+                if credentials_instanceId and credentials_clientId and credentials_secret:
+                    gateway_volume_config = domains_config.get_cwm_api_volume_config(worker_id=credentials_instanceId, force_update=not is_data_from_cache)
+                    if len(gateway_volume_config.hostnames) > 0:
+                        gateway_hostname = gateway_volume_config.hostnames[0]
+                        return VolumeConfigGatewayTypeS3(
+                            url='{}://{}'.format('https' if gateway_volume_config.hostname_certs.get(gateway_hostname) else 'http', gateway_hostname),
+                            access_key=credentials_clientId,
+                            secret_access_key=credentials_secret
+                        )
+        elif data.get('instanceType') == 'gateway_s3':
+            return VolumeConfigGatewayTypeS3(
+                url=data.get('gatewayS3Url') or '',
+                access_key=data.get('gatewayS3AccessKey') or '',
+                secret_access_key=data.get('gatewayS3SecretAccessKey') or ''
+            )
 
 
 class DomainsConfig:
@@ -333,13 +361,13 @@ class DomainsConfig:
                     metrics.cwm_api_volume_config_success_from_api(worker_id or 'missing', start_time)
                 else:
                     metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
-            return VolumeConfig(volume_config, request_hostname=hostname, is_data_from_cache=False, domains_config=self, request_worker_id=worker_id)
+            return VolumeConfig(volume_config, self, request_hostname=hostname, is_data_from_cache=False, request_worker_id=worker_id)
         else:
             if metrics:
                 # success from cache is only possible when we got a worker_id
                 # TODO: add support for cache based on hostname
                 metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
-            return VolumeConfig(json.loads(val), request_hostname=hostname, is_data_from_cache=True, domains_config=self, request_worker_id=worker_id)
+            return VolumeConfig(json.loads(val), self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
 
 
     def set_worker_error(self, worker_id, error_msg):
