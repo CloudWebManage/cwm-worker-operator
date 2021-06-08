@@ -396,3 +396,37 @@ def test_volume_config_gateway(domains_config):
     assert volume_config.minio_extra_configs['browser'] is False
     assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
     assert volume_config.gateway.url == 'https://worker2.com.modified'
+
+
+def test_get_volume_config_api_call_gateway_aws():
+    domains_config = DomainsConfig()
+    worker_id = os.environ['TEST_GATEWAY_AWS_WORKER_ID']
+    res = domains_config._cwm_api_volume_config_api_call('id', worker_id)
+    assert res['instanceId'] == worker_id
+    assert res['type'] == 'gateway'
+    assert res['provider'] == 'aws'
+    assert len(res['credentials']['accessKey']) > 5
+    assert len(res['credentials']['secretKey']) > 5
+
+
+def test_get_volume_config_api_call_gateway_azure():
+    domains_config = DomainsConfig()
+    worker_id = os.environ['TEST_GATEWAY_AZURE_WORKER_ID']
+    res = domains_config._cwm_api_volume_config_api_call('id', worker_id)
+    assert res['instanceId'] == worker_id
+    assert res['type'] == 'gateway'
+    assert res['provider'] == 'azure'
+    assert len(res['credentials']['accountName']) > 3
+    assert len(res['credentials']['accountKey']) > 5
+
+
+def test_get_volume_config_api_call_gateway_google():
+    domains_config = DomainsConfig()
+    worker_id = os.environ['TEST_GATEWAY_GOOGLE_WORKER_ID']
+    res = domains_config._cwm_api_volume_config_api_call('id', worker_id)
+    print(res)
+    assert res['instanceId'] == worker_id
+    assert res['type'] == 'gateway'
+    assert res['provider'] == 'gcs'
+    assert isinstance(res['credentials']['credentialsJson'], dict)
+    assert len(res['credentials']['projectId']) > 3

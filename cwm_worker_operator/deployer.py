@@ -82,18 +82,27 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             'hostnames': nginx_hostnames,
             **minio_extra_configs.pop('nginx', {})
         }
-        if volume_config.gateway and isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeS3):
-            minio['INSTANCE_TYPE'] = 'gateway_s3'
-            if volume_config.gateway.url:
-                minio['GATEWAY_ARGS'] = volume_config.gateway.url
-                try:
-                    parse_result = urllib.parse.urlparse(volume_config.gateway.url)
-                    port = parse_result.port or (80 if parse_result.scheme == 'http' else 443)
-                except:
-                    port = 443
-                minio['gatewayNetworkPolicyExtraEgressPorts'] = [port]
-            minio['AWS_ACCESS_KEY_ID'] = volume_config.gateway.access_key
-            minio['AWS_SECRET_ACCESS_KEY'] = volume_config.gateway.secret_access_key
+        if volume_config.gateway:
+            if isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeS3):
+                minio['INSTANCE_TYPE'] = 'gateway_s3'
+                if volume_config.gateway.url:
+                    minio['GATEWAY_ARGS'] = volume_config.gateway.url
+                    try:
+                        parse_result = urllib.parse.urlparse(volume_config.gateway.url)
+                        port = parse_result.port or (80 if parse_result.scheme == 'http' else 443)
+                    except:
+                        port = 443
+                    minio['gatewayNetworkPolicyExtraEgressPorts'] = [port]
+                minio['AWS_ACCESS_KEY_ID'] = volume_config.gateway.access_key
+                minio['AWS_SECRET_ACCESS_KEY'] = volume_config.gateway.secret_access_key
+            elif isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeAzure):
+                minio['INSTANCE_TYPE'] = 'gateway_azure'
+                minio['AZURE_STORAGE_ACCOUNT_NAME'] = volume_config.gateway.account_name
+                minio['AZURE_STORAGE_ACCOUNT_KEY'] = volume_config.gateway.account_key
+            elif isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeGoogle):
+                minio['INSTANCE_TYPE'] = 'gateway_gcs'
+                minio['GATEWAY_ARGS'] = volume_config.gateway.project_id
+                minio['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = json.dumps(volume_config.gateway.credentials)
         deployment_config_json = json.dumps({
             "cwm-worker-deployment": {
                 "type": "minio",

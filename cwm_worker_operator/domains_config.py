@@ -116,6 +116,20 @@ class VolumeConfigGatewayTypeS3:
         self.secret_access_key = secret_access_key
 
 
+class VolumeConfigGatewayTypeGoogle:
+
+    def __init__(self, project_id, credentials):
+        self.project_id = project_id
+        self.credentials = credentials
+
+
+class VolumeConfigGatewayTypeAzure:
+
+    def __init__(self, account_name, account_key):
+        self.account_name = account_name
+        self.account_key = account_key
+
+
 class VolumeConfig:
     GATEWAY_TYPE_S3 = 's3'
 
@@ -220,6 +234,24 @@ class VolumeConfig:
                             access_key=credentials_clientId,
                             secret_access_key=credentials_secret
                         )
+            elif provider == 'aws':
+                credentials = data.get('credentials') or {}
+                credentials_accessKey = credentials.get('accessKey')
+                credentials_secretKey = credentials.get('secretKey')
+                if credentials_accessKey and credentials_secretKey:
+                    return VolumeConfigGatewayTypeS3(url=None, access_key=credentials_accessKey, secret_access_key=credentials_secretKey)
+            elif provider == 'azure':
+                credentials = data.get('credentials') or {}
+                credentials_accountName = credentials.get('accountName')
+                credentials_accountKey = credentials.get('accountKey')
+                if credentials_accountName and credentials_accountKey:
+                    return VolumeConfigGatewayTypeAzure(account_name=credentials_accountName, account_key=credentials_accountKey)
+            elif provider == 'gcs':
+                credentials = data.get('credentials') or {}
+                credentials_projectId = credentials.get('projectId')
+                credentials_credentialsJson = credentials.get('credentialsJson')
+                if credentials_projectId and credentials_credentialsJson:
+                    return VolumeConfigGatewayTypeGoogle(project_id=credentials_projectId, credentials=credentials_credentialsJson)
         elif data.get('instanceType') == 'gateway_s3':
             return VolumeConfigGatewayTypeS3(
                 url=data.get('gatewayS3Url') or '',
