@@ -105,3 +105,5 @@ DUMMY_TEST_WORKER_ID = os.environ.get('DUMMY_TEST_WORKER_ID') or 'cwdummytst'
 DUMMY_TEST_HOSTNAME = os.environ.get('DUMMY_TEST_HOSTNAME') or 'cwdummytst.example007.com'
 
 MOCK_GATEWAYS = json.loads(os.environ.get('MOCK_GATEWAYS') or '{}')
+
+DEPLOYER_WITH_HELM_DRY_RUN = os.environ.get('DEPLOYER_WITH_HELM_DRY_RUN') == 'yes'

@@ -115,7 +115,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             },
             "extraObjects": extra_objects
         }).replace("__NAMESPACE_NAME__", namespace_name)
-        if debug or config.DEBUG_VERBOSITY >= 10:
+        if debug or config.DEBUG_VERBOSITY >= 10 or config.DEPLOYER_WITH_HELM_DRY_RUN:
             print(deployment_config_json, flush=True)
         deployment_config = json.loads(deployment_config_json)
         if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS:
@@ -130,7 +130,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
         if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
             deployments_manager.deploy_extra_objects(deployment_config, extra_objects)
             logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
-        if debug or config.DEBUG_VERBOSITY >= 10:
+        if debug or config.DEPLOYER_WITH_HELM_DRY_RUN:
             deployments_manager.deploy(deployment_config, dry_run=True, with_init=False)
             logs.debug("deployed dry run", debug_verbosity=4, **log_kwargs)
         try:

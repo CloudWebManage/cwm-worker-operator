@@ -211,6 +211,8 @@ spec:
           value: {{ $.Values.operator.DUMMY_TEST_HOSTNAME | quote }}
         - name: MOCK_GATEWAYS
           value: {{ $.Values.operator.MOCK_GATEWAYS | quote }}
+        - name: DEPLOYER_WITH_HELM_DRY_RUN
+          value: {{ if $.Values.operator.DEPLOYER_WITH_HELM_DRY_RUN }}"yes"{{ else }}"no"{{ end }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}

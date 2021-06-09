@@ -119,6 +119,7 @@ operator:
   DUMMY_TEST_WORKER_ID: "cwdummytst"
   DUMMY_TEST_HOSTNAME: "cwdummytst.example007.com"
   MOCK_GATEWAYS: "{}"
+  DEPLOYER_WITH_HELM_DRY_RUN: false
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
