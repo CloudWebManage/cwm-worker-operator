@@ -149,4 +149,4 @@ def test_deployment_gateway_google(domains_config, deployer_metrics, deployments
     )
     assert deployment_config['minio']['INSTANCE_TYPE'] == 'gateway_gcs'
     assert deployment_config['minio']['GATEWAY_ARGS'] == 'myproject123'
-    assert deployment_config['minio']['GOOGLE_APPLICATION_CREDENTIALS_JSON'] == '{"hello": "world"}'
+    assert deployment_config['minio']['GOOGLE_APPLICATION_CREDENTIALS'] == {"hello": "world"}

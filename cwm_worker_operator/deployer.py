@@ -102,7 +102,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             elif isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeGoogle):
                 minio['INSTANCE_TYPE'] = 'gateway_gcs'
                 minio['GATEWAY_ARGS'] = volume_config.gateway.project_id
-                minio['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = json.dumps(volume_config.gateway.credentials)
+                minio['GOOGLE_APPLICATION_CREDENTIALS'] = volume_config.gateway.credentials
         deployment_config_json = json.dumps({
             "cwm-worker-deployment": {
                 "type": "minio",
