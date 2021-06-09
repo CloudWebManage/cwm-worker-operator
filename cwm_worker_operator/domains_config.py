@@ -175,6 +175,8 @@ class VolumeConfig:
         self.disable_force_update = data.get("disable_force_update")
         self.is_valid_zone_for_cluster = bool(self.zone and (self.zone.lower() == config.CWM_ZONE.lower() or self.zone.lower() in map(str.lower, config.CWM_ADDITIONAL_ZONES)))
         self.gateway = self._original_gateway = self.get_volume_config_gateway(data, domains_config, is_data_from_cache)
+        if self.gateway:
+            self.is_valid_zone_for_cluster = True
         self.gateway_updated_for_request_hostname = None
         self.update_for_hostname(request_hostname or data.get('__request_hostname'))
         if domains_config and request_worker_id and (not is_data_from_cache or (request_hostname is not None and data.get('__request_hostname') != request_hostname)):
