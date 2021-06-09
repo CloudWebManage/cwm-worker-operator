@@ -129,3 +129,24 @@ def test_deployment_gateway_s3_aws(domains_config, deployer_metrics, deployments
     assert 'GATEWAY_ARGS' not in deployment_config['minio']
     assert deployment_config['minio']['AWS_ACCESS_KEY_ID'] == 'username'
     assert deployment_config['minio']['AWS_SECRET_ACCESS_KEY'] == 'password'
+
+
+def test_deployment_gateway_google(domains_config, deployer_metrics, deployments_manager):
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl=True, additional_hostnames=[
+        {'hostname': 'example001.com'},
+        {'hostname': 'example003.com', **get_volume_config_ssl_keys('example003.com')}
+    ], additional_volume_config={
+        'type': 'gateway',
+        'provider': 'gcs',
+        'credentials': {
+            'projectId': 'myproject123',
+            'credentialsJson': {"hello": "world"}
+        },
+    })
+    deployment_config = assert_deployment_success(
+        worker_id, hostname, namespace_name, domains_config, deployer_metrics, deployments_manager,
+        expected_additional_hostnames={'example001.com': {'ssl': False}, 'example003.com': {'ssl': True}}
+    )
+    assert deployment_config['minio']['INSTANCE_TYPE'] == 'gateway_gcs'
+    assert deployment_config['minio']['GATEWAY_ARGS'] == 'myproject123'
+    assert deployment_config['minio']['GOOGLE_APPLICATION_CREDENTIALS_JSON'] == '{"hello": "world"}'
