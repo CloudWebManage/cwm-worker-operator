@@ -51,14 +51,14 @@ jobs:
         docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest\
                      -t cwm_worker_operator . &&\
         bin/docker_push_sha.sh &&\
-        if [ "${GITHUB_REF}" == "refs/heads/master" ]; then
+        if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
           bin/docker_push_latest.sh &&\
           sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
           bin/helm_publish.sh
         fi
 
     - uses: 8398a7/action-slack@v3
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       with:
         status: ${{ job.status }}
         author_name: ${{ github.actor }}
