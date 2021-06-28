@@ -393,7 +393,7 @@ def test_volume_config_gateway(domains_config):
         worker_id=gateway_worker_id, hostname=gateway_hostname + '.modified', with_ssl=True
     )
     volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id, force_update=True)
-    assert volume_config.minio_extra_configs['browser'] is False
+    assert volume_config.browser_enabled is False
     assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
     assert volume_config.gateway.url == 'https://worker2.com.modified'
 

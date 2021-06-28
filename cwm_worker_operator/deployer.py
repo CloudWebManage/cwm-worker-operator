@@ -23,6 +23,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             return
         logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
         minio_extra_configs = {
+            'browser': volume_config.browser_enabled,
             **config.MINIO_EXTRA_CONFIG,
             **volume_config.minio_extra_configs,
             **(extra_minio_extra_configs if extra_minio_extra_configs else {})
@@ -63,9 +64,9 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             **minio_extra_configs.pop('metricsLogger', {})
         }
         minio['cache'] = {
-            "enabled": True,
+            "enabled": volume_config.cache_enabled,
             "drives": "/cache",
-            "exclude": "*.pdf",
+            "exclude": ','.join(['*.{}'.format(ext) for ext in volume_config.cache_exclude_extensions]),
             "quota": 80,
             "after": 3,
             "watermark_low": 70,
@@ -80,6 +81,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             nginx_hostnames.append(nginx_hostname)
         minio['nginx'] = {
             'hostnames': nginx_hostnames,
+            'CDN_CACHE_ENABLE': volume_config.cache_enabled,
+            'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',
             **minio_extra_configs.pop('nginx', {})
         }
         if volume_config.gateway:

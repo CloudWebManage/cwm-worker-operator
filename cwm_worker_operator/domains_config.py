@@ -155,17 +155,10 @@ class VolumeConfig:
                     }
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
-        if data.get('cache'):
-            minio_extra_configs['cache'] = {
-                'enabled': True,
-                'exclude': ','.join(['*.{}'.format(ext.strip()) for ext in data.get('cache-exclude', '').split('|') if ext.strip()])
-            }
-        else:
-            minio_extra_configs['cache'] = {
-                'enabled': False
-            }
-        if 'browser' not in minio_extra_configs:
-            minio_extra_configs['browser'] = bool(data.get('minio-browser', True))
+        self.cache_enabled = bool(data.get('cache'))
+        self.cache_exclude_extensions = [ext.strip() for ext in data.get('cache-exclude', '').split('|') if ext.strip()]
+        self.cache_expiry_minutes = int(data.get('cache-expiry') or 2)
+        self.browser_enabled = bool(data.get('minio-browser', True))
         self.debug_mode = bool(minio_extra_configs.pop('debug-mode', None))
         self.minio_extra_configs = minio_extra_configs
         self.cwm_worker_deployment_extra_configs = data.get("cwm_worker_deployment_extra_configs", {})
