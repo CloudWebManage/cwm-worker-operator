@@ -171,6 +171,7 @@ class VolumeConfig:
                 self.clear_cache = common.strptime(data['clear-cache'], '%Y-%m-%d %H:%M:%S')
             except:
                 pass
+        self.geo_cache_enabled = bool(data.get('geo-cache'))
         self.browser_enabled = bool(data.get('minio-browser', True))
         self.debug_mode = bool(minio_extra_configs.pop('debug-mode', None))
         self.minio_extra_configs = minio_extra_configs

@@ -81,7 +81,7 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             nginx_hostnames.append(nginx_hostname)
         minio['nginx'] = {
             'hostnames': nginx_hostnames,
-            'CDN_CACHE_ENABLE': volume_config.cache_enabled,
+            'CDN_CACHE_ENABLE': volume_config.cache_enabled if not volume_config.gateway else volume_config.geo_cache_enabled,
             'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',
             'CDN_CACHE_PROXY_CACHE_VALID_200': '{}m'.format(volume_config.cache_expiry_minutes),
             'CDN_CACHE_PROXY_INACTIVE': '{}m'.format(volume_config.cache_expiry_minutes + 1),
