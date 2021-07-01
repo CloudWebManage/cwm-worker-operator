@@ -214,7 +214,7 @@ spec:
         - name: DEPLOYER_WITH_HELM_DRY_RUN
           value: {{ if $.Values.operator.DEPLOYER_WITH_HELM_DRY_RUN }}"yes"{{ else }}"no"{{ end }}
         - name: CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
-          value: {{ $.Values.operator.CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS }}
+          value: {{ $.Values.operator.CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}
