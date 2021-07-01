@@ -35,6 +35,7 @@ for daemon in [
     {'name': 'alerter'},
     {'name': 'cleaner'},
     {'name': 'nodes-checker'},
+    {'name': 'clear-cacher'},
 ]:
     main.add_command(click.Group(
         name=daemon['name'],

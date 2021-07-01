@@ -52,7 +52,7 @@ metricsRedis:
     enabled: true
 
 operator:
-  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter", "cleaner", "nodes-checker"]
+  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter", "cleaner", "nodes-checker", "clear-cacher"]
   image: docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -120,6 +120,7 @@ operator:
   DUMMY_TEST_HOSTNAME: "cwdummytst.example007.com"
   MOCK_GATEWAYS: "{}"
   DEPLOYER_WITH_HELM_DRY_RUN: false
+  CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "5"
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
