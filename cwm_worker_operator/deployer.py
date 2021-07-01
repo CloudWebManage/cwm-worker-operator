@@ -64,9 +64,9 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             **minio_extra_configs.pop('metricsLogger', {})
         }
         minio['cache'] = {
-            "enabled": volume_config.cache_enabled,
+            "enabled": True,
             "drives": "/cache",
-            "exclude": ','.join(['*.{}'.format(ext) for ext in volume_config.cache_exclude_extensions]),
+            "exclude": "", #  ','.join(['*.{}'.format(ext) for ext in volume_config.cache_exclude_extensions]),
             "quota": 80,
             "after": 3,
             "watermark_low": 70,
