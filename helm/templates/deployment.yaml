@@ -213,6 +213,8 @@ spec:
           value: {{ $.Values.operator.MOCK_GATEWAYS | quote }}
         - name: DEPLOYER_WITH_HELM_DRY_RUN
           value: {{ if $.Values.operator.DEPLOYER_WITH_HELM_DRY_RUN }}"yes"{{ else }}"no"{{ end }}
+        - name: CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}
@@ -237,6 +239,8 @@ spec:
 {{ toYaml $.Values.operator.CleanerResources | indent 10 }}
 {{ else if and (eq . "nodes-checker") $.Values.operator.NodesCheckerResources }}
 {{ toYaml $.Values.operator.NodesCheckerResources | indent 10 }}
+{{ else if and (eq . "clear-cacher") $.Values.operator.ClearCacherResources }}
+{{ toYaml $.Values.operator.ClearCacherResources | indent 10 }}
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
 {{ end }}

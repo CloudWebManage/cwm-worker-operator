@@ -348,3 +348,16 @@ class DeploymentsManager:
                 ]
             }
         )
+
+    def iterate_minio_nginx_pods_on_node(self, node_name):
+        for pod in json.loads(subprocess.check_output([
+            'kubectl', 'get', 'pods', '--all-namespaces', '--field-selector=spec.nodeName={}'.format(node_name), '-lapp=nginx', '-ojson'
+        ]))['items']:
+            if not pod['metadata']['name'].startswith('nginx-'):
+                continue
+            if pod['spec']['containers'][0]['name'] != 'nginx':
+                continue
+            yield pod['metadata']['namespace'], pod['metadata']['name']
+
+    def pod_exec(self, namespace_name, pod_name, *args):
+        return subprocess.check_output(['kubectl', '-n', namespace_name, 'exec', pod_name, '--', *args])

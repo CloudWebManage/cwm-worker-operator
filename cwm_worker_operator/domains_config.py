@@ -102,6 +102,7 @@ class DomainsConfigKeys:
         self.worker_aggregated_metrics_last_sent_update = DomainsConfigKeyPrefix("worker:aggregated-metrics-last-sent-update", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_total_used_bytes = DomainsConfigKeyPrefix("worker:total-used-bytes", 'internal', domains_config, keys_summary_param='worker_id')
         self.alerts = DomainsConfigKeyStatic("alerts", 'internal', domains_config)
+        self.worker_last_clear_cache = DomainsConfigKeyPrefix("worker:last_clear_cache", 'internal', domains_config, keys_summary_param='worker_id')
 
         # metrics_redis - keys shared with deployments to get metrics
         self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config, keys_summary_param='namespace_name')
@@ -156,8 +157,20 @@ class VolumeConfig:
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
         self.cache_enabled = bool(data.get('cache'))
-        self.cache_exclude_extensions = [ext.strip() for ext in data.get('cache-exclude', '').split('|') if ext.strip()]
-        self.cache_expiry_minutes = int(data.get('cache-expiry') or 2)
+        try:
+            self.cache_exclude_extensions = [ext.strip() for ext in data.get('cache-exclude', '').split('|') if ext.strip()]
+        except:
+            self.cache_exclude_extensions = []
+        try:
+            self.cache_expiry_minutes = int(data.get('cache-expiry') or 2)
+        except:
+            self.cache_expiry_minutes = 2
+        self.clear_cache = None
+        if data.get('clear-cache'):
+            try:
+                self.clear_cache = common.strptime(data['clear-cache'], '%Y-%m-%d %H:%M:%S')
+            except:
+                pass
         self.browser_enabled = bool(data.get('minio-browser', True))
         self.debug_mode = bool(minio_extra_configs.pop('debug-mode', None))
         self.minio_extra_configs = minio_extra_configs
@@ -697,3 +710,10 @@ class DomainsConfig:
     def iterate_healthy_node_names(self):
         for node_name in self.keys.node_healthy.iterate_prefix_key_suffixes():
             yield node_name
+
+    def get_worker_last_clear_cache(self, worker_id):
+        value = self.keys.worker_last_clear_cache.get(worker_id)
+        return common.strptime(value.decode(), "%Y%m%dT%H%M%S") if value else None
+
+    def set_worker_last_clear_cache(self, worker_id, last_clear_cache):
+        self.keys.worker_last_clear_cache.set(worker_id, last_clear_cache.strftime("%Y%m%dT%H%M%S"))

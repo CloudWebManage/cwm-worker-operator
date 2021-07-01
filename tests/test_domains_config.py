@@ -430,3 +430,30 @@ def test_get_volume_config_api_call_gateway_google():
     assert res['provider'] == 'gcs'
     assert isinstance(res['credentials']['credentialsJson'], dict)
     assert len(res['credentials']['projectId']) > 3
+
+
+def test_get_volume_config_cache_attributes(domains_config):
+    worker_id, hostname = 'worker1', 'worker1.com'
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = get_volume_config_dict(
+        worker_id=worker_id, hostname=hostname, with_ssl=True, additional_volume_config={
+            'cache': True,
+            'cache-exclude': 'jpg|pdf|txt',
+            'cache-expiry': '5',
+            'clear-cache': '2021-07-01 11:34:39'
+        }
+    )
+    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
+    assert volume_config.cache_enabled
+    assert volume_config.cache_exclude_extensions == ['jpg', 'pdf', 'txt']
+    assert volume_config.cache_expiry_minutes == 5
+    assert volume_config.clear_cache == datetime.datetime(2021, 7, 1, 11, 34, 39, tzinfo=pytz.UTC)
+
+
+def test_worker_last_clear_cache(domains_config):
+    worker_id = 'worker1'
+    assert domains_config.keys.worker_last_clear_cache.get(worker_id) is None
+    assert domains_config.get_worker_last_clear_cache(worker_id) is None
+    dt = datetime.datetime(2021, 7, 1, 10, 12, 33, tzinfo=pytz.UTC)
+    domains_config.set_worker_last_clear_cache(worker_id, dt)
+    assert domains_config.get_worker_last_clear_cache(worker_id) == dt
+    assert domains_config.keys.worker_last_clear_cache.get(worker_id) == b'20210701T101233'

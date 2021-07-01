@@ -84,6 +84,16 @@ def test_deploy():
     }
     all_releases = {r['namespace']: r for r in deployments_manager.iterate_all_releases()}
     assert namespace_name in all_releases
+    nginx_pod_names = []
+    for _node in deployments_manager.iterate_cluster_nodes():
+        for _namespace_name, _pod_name in deployments_manager.iterate_minio_nginx_pods_on_node(_node['name']):
+            if _namespace_name == namespace_name:
+                nginx_pod_names.append(_pod_name)
+    assert len(nginx_pod_names) == 1
+    nginx_pod_name = nginx_pod_names[0]
+    assert set(deployments_manager.pod_exec(namespace_name, nginx_pod_name, 'bash', '-c', 'for FILE in /var/cache/nginx/minio/*; do echo $FILE; done').decode().splitlines()) == {
+        '/var/cache/nginx/minio/cache', '/var/cache/nginx/minio/temp'
+    }
     deployments_manager.delete(namespace_name, 'minio', delete_helm=False, delete_namespace=False)
     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
     assert returncode == 1

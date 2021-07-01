@@ -59,6 +59,7 @@ class MockDeploymentsManager(DeploymentsManager):
         self.dns_healthchecks = []
         self.dns_records = []
         self.dns_healthcheck_counter = 0
+        self.minio_nginx_pods_on_node = []
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -135,3 +136,10 @@ class MockDeploymentsManager(DeploymentsManager):
 
     def delete_dns_record(self, record_id):
         self.calls.append(('delete_dns_record', [record_id]))
+
+    def iterate_minio_nginx_pods_on_node(self, node_name):
+        for namespace_name, pod_name in self.minio_nginx_pods_on_node:
+            yield namespace_name, pod_name
+
+    def pod_exec(self, namespace_name, pod_name, *args):
+        self.calls.append(('pod_exec', [namespace_name, pod_name, *args]))
