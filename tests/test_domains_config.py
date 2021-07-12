@@ -457,3 +457,17 @@ def test_worker_last_clear_cache(domains_config):
     domains_config.set_worker_last_clear_cache(worker_id, dt)
     assert domains_config.get_worker_last_clear_cache(worker_id) == dt
     assert domains_config.keys.worker_last_clear_cache.get(worker_id) == b'20210701T101233'
+
+
+def test_get_volume_config_challenge_attributes(domains_config):
+    worker_id, hostname = 'worker1', 'worker1.com'
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = get_volume_config_dict(
+        worker_id=worker_id, hostname=hostname, with_ssl=True, additional_hostnames=[
+            {
+                'hostname': 'hostname2.com', 'payload': 'zzPAYLOADyy', 'token': 'aaTOKENbb'
+            }
+        ]
+    )
+    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
+    assert hostname not in volume_config.hostname_challenges
+    assert volume_config.hostname_challenges['hostname2.com'] == {'token': 'aaTOKENbb', 'payload': 'zzPAYLOADyy'}

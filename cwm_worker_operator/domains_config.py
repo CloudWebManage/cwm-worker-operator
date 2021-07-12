@@ -141,6 +141,7 @@ class VolumeConfig:
         self._last_update = data.get('__last_update')
         self.hostnames = []
         self.hostname_certs = {}
+        self.hostname_challenges = {}
         minio_extra_configs = data.get('minio_extra_configs', {})
         self.protocols_enabled = set()
         for protocol in minio_extra_configs.pop('protocols-enabled', ['http', 'https']):
@@ -153,6 +154,11 @@ class VolumeConfig:
                     self.hostname_certs[hostname['hostname']] = {
                         'key': "\n".join(hostname['certificate_key']),
                         'pem': "\n".join(hostname['certificate_pem'])
+                    }
+                if hostname.get('token') and hostname.get('payload'):
+                    self.hostname_challenges[hostname['hostname']] = {
+                        'token': hostname['token'],
+                        'payload': hostname['payload']
                     }
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
