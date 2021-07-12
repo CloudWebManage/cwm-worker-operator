@@ -36,10 +36,14 @@ def assert_deployment_success(worker_id, hostname, namespace_name, domains_confi
     assert deployment_config['minio']['nginx']['hostnames'][0]['name'] == hostname
     for i, expected_hostname in enumerate(expected_additional_hostnames.keys()):
         assert deployment_config['minio']['nginx']['hostnames'][i+1]['name'] == expected_hostname
+        expected_keys = {'name', 'id'}
         if expected_additional_hostnames[expected_hostname]['ssl']:
-            assert set(deployment_config['minio']['nginx']['hostnames'][i+1].keys()) == {'name', 'id', 'key', 'pem'}
-        else:
-            assert set(deployment_config['minio']['nginx']['hostnames'][i+1].keys()) == {'name', 'id'}
+            expected_keys.add('key')
+            expected_keys.add('pem')
+        if expected_additional_hostnames[expected_hostname].get('challenge'):
+            expected_keys.add('cc_payload')
+            expected_keys.add('cc_token')
+        assert set(deployment_config['minio']['nginx']['hostnames'][i+1].keys()) == expected_keys
     return deployment_config
 
 
@@ -150,3 +154,20 @@ def test_deployment_gateway_google(domains_config, deployer_metrics, deployments
     assert deployment_config['minio']['INSTANCE_TYPE'] == 'gateway_gcs'
     assert deployment_config['minio']['GATEWAY_ARGS'] == 'myproject123'
     assert deployment_config['minio']['GOOGLE_APPLICATION_CREDENTIALS'] == {"hello": "world"}
+
+
+def test_deployment_challenge(domains_config, deployer_metrics, deployments_manager):
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl=True, additional_hostnames=[
+        {'hostname': 'example001.com', 'token': 'aaTOKENbb', 'payload': 'yyPAYLOADzz'},
+        {'hostname': 'example003.com', **get_volume_config_ssl_keys('example003.com')}
+    ])
+    deployment_config = assert_deployment_success(
+        worker_id, hostname, namespace_name, domains_config, deployer_metrics, deployments_manager,
+        expected_additional_hostnames={'example001.com': {'ssl': False, 'challenge': True},
+                                       'example003.com': {'ssl': True}}
+    )
+    hostnames = deployment_config['minio']['nginx']['hostnames']
+    assert hostnames[1]['cc_token'] == 'aaTOKENbb'
+    assert hostnames[1]['cc_payload'] == 'yyPAYLOADzz'
+    assert 'cc_token' not in hostnames[2] and 'cc_payload' not in hostnames[2]
+    assert 'cc_token' not in hostnames[0] and 'cc_payload' not in hostnames[0]

@@ -77,7 +77,11 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
         for i, hostname in enumerate(volume_config.hostnames):
             nginx_hostname = {'id': i, 'name': hostname}
             if hostname in volume_config.hostname_certs:
-                nginx_hostname.update(pem=volume_config.hostname_certs[hostname]['pem'], key=volume_config.hostname_certs[hostname]['key'])
+                nginx_hostname.update(pem=volume_config.hostname_certs[hostname]['pem'],
+                                      key=volume_config.hostname_certs[hostname]['key'])
+            if hostname in volume_config.hostname_challenges:
+                nginx_hostname.update(cc_token=volume_config.hostname_challenges[hostname]['token'],
+                                      cc_payload=volume_config.hostname_challenges[hostname]['payload'])
             nginx_hostnames.append(nginx_hostname)
         minio['nginx'] = {
             'hostnames': nginx_hostnames,
