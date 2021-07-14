@@ -121,7 +121,7 @@ def _assert_after_waiter(worker_id, test_config, dc, debug=False):
     if test_config.get('after_waiter') == 'valid':
         if (
             dc.keys.hostname_available.get(test_config['hostname']) == b''
-            and json.loads(dc.keys.hostname_ingress_hostname.get(test_config['hostname']).decode()) == {proto: "nginx.{}.svc.cluster.local".format(common.get_namespace_name_from_worker_id(worker_id)) for proto in ['http', 'https']}
+            and json.loads(dc.keys.hostname_ingress_hostname.get(test_config['hostname']).decode()) == {proto: "minio-nginx.{}.svc.cluster.local".format(common.get_namespace_name_from_worker_id(worker_id)) for proto in ['http', 'https']}
             and test_config['hostname'] not in dc.get_hostnames_waiting_for_initlization()
         ):
             return True

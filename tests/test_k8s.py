@@ -65,7 +65,7 @@ def test_k8s(domains_config):
                 domains_config.keys.hostname_initialize._(hostname)
             ), 0, 60, "Waited too long for setting redis key"
         )
-        wait_for_cmd('kubectl -n {} get pods | grep minio- | grep Running'.format(namespace_name), 0, 240, "Waited too long for worker")
+        wait_for_cmd('kubectl -n {} get pods | grep minio-server | grep Running'.format(namespace_name), 0, 240, "Waited too long for worker")
         wait_for_cmd(
             'DEBUG= kubectl exec deployment/cwm-worker-operator-redis-{} -- redis-cli --raw exists {}'.format(
                 domains_config.keys.hostname_available.redis_pool_name,
@@ -80,8 +80,10 @@ def test_k8s(domains_config):
                     'kubectl logs deployment/cwm-worker-operator -c deployer',
                     'kubectl logs deployment/cwm-worker-operator -c waiter',
                     'kubectl -n {} get pods'.format(namespace_name),
-                    'kubectl -n {} describe pod minio-http'.format(namespace_name),
-                    'kubectl -n {} logs deployment/minio-http'.format(namespace_name),
+                    'kubectl -n {} describe pod minio-server'.format(namespace_name),
+                    'kubectl -n {} logs deployment/minio-server'.format(namespace_name),
+                    'kubectl -n {} describe pod minio-nginx'.format(namespace_name),
+                    'kubectl -n {} logs deployment/minio-nginx'.format(namespace_name),
                     'kubectl -n {} describe pod minio-logger'.format(namespace_name),
                     'kubectl -n {} logs deployment/minio-logger'.format(namespace_name),
                     ]:

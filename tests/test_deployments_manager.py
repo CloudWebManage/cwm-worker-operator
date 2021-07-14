@@ -55,22 +55,22 @@ def test_deploy():
         'apiVersion': 'v1',
         'kind': 'Service',
         'name': 'test-extra-object',
-        'spec': 'ports:\n- name: "8080"\n  port: 8080\n  TargetPort: 8080\nselector:\n  app: minio'}])
+        'spec': 'ports:\n- name: "8080"\n  port: 8080\n  TargetPort: 8080\nselector:\n  app: minio-server'}])
     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get service test-extra-object'.format(namespace_name))
     assert returncode == 0
-    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
+    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-server'.format(namespace_name))
     assert returncode == 1
     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-logger'.format(namespace_name))
     assert returncode == 1
-    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment nginx'.format(namespace_name))
+    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-nginx'.format(namespace_name))
     assert returncode == 1
     print("Deploying...")
     deployments_manager.deploy(deployment_config, with_init=False, atomic_timeout_string='2m')
-    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
+    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-server'.format(namespace_name))
     assert returncode == 0
     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-logger'.format(namespace_name))
     assert returncode == 0
-    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment nginx'.format(namespace_name))
+    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-nginx'.format(namespace_name))
     assert returncode == 0
     start_time = datetime.datetime.now(pytz.UTC)
     while not deployments_manager.is_ready(namespace_name, 'minio'):
@@ -79,8 +79,8 @@ def test_deploy():
             raise Exception("Waited too long for deployment to be ready")
     ingress_hostname = deployments_manager.get_hostname(namespace_name, 'minio')
     assert ingress_hostname == {
-        'http': 'nginx.{}.svc.cluster.local'.format(namespace_name),
-        'https': 'nginx.{}.svc.cluster.local'.format(namespace_name),
+        'http': 'minio-nginx.{}.svc.cluster.local'.format(namespace_name),
+        'https': 'minio-nginx.{}.svc.cluster.local'.format(namespace_name),
     }
     all_releases = {r['namespace']: r for r in deployments_manager.iterate_all_releases()}
     assert namespace_name in all_releases
@@ -95,11 +95,11 @@ def test_deploy():
         '/var/cache/nginx/minio/cache', '/var/cache/nginx/minio/temp'
     }
     deployments_manager.delete(namespace_name, 'minio', delete_helm=False, delete_namespace=False)
-    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio'.format(namespace_name))
+    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-server'.format(namespace_name))
     assert returncode == 1
     returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-logger'.format(namespace_name))
     assert returncode == 1
-    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment nginx'.format(namespace_name))
+    returncode, _ = subprocess.getstatusoutput('kubectl -n {} get deployment minio-nginx'.format(namespace_name))
     assert returncode == 1
     returncode, _ = subprocess.getstatusoutput('helm -n {0} get all minio-{0}'.format(namespace_name))
     assert returncode == 0
