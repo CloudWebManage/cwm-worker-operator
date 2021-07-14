@@ -8,6 +8,7 @@ RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -
     chmod +x /usr/local/bin/helm &&\
     rm -rf linux-amd64 && rm helm.tar.gz &&\
     helm version
+RUN pip install --upgrade pip
 RUN mkdir -p /usr/local/src/cwm-worker-operator
 WORKDIR /usr/local/src/cwm-worker-operator
 COPY requirements.txt requirements-cwm-worker-deployment.txt ./
