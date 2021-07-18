@@ -5,15 +5,15 @@ import pytest
 
 def test_valid_namespace_names():
     for worker_id, expected_namespace_name in {
-        'example007com': 'example007com',
-        'Example007com': 'e-example007com',
-        'Example007coM': 'e-example007com-m',
-        'eXe': 'ex-xe',
-        ''.join(['a' for _ in range(253)]): ''.join(['a' for _ in range(253)]),
-        'a': 'a',
-        'aa': 'aa',
-        ''.join(['A' for _ in range(84)]): ''.join(['a-a' for _ in range(84)]),
-        '0aaa0': '0aaa0',
+        'example007com': 'cwm-worker-example007com',
+        'Example007com': 'cwm-worker-e-example007com',
+        'Example007coM': 'cwm-worker-e-example007com-m',
+        'eXe': 'cwm-worker-ex-xe',
+        ''.join(['a' for _ in range(242)]): 'cwm-worker-' + ''.join(['a' for _ in range(242)]),
+        'a': 'cwm-worker-a',
+        'aa': 'cwm-worker-aa',
+        ''.join(['A' for _ in range(80)]): 'cwm-worker-' + ''.join(['a-a' for _ in range(80)]),
+        '0aaa0': 'cwm-worker-0aaa0',
     }.items():
         assert common.get_namespace_name_from_worker_id(worker_id) == expected_namespace_name
         common.assert_valid_namespace_name(expected_namespace_name)

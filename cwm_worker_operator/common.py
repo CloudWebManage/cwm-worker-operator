@@ -33,7 +33,7 @@ def assert_valid_namespace_name(namespace_name):
 
 @lru_cache(maxsize=9999)
 def get_namespace_name_from_worker_id(worker_id):
-    namespace_name = ''
+    namespace_name = 'cwm-worker-'
     for char in worker_id:
         if char in UPPERCASE_LETTERS:
             namespace_name += char.lower() + '-' + char.lower()
@@ -46,7 +46,7 @@ def get_namespace_name_from_worker_id(worker_id):
 
 @lru_cache(maxsize=9999)
 def get_worker_id_from_namespace_name(namespace_name):
-    worker_id = namespace_name
+    worker_id = namespace_name.replace('cwm-worker-', '')
     for char in UPPERCASE_LETTERS:
         worker_id = worker_id.replace(char.lower() + '-' + char.lower(), char)
     return worker_id

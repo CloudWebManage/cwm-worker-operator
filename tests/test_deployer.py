@@ -30,7 +30,7 @@ def assert_deployment_success(worker_id, hostname, namespace_name, domains_confi
     assert init_params[0]['cwm-worker-deployment']['namespace'] == namespace_name
     assert deploy_params[0]['cwm-worker-deployment']['namespace'] == namespace_name
     deployment_config = deploy_params[0]
-    assert deployment_config['minio']['MINIO_GATEWAY_DEPLOYMENT_ID'] == worker_id
+    assert deployment_config['minio']['MINIO_GATEWAY_DEPLOYMENT_ID'] == common.get_namespace_name_from_worker_id(worker_id)
     assert len(deployment_config['minio']['nginx']['hostnames']) == len(expected_additional_hostnames) + 1
     assert deployment_config['minio']['domain_name'] == hostname
     assert deployment_config['minio']['nginx']['hostnames'][0]['name'] == hostname

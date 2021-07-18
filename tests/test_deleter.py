@@ -1,4 +1,5 @@
 from cwm_worker_operator import deleter
+from cwm_worker_operator.common import get_namespace_name_from_worker_id
 
 from .common import set_volume_config_key
 
@@ -19,7 +20,10 @@ def test_deleter_daemon(domains_config, deployments_manager, deleter_metrics):
     set_volume_config_key(domains_config, worker_id='worker2', hostname='www.worker.two')
     deleter.run_single_iteration(domains_config, deleter_metrics, deployments_manager)
     assert [o['labels'][1] for o in deleter_metrics.observations] == ['success', 'success']
-    assert set([c[0] + '-' + c[1][0] for c in deployments_manager.calls]) == {'delete-worker2', 'delete-worker1'}
+    assert set([c[0] + '-' + c[1][0] for c in deployments_manager.calls]) == {
+        'delete-{}'.format(get_namespace_name_from_worker_id('worker1')),
+        'delete-{}'.format(get_namespace_name_from_worker_id('worker2'))
+    }
 
 
 def test_deleter_cancel_if_worker_deployment(domains_config, deployments_manager, deleter_metrics):
@@ -30,4 +34,6 @@ def test_deleter_cancel_if_worker_deployment(domains_config, deployments_manager
     set_volume_config_key(domains_config, worker_id='worker2', hostname='domain2.com')
     deleter.run_single_iteration(domains_config, deleter_metrics, deployments_manager)
     assert set([o['labels'][1] for o in deleter_metrics.observations]) == {'success', 'delete_canceled'}
-    assert [c[0] + '-' + c[1][0] for c in deployments_manager.calls] == ['delete-worker2']
+    assert [c[0] + '-' + c[1][0] for c in deployments_manager.calls] == [
+        'delete-{}'.format(get_namespace_name_from_worker_id('worker2'))
+    ]
