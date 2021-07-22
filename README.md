@@ -1,13 +1,19 @@
 # cwm-worker-operator
 
-Python library and CLI for controlling the life-cycle of workloads deployed on the cwm cluster. Main entrypoints are defined in the [cli](https://github.com/CloudWebManage/cwm-worker-operator/blob/main/cwm_worker_operator/cli.py) and include daemons which runs continuously and periodically handle various operations. After library is installed, you can see all the available CLI commands by running `cwm-worker-operator --help`. Project includes a helm template which is used for production deployment which runs and configures all the daemons on the cwm k8s cluster.
+Python library and CLI for controlling the lifecycle of workloads deployed on
+the CWM cluster. The main entry points are defined in the
+[cli](https://github.com/CloudWebManage/cwm-worker-operator/blob/main/cwm_worker_operator/cli.py)
+and include daemons that run continuously and periodically handle various
+operations. Once the library is installed, you can see all the supported CLI
+commands by running the `cwm-worker-operator --help` command. The project
+includes a helm template used for production deployment that runs and configures
+all the daemons on the cwm k8s cluster.
 
-- [cwm-worker-operator](#cwm-worker-operator)
-  - [Local Development](#local-development)
-    - [Install](#install)
-    - [Start Infrastructure](#start-infrastructure)
-    - [Run Tests](#run-tests)
-  - [Helm chart Development](#helm-chart-development)
+- [Local Development](#local-development)
+  - [Install](#install)
+  - [Start Infrastructure](#start-infrastructure)
+  - [Run Tests](#run-tests)
+- [Helm chart Development](#helm-chart-development)
 
 ## Local Development
 
@@ -108,7 +114,7 @@ Run all tests:
 pytest
 ```
 
-Run a test with full output, by specifying part of the test method name:
+Run a test with the full output by specifying part of the test method name:
 
 ```shell
 pytest -sk "invalid_volume_config"
@@ -139,7 +145,8 @@ HELMARGS="--set cwm_api_url=$CWM_API_URL,packages_reader_github_user=$PACKAGES_R
 
 Deploy using one of the following options:
 
-- Use the published Docker images:l
+- Use the published Docker images:
+
   - Create a docker pull secret:
 
     ```shell
@@ -148,7 +155,8 @@ Deploy using one of the following options:
     ```
 
 - Build your own Docker images:
-  - Switch Docker daemon to use the minikube Docker daemon:
+
+  - Switch Docker daemon to use the Minikube Docker daemon:
 
     ```shell
     eval $(minikube -p minikube docker-env)
@@ -162,7 +170,7 @@ Deploy using one of the following options:
 
 Deploy:
 
-```shel
+```shell
 helm upgrade --install cwm-worker-operator ./helm $HELMARGS
 ```
 
