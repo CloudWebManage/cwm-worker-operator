@@ -144,7 +144,7 @@ class VolumeConfig:
         self.hostname_challenges = {}
         minio_extra_configs = data.get('minio_extra_configs', {})
         self.protocols_enabled = set()
-        for protocol in minio_extra_configs.pop('protocols-enabled', ['http', 'https', 'disable_http', 'disable_https']):
+        for protocol in minio_extra_configs.pop('protocols-enabled', ['http', 'https']):
             if protocol.lower() in ['http', 'https']:
                 self.protocols_enabled.add(protocol.lower())
         if len(self.protocols_enabled) > 0:

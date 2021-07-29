@@ -89,8 +89,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',
             'CDN_CACHE_PROXY_CACHE_VALID_200': '{}m'.format(volume_config.cache_expiry_minutes),
             'CDN_CACHE_PROXY_INACTIVE': '{}m'.format(volume_config.cache_expiry_minutes + 1),
-            'DISABLE_HTTP': 'true' if 'disable_http' in volume_config.protocols_enabled else 'false',
-            'DISABLE_HTTPS': 'true' if 'disable_https' in volume_config.protocols_enabled else 'false',
+            'DISABLE_HTTP': 'true' if 'http' not in volume_config.protocols_enabled else 'false',
+            'DISABLE_HTTPS': 'true' if 'https' not in volume_config.protocols_enabled else 'false',
             **minio_extra_configs.pop('nginx', {})
         }
         if volume_config.gateway:
