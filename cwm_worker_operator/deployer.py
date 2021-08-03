@@ -11,7 +11,13 @@ from cwm_worker_operator import domains_config as domains_config_module
 from cwm_worker_operator.daemon import Daemon
 
 
-def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id, debug=False, extra_minio_extra_configs=None):
+def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False, extra_minio_extra_configs=None, dry_run=None):
+    if domains_config is None:
+        domains_config = domains_config_module.DomainsConfig()
+    if deployer_metrics is None:
+        deployer_metrics = metrics.DeployerMetrics()
+    if deployments_manager is None:
+        deployments_manager = DeploymentsManager()
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
     log_kwargs = {"worker_id": worker_id, "start_time": start_time}
     logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
@@ -125,9 +131,13 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             "extraObjects": extra_objects
         }).replace("__NAMESPACE_NAME__", namespace_name)
         if debug or config.DEBUG_VERBOSITY >= 10 or config.DEPLOYER_WITH_HELM_DRY_RUN:
+            print('---- deployment_config_json ----')
             print(deployment_config_json, flush=True)
+            print('--------------------------------')
         deployment_config = json.loads(deployment_config_json)
         if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS:
+            if debug:
+                print('DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS is true - removing extraObjects from deployment config')
             extra_objects = deployment_config.pop('extraObjects')
             deployment_config['extraObjects'] = []
         logs.debug("initializing deployment", debug_verbosity=4, **log_kwargs)
@@ -139,25 +149,28 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
         if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
             deployments_manager.deploy_extra_objects(deployment_config, extra_objects)
             logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
-        if debug or config.DEPLOYER_WITH_HELM_DRY_RUN:
-            deployments_manager.deploy(deployment_config, dry_run=True, with_init=False)
+        if debug or config.DEPLOYER_WITH_HELM_DRY_RUN or dry_run:
+            print(deployments_manager.deploy(deployment_config, dry_run=True, with_init=False))
             logs.debug("deployed dry run", debug_verbosity=4, **log_kwargs)
-        try:
-            deploy_output = deployments_manager.deploy(deployment_config, with_init=False)
-        except Exception:
-            if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
-                traceback.print_exc(file=sys.stdout)
-                print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
-            domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
-            deployer_metrics.deploy_failed(worker_id, start_time)
-            logs.debug_info("failed to deploy", **log_kwargs)
-            return
-        logs.debug("deployed", debug_verbosity=4, **log_kwargs)
-        if config.DEBUG and config.DEBUG_VERBOSITY > 5:
-            print(deploy_output, flush=True)
-        deployer_metrics.deploy_success(worker_id, start_time)
-        domains_config.set_worker_waiting_for_deployment(worker_id)
-        logs.debug_info("success", **log_kwargs)
+        if dry_run:
+            print('dry_run: not deploying')
+        else:
+            try:
+                deploy_output = deployments_manager.deploy(deployment_config, with_init=False)
+            except Exception:
+                if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
+                    traceback.print_exc(file=sys.stdout)
+                    print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
+                domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
+                deployer_metrics.deploy_failed(worker_id, start_time)
+                logs.debug_info("failed to deploy", **log_kwargs)
+                return
+            logs.debug("deployed", debug_verbosity=4, **log_kwargs)
+            if config.DEBUG and config.DEBUG_VERBOSITY > 5:
+                print(deploy_output, flush=True)
+            deployer_metrics.deploy_success(worker_id, start_time)
+            domains_config.set_worker_waiting_for_deployment(worker_id)
+            logs.debug_info("success", **log_kwargs)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:

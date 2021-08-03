@@ -18,7 +18,13 @@ def extra_commands_callback_decorator(callback):
 
 for daemon in [
     {'name': 'initializer'},
-    {'name': 'deployer'},
+    {'name': 'deployer', 'extra_commands': {
+        'deploy_worker': {'callback_method': 'deploy_worker', 'params': [
+            click.Option(['--worker-id']),
+            click.Option(['--debug'], is_flag=True),
+            click.Option(['--dry-run'], is_flag=True),
+        ]}
+    }},
     {'name': 'waiter'},
     {'name': 'deleter', 'extra_commands': {
         'delete': {'callback_method': 'delete', 'params': [
