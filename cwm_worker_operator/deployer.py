@@ -140,9 +140,9 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
                 print('DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS is true - removing extraObjects from deployment config')
             extra_objects = deployment_config.pop('extraObjects')
             deployment_config['extraObjects'] = []
-        logs.debug("initializing deployment", debug_verbosity=4, **log_kwargs)
+        logs.debug("initializing deployment", debug_verbosity=9, **log_kwargs)
         deployments_manager.init(deployment_config)
-        logs.debug("initialized deployment", debug_verbosity=4, **log_kwargs)
+        logs.debug("initialized deployment", debug_verbosity=9, **log_kwargs)
         if config.DEPLOYER_USE_EXTERNAL_SERVICE:
             deployments_manager.deploy_external_service(deployment_config)
             logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
@@ -173,7 +173,7 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
                 logs.debug_info("failed to deploy", **log_kwargs)
                 return
             logs.debug("deployed", debug_verbosity=4, **log_kwargs)
-            if config.DEBUG and config.DEBUG_VERBOSITY > 5:
+            if config.DEBUG and config.DEBUG_VERBOSITY >= 9:
                 print(deploy_output, flush=True)
             deployer_metrics.deploy_success(worker_id, start_time)
             domains_config.set_worker_waiting_for_deployment(worker_id)
