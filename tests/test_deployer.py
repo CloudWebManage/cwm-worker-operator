@@ -11,15 +11,18 @@ def assert_domain_deployer_metrics(deployer_metrics, observation):
 
 
 def assert_deployment_success(worker_id, hostname, namespace_name, domains_config, deployer_metrics, deployments_manager, expected_additional_hostnames):
+    domains_config.keys.hostname_initialize.set(hostname, '')
     domains_config.keys.worker_ready_for_deployment.set(worker_id, common.now().strftime("%Y%m%dT%H%M%S.%f"))
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
+    hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
     ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key]) == {
         ready_for_deployment_key: '',
         waiting_for_deployment_key: '',
-        volume_config_key: ''
+        volume_config_key: '',
+        hostname_initialize_key: ''
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',success']
     assert len(deployments_manager.calls) == 2
@@ -65,9 +68,11 @@ def test_invalid_volume_config(domains_config, deployer_metrics, deployments_man
 
 def test_deployment_failed(domains_config, deployer_metrics, deployments_manager):
     worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
+    domains_config.keys.hostname_initialize.set(hostname, '')
     domains_config.keys.worker_ready_for_deployment.set(worker_id, common.now().strftime("%Y%m%dT%H%M%S.%f"))
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
+    hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
     deployment_error_attempt_key = domains_config.keys.worker_deployment_error_attempt._(worker_id)
     ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
@@ -79,7 +84,8 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
         deployment_error_attempt_key: '1',
         ready_for_deployment_key: '',
         waiting_for_deployment_key: 'error',
-        volume_config_key: ''
+        volume_config_key: '',
+        hostname_initialize_key: ''
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed']
     assert len(deployments_manager.calls) == 2

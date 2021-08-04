@@ -6,6 +6,7 @@ from cwm_worker_operator import logs
 from cwm_worker_operator import common
 from cwm_worker_operator import domains_config
 from cwm_worker_operator.daemon import Daemon
+from cwm_worker_operator.deployment_flow_manager import WaiterDeploymentFlowManager
 
 
 def _check_for_deployment_complete(domains_config, deployments_manager, waiter_metrics, start_time, log_kwargs, namespace_name, worker_id):
@@ -55,7 +56,8 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
 
 def run_single_iteration(domains_config: domains_config.DomainsConfig, metrics, deployments_manager, **_):
     waiter_metrics = metrics
-    for worker_id in domains_config.get_worker_ids_waiting_for_deployment_complete():
+    flow_manager = WaiterDeploymentFlowManager(domains_config)
+    for worker_id in flow_manager.iterate_worker_ids_waiting_for_deployment_complete():
         check_for_error = domains_config.keys.worker_waiting_for_deployment_complete.get(worker_id).decode() == 'error'
         check_deployment_complete(domains_config, waiter_metrics, deployments_manager, worker_id, check_for_error)
 

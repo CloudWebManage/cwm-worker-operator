@@ -9,9 +9,11 @@ from cwm_worker_operator import logs
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import domains_config as domains_config_module
 from cwm_worker_operator.daemon import Daemon
+from cwm_worker_operator.deployment_flow_manager import DeployerDeploymentFlowManager
 
 
-def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False, extra_minio_extra_configs=None, dry_run=None):
+def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False,
+                  extra_minio_extra_configs=None, dry_run=None, flow_manager=None):
     if domains_config is None:
         domains_config = domains_config_module.DomainsConfig()
     if deployer_metrics is None:
@@ -26,6 +28,8 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         if not namespace_name:
             deployer_metrics.failed_to_get_volume_config(worker_id, start_time)
             logs.debug_info("Failed to get volume config", **log_kwargs)
+            return
+        if flow_manager and not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
             return
         logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
         minio_extra_configs = {
@@ -187,10 +191,10 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
 
 def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
     deployer_metrics = metrics
-    worker_ids_waiting_for_deployment_complete = domains_config.get_worker_ids_waiting_for_deployment_complete()
-    for worker_id in domains_config.get_worker_ids_ready_for_deployment():
-        if worker_id not in worker_ids_waiting_for_deployment_complete:
-            deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id, extra_minio_extra_configs=extra_minio_extra_configs)
+    flow_manager = DeployerDeploymentFlowManager(domains_config)
+    for worker_id in flow_manager.iterate_worker_ids_ready_for_deployment():
+        deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id,
+                      extra_minio_extra_configs=extra_minio_extra_configs, flow_manager=flow_manager)
 
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):
