@@ -3,6 +3,12 @@ on:
   push:
     paths-ignore:
     - '**.md'
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'yes/no: skip tests'
+        required: true
+        default: 'yes'
 
 jobs:
   ci:
@@ -27,7 +33,7 @@ jobs:
         TEST_GATEWAY_AZURE_WORKER_ID: ${{ secrets.TEST_GATEWAY_AZURE_WORKER_ID }}
         TEST_GATEWAY_GOOGLE_WORKER_ID: ${{ secrets.TEST_GATEWAY_GOOGLE_WORKER_ID }}
       run: |
-        if git log -1 --pretty=format:"%s" | grep -- --skip-tests; then
+        if [ "${{ github.event.inputs.skip_tests }}" == "yes" ] || git log -1 --pretty=format:"%s" | grep -- --skip-tests; then
           SKIP_TESTS=yes
         else
           SKIP_TESTS=no
