@@ -34,7 +34,7 @@ jobs:
         fi &&\
         sudo bin/install_helm.sh && helm version &&\
         bin/docker_login.sh &&\
-        if [ "${SKIP_TESTS}" != "no" ]; then
+        if [ "${SKIP_TESTS}" == "no" ]; then
           sudo bin/install_minikube.sh && minikube version &&\
           bin/minikube_start.sh &&\
           sudo bin/install_kubectl.sh && kubectl version --client &&\
