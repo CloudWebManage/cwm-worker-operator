@@ -4,7 +4,7 @@ import datetime
 
 import pytz
 
-from cwm_worker_operator.domains_config import DomainsConfigKey, DomainsConfig, VolumeConfigGatewayTypeS3
+from cwm_worker_operator.domains_config import DomainsConfigKey, DomainsConfig, VolumeConfigGatewayTypeS3, DomainsConfigKeyPrefixInt
 from cwm_worker_operator.common import strptime, get_namespace_name_from_worker_id
 
 from .common import set_volume_config_key, get_volume_config_dict, get_volume_config_json
@@ -260,16 +260,17 @@ def test_del_worker_keys(domains_config):
         keys_summary_param = getattr(key, 'keys_summary_param', None)
         if not isinstance(key, DomainsConfigKey) or key_name == 'alerts' or keys_summary_param == 'node':
             continue
+        val = '1' if isinstance(key, DomainsConfigKeyPrefixInt) else ''
         if key_name == 'deployment_api_metric':
-            key.set('{}:foo'.format(namespace_name), '')
+            key.set('{}:foo'.format(namespace_name), val)
         elif key_name == 'volume_config':
             key.set(worker_id, get_volume_config_json(worker_id=worker_id, hostname=hostname))
         elif keys_summary_param == 'hostname':
-            key.set(hostname, '')
+            key.set(hostname, val)
         elif keys_summary_param == 'worker_id':
-            key.set(worker_id, '')
+            key.set(worker_id, val)
         elif keys_summary_param == 'namespace_name':
-            key.set(namespace_name, '')
+            key.set(namespace_name, val)
         else:
             raise Exception("Invalid keys_summary_param: {}".format(keys_summary_param))
     domains_config.del_worker_keys(worker_id)
