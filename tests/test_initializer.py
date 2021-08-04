@@ -8,7 +8,7 @@ from cwm_worker_operator import common
 
 def assert_volume_config(domains_config, worker_id, expected_data, msg):
     volume_config = json.loads(domains_config.keys.volume_config.get(worker_id))
-    assert set(volume_config.keys()) == set(['instanceId', '__last_update', 'hostname', *expected_data.keys()]), msg
+    assert set(volume_config.keys()) == set(['instanceId', '__last_update', 'minio_extra_configs', *expected_data.keys()]), msg
     assert volume_config['instanceId'] == worker_id, msg
     assert isinstance(common.strptime(volume_config['__last_update'], '%Y%m%dT%H%M%S'), datetime.datetime), msg
     for key, value in expected_data.items():
@@ -49,7 +49,9 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
     # set mock volume config in api with invalid zone
-    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': 'INVALID'}
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
+        'instanceId': worker_id, 'zone': 'INVALID', 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
+    }
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         volume_config_key: "",
@@ -76,8 +78,12 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     worker_ready_for_deployment_key_2 = domains_config.keys.worker_ready_for_deployment._(worker_id_2)
     # set mock volume config in api with valid zone
-    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
-    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname_2)] = {'instanceId': worker_id_2, 'hostname': hostname_2, 'zone': 'US'}
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
+        'instanceId': worker_id, 'zone': config.CWM_ZONE, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
+    }
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname_2)] = {
+        'instanceId': worker_id_2, 'zone': 'US', 'minio_extra_configs': {'hostnames': [{'hostname': hostname_2}]}
+    }
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[
         volume_config_key, worker_ready_for_deployment_key,
@@ -112,7 +118,9 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
     # set forced update for the worker
     domains_config.keys.worker_force_update.set(worker_id, '')
     # set valid mock volume config in api
-    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = {
+        'instanceId': worker_id, 'zone': config.CWM_ZONE, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
+    }
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key]) == {
         worker_ready_for_deployment_key: '',
@@ -156,7 +164,9 @@ def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metr
     force_delete_domain_key = domains_config.keys.worker_force_delete._(worker_id)
     domains_config.keys.worker_force_delete.set(worker_id, '')
     domains_config.keys.hostname_initialize.set(hostname, '')
-    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {'instanceId': worker_id, 'hostname': hostname, 'zone': config.CWM_ZONE}
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
+        'instanceId': worker_id, 'zone': config.CWM_ZONE, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
+    }
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         hostname_initialize_key: '',
@@ -169,3 +179,29 @@ def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metr
     }, '')
     # success observation is for success getting volume config from api
     assert [','.join(o['labels']) for o in initializer_metrics.observations] == [',success']
+
+
+def test_initialize_invalid_hostname(domains_config, initializer_metrics):
+    worker_id, hostname = 'worker1', 'invalid-hostname.com'
+    volume_config_hostname = 'mismatch-hostname.com'
+    domains_config.keys.hostname_initialize.set(hostname, '')
+    volume_config_key = domains_config.keys.volume_config._(worker_id)
+    hostname_error_key = domains_config.keys.hostname_error._(hostname)
+    volume_config_hostname_error_key = domains_config.keys.hostname_error._(volume_config_hostname)
+    # set mock volume config in api with hostname which does not match the worker hostname
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
+        'instanceId': worker_id, 'zone': 'INVALID', 'minio_extra_configs': {'hostnames': [{'hostname': volume_config_hostname}]}
+    }
+    initializer.run_single_iteration(domains_config, initializer_metrics)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+        volume_config_key: "",
+        hostname_error_key: 'INVALID_HOSTNAME',
+        volume_config_hostname_error_key: 'INVALID_HOSTNAME'
+    }
+    assert_volume_config(domains_config, worker_id, {
+        'zone': 'INVALID',
+        '__request_hostname': hostname
+    }, '')
+    # success observation is for success getting volume config from api
+    # invalid_volume_zone is from initializer
+    assert [','.join(o['labels']) for o in initializer_metrics.observations] == [',success', ',invalid_hostname']

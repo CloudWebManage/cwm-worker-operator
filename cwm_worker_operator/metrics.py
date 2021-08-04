@@ -31,6 +31,9 @@ class InitializerMetrics(BaseMetrics):
     def invalid_volume_zone(self, worker_id, start_time):
         self._observe(self._initializer_request, worker_id, start_time, "invalid_volume_zone")
 
+    def invalid_hostname(self, worker_id, start_time):
+        self._observe(self._initializer_request, worker_id, start_time, "invalid_hostname")
+
     def failed_to_get_volume_config(self, hostname, start_time):
         self._observe(self._initializer_request, hostname, start_time, "failed_to_get_volume_config")
 

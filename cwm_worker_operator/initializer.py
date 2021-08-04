@@ -37,6 +37,11 @@ def initialize_worker(domains_config, initializer_metrics, worker_id, volume_con
             initializer_metrics.invalid_volume_zone(worker_id, start_time)
             logs.debug_info("Invalid volume zone", **log_kwargs)
             return
+        if hostname and hostname not in volume_config.hostnames:
+            initializer_metrics.invalid_hostname(worker_id, start_time)
+            logs.debug_info("Invalid hostname", **log_kwargs)
+            domains_config.set_worker_error_by_hostname(hostname, domains_config.WORKER_ERROR_INVALID_HOSTNAME)
+            return
         domains_config.del_worker_force_update(worker_id)
         initializer_metrics.initialized(worker_id, start_time)
         domains_config.set_worker_ready_for_deployment(worker_id)
