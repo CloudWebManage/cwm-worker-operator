@@ -1,5 +1,6 @@
 from cwm_worker_operator import deployer
 from cwm_worker_operator import common
+from cwm_worker_operator import config
 
 from .common import get_volume_config_ssl_keys
 
@@ -65,12 +66,19 @@ def test_invalid_volume_config(domains_config, deployer_metrics, deployments_man
 def test_deployment_failed(domains_config, deployer_metrics, deployments_manager):
     worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
     domains_config.keys.worker_ready_for_deployment.set(worker_id, common.now().strftime("%Y%m%dT%H%M%S.%f"))
-    deployments_manager.deploy_raise_exception = True
-    deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
-        hostname_error_key: 'FAILED_TO_DEPLOY',
+    deployment_error_attempt_key = domains_config.keys.worker_deployment_error_attempt._(worker_id)
+    ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
+    waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
+    # first attempt - will retry
+    deployments_manager.deploy_raise_exception = True
+    deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key]) == {
+        # hostname_error_key: 'FAILED_TO_DEPLOY',
+        deployment_error_attempt_key: '1',
+        ready_for_deployment_key: '',
+        waiting_for_deployment_key: 'error',
         volume_config_key: ''
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed']
@@ -79,6 +87,20 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
     assert deployments_manager.calls[0][1][0]['cwm-worker-deployment']['namespace'] == namespace_name
     assert deployments_manager.calls[1][0] == 'deploy'
     assert deployments_manager.calls[1][1][0]['cwm-worker-deployment']['namespace'] == namespace_name
+    # now it's handled by the waiter, so another call to deployer won't do anything
+    deployments_manager.calls = []
+    deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
+    assert len(deployments_manager.calls) == 0
+    # delete waiter key and set attempt number to max, so it won't retry and fail this time
+    deployments_manager.calls = []
+    domains_config.keys.worker_deployment_error_attempt.set(worker_id, config.DEPLOYER_MAX_ATTEMPT_NUMBERS)
+    domains_config.keys.worker_waiting_for_deployment_complete.delete(worker_id)
+    deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
+    assert len(deployments_manager.calls) == 2
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+        hostname_error_key: 'FAILED_TO_DEPLOY',
+        volume_config_key: ''
+    }
 
 
 def test_deployment_success(domains_config, deployer_metrics, deployments_manager):

@@ -161,7 +161,14 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
                 if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
                     traceback.print_exc(file=sys.stdout)
                     print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
-                domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
+                attempt_number = domains_config.get_worker_deployment_attempt_number(worker_id)
+                if attempt_number >= config.DEPLOYER_MAX_ATTEMPT_NUMBERS:
+                    domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
+                    print("{} failed attempts, giving up".format(attempt_number))
+                else:
+                    domains_config.increment_worker_deployment_attempt_number(worker_id)
+                    domains_config.set_worker_waiting_for_deployment(worker_id, wait_for_error=True)
+                    print("Will retry ({} / {} attempts)".format(attempt_number+1, config.DEPLOYER_MAX_ATTEMPT_NUMBERS))
                 deployer_metrics.deploy_failed(worker_id, start_time)
                 logs.debug_info("failed to deploy", **log_kwargs)
                 return
