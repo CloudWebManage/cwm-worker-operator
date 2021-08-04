@@ -171,3 +171,4 @@ Start a port-forward to the Redis:
 ```shell
 kubectl port-forward service/cwm-worker-operator-redis 6379
 ```
+
