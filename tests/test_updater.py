@@ -194,7 +194,8 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
     assert worker_id_pending_old_revision2 in force_update_worker_ids
     assert worker_id_deployed_has_action_old_update in force_update_worker_ids
     assert worker_id_deployed_no_action in force_delete_worker_ids
-    assert cwm_api_manager.mock_calls_log == [
+    assert cwm_api_manager.mock_calls_log[0][0] == 'get_cwm_updates'
+    assert cwm_api_manager.mock_calls_log[1:] == [
         ('_do_send_agg_metrics', {
             "instance_id": worker_id_deployed_has_action_recent_update,
             "measurements": [
@@ -221,7 +222,8 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
     print("Starting 2nd run_single_iteration")
     cwm_api_manager.mock_calls_log = []
     updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
-    assert cwm_api_manager.mock_calls_log == []
+    assert len(cwm_api_manager.mock_calls_log) == 1
+    assert cwm_api_manager.mock_calls_log[0][0] == 'get_cwm_updates'
 
 
 def test_cwm_updates(domains_config, deployments_manager, updater_metrics, cwm_api_manager):

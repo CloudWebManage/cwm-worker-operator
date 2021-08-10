@@ -258,7 +258,7 @@ def test_del_worker_keys(domains_config):
     for key_name in dir(domains_config.keys):
         key = getattr(domains_config.keys, key_name)
         keys_summary_param = getattr(key, 'keys_summary_param', None)
-        if not isinstance(key, DomainsConfigKey) or key_name == 'alerts' or keys_summary_param == 'node':
+        if not isinstance(key, DomainsConfigKey) or key_name in ['alerts', 'updater_last_cwm_api_update'] or keys_summary_param == 'node':
             continue
         val = '1' if isinstance(key, DomainsConfigKeyPrefixInt) else ''
         if key_name == 'deployment_api_metric':
