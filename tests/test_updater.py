@@ -5,6 +5,7 @@ import pytz
 
 from cwm_worker_operator import updater
 from cwm_worker_operator import config
+from cwm_worker_operator import common
 from cwm_worker_operator.common import bytes_to_gib, now, get_namespace_name_from_worker_id
 
 
@@ -221,3 +222,51 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
     cwm_api_manager.mock_calls_log = []
     updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
     assert cwm_api_manager.mock_calls_log == []
+
+
+def test_cwm_updates(domains_config, deployments_manager, updater_metrics, cwm_api_manager):
+    delete_worker_id, delete_hostname, delete_namespace_name = domains_config._set_mock_volume_config('delworker', 'delworker.example.com')
+    update_worker_id, update_hostname, update_namespace_name = domains_config._set_mock_volume_config('updworker', 'updworker.example.com')
+    deployments_manager.all_releases = [
+        {
+            "namespace": delete_namespace_name,
+            "updated": "1980-03-12 22:11:33",
+            "status": "__INVALID__",
+            "app_version": "__DOESNT_MATTER__",
+            "revision": 99999
+        },
+        {
+            "namespace": update_namespace_name,
+            "updated": "1980-03-12 22:11:33",
+            "status": "__INVALID__",
+            "app_version": "__DOESNT_MATTER__",
+            "revision": 99999
+        },
+    ]
+    cwm_api_manager.mock_cwm_updates = [
+        {'worker_id': delete_worker_id, 'update_time': datetime.datetime(2021, 8, 10, 10, tzinfo=pytz.UTC)},
+        {'worker_id': update_worker_id, 'update_time': datetime.datetime(2021, 9, 10, 10, tzinfo=pytz.UTC)},
+    ]
+    cwm_api_manager.mock_volume_config_api_calls = {
+        'id={}'.format(delete_worker_id): {"errors": [{"code": 12, "info": "Failed to generate instance json", "category": "Object Storage Error"}]},
+        'id={}'.format(update_worker_id): {'foo': 'bar'}
+    }
+    updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
+    assert len(cwm_api_manager.mock_calls_log) == 1
+    assert cwm_api_manager.mock_calls_log[0][0] == 'get_cwm_updates'
+    expected_from_timestamp = common.now() - datetime.timedelta(seconds=config.UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS)
+    assert (expected_from_timestamp - datetime.timedelta(seconds=2)) < cwm_api_manager.mock_calls_log[0][1] < (expected_from_timestamp + datetime.timedelta(seconds=2))
+    assert domains_config.keys.updater_last_cwm_api_update.get() == b'2021-09-10T10:00:00'
+    assert domains_config.keys.worker_force_update.get(update_worker_id) == b''
+    assert domains_config.keys.worker_force_delete.get(delete_worker_id) == b''
+    # because updater_last_cwm_api_update is set it will not find additional updates
+    domains_config.keys.worker_force_update.delete(update_worker_id)
+    domains_config.keys.worker_force_delete.delete(delete_worker_id)
+    cwm_api_manager.mock_calls_log = []
+    cwm_api_manager.mock_cwm_updates = []
+    updater.run_single_iteration(domains_config, updater_metrics, deployments_manager, cwm_api_manager)
+    assert len(cwm_api_manager.mock_calls_log) == 1
+    assert cwm_api_manager.mock_calls_log[0][0] == 'get_cwm_updates'
+    assert cwm_api_manager.mock_calls_log[0][1] == datetime.datetime(2021, 9, 10, 10, 0, 1, tzinfo=pytz.UTC)
+    assert not domains_config.keys.worker_force_update.exists(update_worker_id)
+    assert not domains_config.keys.worker_force_delete.exists(delete_worker_id)

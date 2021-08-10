@@ -1,3 +1,4 @@
+import datetime
 import traceback
 
 from cwm_worker_operator import config
@@ -7,6 +8,7 @@ from cwm_worker_operator import metrics_updater
 from cwm_worker_operator.cwm_api_manager import CwmApiManager
 from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
+from cwm_worker_operator.domains_config import DomainsConfig
 
 
 def check_worker_force_delete_from_metrics(namespace_name, domains_config):
@@ -17,41 +19,53 @@ def check_worker_force_delete_from_metrics(namespace_name, domains_config):
         return True
 
 
-def check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision):
+def check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision, instances_updates):
     start_time = common.now()
     worker_id = common.get_worker_id_from_namespace_name(namespace_name)
-    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
-    disable_force_delete = volume_config.disable_force_delete
-    disable_force_update = volume_config.disable_force_update
     try:
-        hours_since_last_update = (common.now() - last_updated).total_seconds() / 60 / 60
-        is_deployed = status == "deployed"
-        if not is_deployed:
-            if hours_since_last_update >= .5 and revision <= 2:
-                msg = "domain force update (first revision)"
-                if disable_force_update:
-                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                else:
-                    logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                    domains_config.set_worker_force_update(worker_id)
-                    updater_metrics.not_deployed_force_update(worker_id, start_time)
+        instance_update = instances_updates.get(worker_id)
+        if instance_update == 'delete':
+            msg = "domain force delete (from cwm updates api)"
+            logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time)
+            domains_config.set_worker_force_delete(worker_id, allow_cancel=False)
+            updater_metrics.force_delete(worker_id, start_time)
+        elif instance_update == 'update':
+            msg = "domain force update (from cwm updates api)"
+            logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time)
+            domains_config.set_worker_force_update(worker_id)
+            updater_metrics.not_deployed_force_update(worker_id, start_time)
         else:
-            if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and check_worker_force_delete_from_metrics(namespace_name, domains_config):
-                msg = "domain force delete (after grace period + based on metrics)"
-                if disable_force_delete:
-                    logs.debug("{} but disable_force_delete is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                else:
-                    logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                    domains_config.set_worker_force_delete(worker_id, allow_cancel=True)
-                    updater_metrics.force_delete(worker_id, start_time)
-            elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
-                msg = "domain force update (after FORCE_UPDATE_MAX_HOURS_TTL)"
-                if disable_force_update:
-                    logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                else:
-                    logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
-                    domains_config.set_worker_force_update(worker_id)
-                    updater_metrics.force_update(worker_id, start_time)
+            hours_since_last_update = (common.now() - last_updated).total_seconds() / 60 / 60
+            volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
+            disable_force_delete = volume_config.disable_force_delete
+            disable_force_update = volume_config.disable_force_update
+            is_deployed = status == "deployed"
+            if not is_deployed:
+                if hours_since_last_update >= .5 and revision <= 2:
+                    msg = "domain force update (first revision)"
+                    if disable_force_update:
+                        logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    else:
+                        logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                        domains_config.set_worker_force_update(worker_id)
+                        updater_metrics.not_deployed_force_update(worker_id, start_time)
+            else:
+                if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and check_worker_force_delete_from_metrics(namespace_name, domains_config):
+                    msg = "domain force delete (after grace period + based on metrics)"
+                    if disable_force_delete:
+                        logs.debug("{} but disable_force_delete is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    else:
+                        logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                        domains_config.set_worker_force_delete(worker_id, allow_cancel=True)
+                        updater_metrics.force_delete(worker_id, start_time)
+                elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
+                    msg = "domain force update (after FORCE_UPDATE_MAX_HOURS_TTL)"
+                    if disable_force_update:
+                        logs.debug("{} but disable_force_update is true".format(msg), debug_verbosity=10, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                    else:
+                        logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
+                        domains_config.set_worker_force_update(worker_id)
+                        updater_metrics.force_update(worker_id, start_time)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
@@ -87,8 +101,30 @@ def send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm
         updater_metrics.exception(worker_id, start_time)
 
 
+def get_instances_updates(domains_config: DomainsConfig, cwm_api_manager: CwmApiManager):
+    last_update = domains_config.keys.updater_last_cwm_api_update.get()
+    if last_update:
+        from_datetime = common.strptime(last_update.decode(), '%Y-%m-%dT%H:%M:%S') + datetime.timedelta(seconds=1)
+    else:
+        from_datetime = common.now() - datetime.timedelta(seconds=config.UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS)
+    last_update = None
+    instances_updates = {}
+    for update in cwm_api_manager.get_cwm_updates(from_datetime):
+        if last_update is None or last_update < update['update_time']:
+            last_update = update['update_time']
+        if update['worker_id'] not in instances_updates:
+            if len(cwm_api_manager.volume_config_api_call('id', update['worker_id']).get('errors', [])) > 0:
+                instances_updates[update['worker_id']] = 'delete'
+            else:
+                instances_updates[update['worker_id']] = 'update'
+    if last_update:
+        domains_config.keys.updater_last_cwm_api_update.set(last_update.strftime('%Y-%m-%dT%H:%M:%S'))
+    return instances_updates
+
+
 def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_manager, **_):
     updater_metrics = metrics
+    instances_updates = get_instances_updates(domains_config, cwm_api_manager)
     for release in deployments_manager.iterate_all_releases():
         namespace_name = release["namespace"]
         datestr, timestr, *_ = release["updated"].split(" ")
@@ -96,7 +132,7 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
         status = release["status"]
         # app_version = release["app_version"]
         revision = int(release["revision"])
-        worker_id, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision)
+        worker_id, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision, instances_updates)
         send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager)
 
 

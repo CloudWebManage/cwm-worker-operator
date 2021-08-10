@@ -1,3 +1,4 @@
+import datetime
 import os
 import json
 
@@ -70,3 +71,18 @@ class CwmApiManager:
             'AuthSecret': config.CWM_API_SECRET
         }
         return json.loads(requests.get(url, headers=headers).text, strict=False)
+
+    def get_cwm_updates(self, from_datetime: datetime.datetime):
+        url = '{}?from={}'.format(
+            os.path.join(config.CWM_API_URL, 'svc', 'instances'),
+            from_datetime.strftime('%Y-%m-%dT%H:%M:%S')
+        )
+        headers = {
+            'AuthClientId': config.CWM_API_KEY,
+            'AuthSecret': config.CWM_API_SECRET
+        }
+        for update in json.loads(requests.get(url, headers=headers).text, strict=False):
+            yield {
+                'worker_id': update['id'],
+                'update_time': common.strptime(update['time'], '%Y-%m-%d %H:%M:%S')
+            }
