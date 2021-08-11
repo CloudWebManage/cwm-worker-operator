@@ -9,14 +9,6 @@ from cwm_worker_operator.domains_config import VolumeConfig
 from cwm_worker_operator.deployment_flow_manager import InitializerDeploymentFlowManager
 
 
-def failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time):
-    initializer_metrics.failed_to_get_volume_config(hostname, start_time)
-    error_attempt_number = domains_config.increment_worker_error_attempt_number(hostname)
-    if error_attempt_number >= config.WORKER_ERROR_MAX_ATTEMPTS:
-        domains_config.set_worker_error_by_hostname(hostname, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
-    logs.debug_info("Failed to get volume config", hostname=hostname, start_time=start_time)
-
-
 def initialize_worker(domains_config, initializer_metrics, flow_manager, worker_id, volume_config: VolumeConfig, start_time, hostname=None):
     worker_to_delete = domains_config.get_worker_force_delete(worker_id)
     if worker_to_delete and not worker_to_delete['allow_cancel']:
@@ -54,22 +46,19 @@ def initialize_worker(domains_config, initializer_metrics, flow_manager, worker_
 def run_single_iteration(domains_config, metrics, **_):
     initializer_metrics = metrics
     flow_manager = InitializerDeploymentFlowManager(domains_config)
-    for worker_id in flow_manager.iterate_worker_ids_forced_update():
+    for volume_config, worker_id in flow_manager.iterate_volume_configs_forced_update(initializer_metrics):
         start_time = common.now()
-        volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id, metrics=initializer_metrics, force_update=True)
-        for hostname in volume_config.hostnames:
-            flow_manager.add_hostname_forced_update(hostname)
         initialize_worker(domains_config, initializer_metrics, flow_manager, worker_id, volume_config, start_time)
-    for hostname in flow_manager.iterate_hostnames_waiting_for_initialization():
+    for volume_config, hostname, failed_to_get_volume_config in flow_manager.iterate_volume_config_hostnames_waiting_for_initialization(initializer_metrics):
         start_time = common.now()
-        volume_config = domains_config.get_cwm_api_volume_config(hostname=hostname, metrics=initializer_metrics)
-        worker_id = volume_config.id
-        if not worker_id or volume_config._error:
+        if failed_to_get_volume_config:
             if config.DEBUG and config.DEBUG_VERBOSITY >= 5:
                 print(volume_config)
-            failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time)
-        elif flow_manager.is_worker_id_valid_for_initialization(worker_id):
-            initialize_worker(domains_config, initializer_metrics, flow_manager, worker_id, volume_config, start_time, hostname=hostname)
+            initializer_metrics.failed_to_get_volume_config(hostname, start_time)
+            flow_manager.set_hostname_error(hostname, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG, allow_retry=True)
+            logs.debug_info("Failed to get volume config", hostname=hostname, start_time=start_time)
+        else:
+            initialize_worker(domains_config, initializer_metrics, flow_manager, volume_config.id, volume_config, start_time, hostname=hostname)
 
 
 def start_daemon(once=False, with_prometheus=True, initializer_metrics=None, domains_config=None):

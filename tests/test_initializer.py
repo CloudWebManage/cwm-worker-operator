@@ -115,6 +115,7 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
     worker_id, hostname = 'worker1', 'force-update.domain'
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
+    worker_force_update_key = domains_config.keys.worker_force_update._(worker_id)
     # set forced update for the worker
     domains_config.keys.worker_force_update.set(worker_id, '')
     # set valid mock volume config in api
@@ -124,7 +125,8 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key]) == {
         worker_ready_for_deployment_key: '',
-        volume_config_key: ''
+        volume_config_key: '',
+        worker_force_update_key: ''
    }
     assert_volume_config(domains_config, worker_id, {
         'zone': config.CWM_ZONE,
