@@ -140,8 +140,8 @@ class DeploymentsManager:
     def deploy(self, deployment_config, **kwargs):
         return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
 
-    def is_ready(self, namespace_name, deployment_type):
-        return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type)
+    def is_ready(self, namespace_name, deployment_type, minimal_check=False):
+        return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, minimal_check=minimal_check)
 
     def get_hostname(self, namespace_name, deployment_type):
         return {

@@ -9,11 +9,16 @@ from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.deployment_flow_manager import WaiterDeploymentFlowManager
 
 
-def _check_for_deployment_complete(domains_config, deployments_manager, waiter_metrics, start_time, log_kwargs, namespace_name, worker_id):
-    if deployments_manager.is_ready(namespace_name, "minio"):
+def _check_for_deployment_complete(domains_config, deployments_manager, waiter_metrics, start_time, log_kwargs, namespace_name, worker_id, volume_config):
+    has_hostnames_without_cert_but_with_challenge = False
+    for hostname in volume_config.hostnames:
+        if hostname not in volume_config.hostname_certs and hostname in volume_config.hostname_challenges:
+            has_hostnames_without_cert_but_with_challenge = True
+            break
+    if deployments_manager.is_ready(namespace_name, "minio", minimal_check=has_hostnames_without_cert_but_with_challenge):
         internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")
         ok = True
-        if config.WAITER_VERIFY_WORKER_ACCESS:
+        if config.WAITER_VERIFY_WORKER_ACCESS and not has_hostnames_without_cert_but_with_challenge:
             ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs)
         if ok:
             domains_config.set_worker_available(worker_id, internal_hostname)
@@ -46,7 +51,7 @@ def check_deployment_complete(domains_config, waiter_metrics, deployments_manage
         if check_for_error:
             _check_for_error(domains_config, start_time, log_kwargs, worker_id)
         else:
-            _check_for_deployment_complete(domains_config, deployments_manager, waiter_metrics, start_time, log_kwargs, namespace_name, worker_id)
+            _check_for_deployment_complete(domains_config, deployments_manager, waiter_metrics, start_time, log_kwargs, namespace_name, worker_id, volume_config)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:

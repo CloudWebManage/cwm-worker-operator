@@ -75,9 +75,9 @@ class MockDeploymentsManager(DeploymentsManager):
         if self.deploy_raise_exception:
             raise Exception('Mock Deploy Exception')
 
-    def is_ready(self, namespace_name, deployment_type):
-        self.calls.append(('is_ready', [namespace_name, deployment_type]))
-        return self.namespace_deployment_type_is_ready.get('{}-{}'.format(namespace_name, deployment_type))
+    def is_ready(self, namespace_name, deployment_type, minimal_check=False):
+        self.calls.append(('is_ready', [namespace_name, deployment_type, minimal_check]))
+        return self.namespace_deployment_type_is_ready.get('{}-{}{}'.format(namespace_name, deployment_type, '-minimal' if minimal_check else ''))
 
     def get_hostname(self, namespace_name, deployment_type):
         self.calls.append(('get_hostname', [namespace_name, deployment_type]))
