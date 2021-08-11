@@ -119,7 +119,7 @@ def test_wait_for_error(domains_config, waiter_metrics, deployments_manager):
 
 def test_minimal_check(domains_config, waiter_metrics, deployments_manager):
     config.PROMETHEUS_METRICS_WITH_IDENTIFIER = False
-    config.WAITER_VERIFY_WORKER_ACCESS = True
+    config.WAITER_VERIFY_WORKER_ACCESS = False
     worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl={
         'token': 'TOKEN',
         'payload': 'PAYLOAD'

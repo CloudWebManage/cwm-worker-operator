@@ -149,8 +149,10 @@ class DeploymentsManager:
             for protocol in ['http', 'https']
         }
 
-    def verify_worker_access(self, internal_hostname, log_kwargs, path='/minio/health/live'):
+    def verify_worker_access(self, internal_hostname, log_kwargs, path='/minio/health/live', check_hostname_challenge=None):
         internal_hostname = internal_hostname['http']
+        if check_hostname_challenge:
+            path = '/.well-known/acme-challenge/{}'.format(check_hostname_challenge['token'])
         url = "http://{}:8080{}".format(internal_hostname, path)
         try:
             res = requests.get(url, timeout=2)
@@ -162,6 +164,8 @@ class DeploymentsManager:
         elif res.status_code != 200:
             logs.debug("Failed readiness check", debug_verbosity=3, status_code=res.status_code, **log_kwargs)
             return False
+        elif check_hostname_challenge:
+            return res.text.strip() == check_hostname_challenge['payload'].strip()
         else:
             return True
 
