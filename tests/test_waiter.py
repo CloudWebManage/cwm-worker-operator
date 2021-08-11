@@ -17,12 +17,8 @@ def test_invalid_volume_config(domains_config, waiter_metrics, deployments_manag
     domains_config.keys.volume_config.set(worker_id, '{}')
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
-    waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
-        waiting_for_deployment_key: '',
         volume_config_key: '',
-        ready_for_deployment_key: ''
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
     assert len(deployments_manager.calls) == 0

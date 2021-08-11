@@ -31,6 +31,17 @@ class InitializerDeploymentFlowManager:
             and not self.domains_config.keys.worker_force_update.exists(worker_id)
         )
 
+    def set_worker_ready_for_deployment(self, worker_id):
+        self.domains_config.del_worker_force_update(worker_id)
+        self.domains_config.set_worker_ready_for_deployment(worker_id)
+
+    def set_hostname_error(self, hostname, error_msg):
+        self.domains_config.set_worker_error_by_hostname(hostname, error_msg)
+
+    def set_worker_force_delete(self, worker_id):
+        self.domains_config.del_worker_force_update(worker_id)
+        self.domains_config.set_worker_force_delete(worker_id)
+
 
 class DeployerDeploymentFlowManager:
 
@@ -54,6 +65,16 @@ class DeployerDeploymentFlowManager:
         self.domains_config.keys.worker_ready_for_deployment.delete(worker_id)
         return False
 
+    def set_worker_error(self, worker_id, error_msg):
+        self.domains_config.set_worker_error(worker_id, error_msg)
+
+    def wait_retry_deployment(self, worker_id):
+        self.domains_config.increment_worker_deployment_attempt_number(worker_id)
+        self.domains_config.set_worker_waiting_for_deployment(worker_id, wait_for_error=True)
+
+    def set_worker_waiting_for_deployment(self, worker_id):
+        self.domains_config.set_worker_waiting_for_deployment(worker_id)
+
 
 class WaiterDeploymentFlowManager:
 
@@ -67,3 +88,12 @@ class WaiterDeploymentFlowManager:
                 self.domains_config.keys.worker_waiting_for_deployment_complete.delete(worker_id)
                 continue
             yield worker_id
+
+    def set_worker_error(self, worker_id, error_msg):
+        self.domains_config.set_worker_error(worker_id, error_msg)
+
+    def set_worker_wait_for_error_complete(self, worker_id):
+        self.domains_config.keys.worker_waiting_for_deployment_complete.delete(worker_id)
+
+    def set_worker_available(self, worker_id, internal_hostname):
+        self.domains_config.set_worker_available(worker_id, internal_hostname)

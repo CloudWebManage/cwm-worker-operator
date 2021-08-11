@@ -57,9 +57,7 @@ def test_invalid_volume_config(domains_config, deployer_metrics, deployments_man
     domains_config.keys.volume_config.set(worker_id, '{}')
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key]) == {
-        ready_for_deployment_key: '',
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         volume_config_key: ''
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
