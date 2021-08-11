@@ -112,7 +112,7 @@ def _assert_after_deployer(worker_id, test_config, dc):
     if test_config.get('after_deployer') == 'waiting_for_deployment':
         assert worker_id in dc.get_worker_ids_waiting_for_deployment_complete()
     elif test_config.get('after_deployer') == 'error':
-        assert dc.keys.hostname_error.get(test_config['hostname'])
+        assert dc.keys.worker_waiting_for_deployment_complete.get(worker_id) == b'error'
     elif test_config.get('after_deployer') is not None:
         raise Exception('unknown after deployer assertion: {}'.format(test_config.get('after_deployer')))
 

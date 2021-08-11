@@ -55,6 +55,21 @@ class DomainsConfigKeyPrefix(DomainsConfigKey):
             r.set(self._(param), value)
 
 
+class DomainsConfigKeyPrefixInt(DomainsConfigKeyPrefix):
+
+    def set(self, param, value):
+        value = int(value)
+        super(DomainsConfigKeyPrefixInt, self).set(param, value)
+
+    def get(self, param):
+        val = super(DomainsConfigKeyPrefixInt, self).get(param)
+        return 0 if not val else int(val)
+
+    def increment(self, param):
+        with self.get_redis() as r:
+            return int(r.incr(self._(param)))
+
+
 class DomainsConfigKeyTemplate(DomainsConfigKey):
 
     def __init__(self, key_template, redis_pool_name, domains_config, **extra_kwargs):
@@ -95,6 +110,7 @@ class DomainsConfigKeys:
         self.hostname_error_attempt_number = DomainsConfigKeyTemplate("hostname:error_attempt_number:{}", 'internal', domains_config, keys_summary_param='hostname')
         self.volume_config = DomainsConfigKeyPrefix("worker:volume:config", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_ready_for_deployment = DomainsConfigKeyPrefix("worker:opstatus:ready_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_deployment_error_attempt = DomainsConfigKeyPrefixInt("worker:opstatus:deployment_error_attempt", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_waiting_for_deployment_complete = DomainsConfigKeyPrefix("worker:opstatus:waiting_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_force_update = DomainsConfigKeyPrefix("worker:force_update", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_force_delete = DomainsConfigKeyPrefix("worker:force_delete", 'internal', domains_config, keys_summary_param='worker_id')
@@ -279,6 +295,7 @@ class DomainsConfig:
     WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT = "TIMEOUT_WAITING_FOR_DEPLOYMENT"
     WORKER_ERROR_FAILED_TO_DEPLOY = "FAILED_TO_DEPLOY"
     WORKER_ERROR_INVALID_VOLUME_ZONE = "INVALID_VOLUME_ZONE"
+    WORKER_ERROR_INVALID_HOSTNAME = "INVALID_HOSTNAME"
     WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG = "FAILED_TO_GET_VOLUME_CONFIG"
 
     def __init__(self):
@@ -416,7 +433,6 @@ class DomainsConfig:
                 metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
             return VolumeConfig(json.loads(val), self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
 
-
     def set_worker_error(self, worker_id, error_msg):
         for hostname in self.iterate_worker_hostnames(worker_id):
             self.keys.hostname_error.set(hostname, error_msg)
@@ -454,8 +470,14 @@ class DomainsConfig:
         namespace_name = common.get_namespace_name_from_worker_id(volume_config.id) if volume_config.id else None
         return volume_config, namespace_name
 
-    def set_worker_waiting_for_deployment(self, worker_id):
-        self.keys.worker_waiting_for_deployment_complete.set(worker_id, '')
+    def set_worker_waiting_for_deployment(self, worker_id, wait_for_error=False):
+        self.keys.worker_waiting_for_deployment_complete.set(worker_id, 'error' if wait_for_error else '')
+
+    def get_worker_deployment_attempt_number(self, worker_id):
+        return self.keys.worker_deployment_error_attempt.get(worker_id)
+
+    def increment_worker_deployment_attempt_number(self, worker_id):
+        return self.keys.worker_deployment_error_attempt.increment(worker_id)
 
     def is_worker_waiting_for_deployment(self, worker_id):
         if self.keys.worker_waiting_for_deployment_complete.exists(worker_id):
@@ -503,6 +525,7 @@ class DomainsConfig:
             print("Failed to delete worker hostname keys")
             traceback.print_exc()
         self.keys.worker_ready_for_deployment.delete(worker_id)
+        self.keys.worker_deployment_error_attempt.delete(worker_id)
         self.keys.worker_waiting_for_deployment_complete.delete(worker_id)
         self.keys.worker_force_update.delete(worker_id)
         self.keys.worker_force_delete.delete(worker_id)

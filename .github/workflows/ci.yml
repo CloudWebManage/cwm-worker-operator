@@ -3,6 +3,12 @@ on:
   push:
     paths-ignore:
     - '**.md'
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'yes/no: skip tests'
+        required: true
+        default: 'yes'
 
 jobs:
   ci:
@@ -27,29 +33,36 @@ jobs:
         TEST_GATEWAY_AZURE_WORKER_ID: ${{ secrets.TEST_GATEWAY_AZURE_WORKER_ID }}
         TEST_GATEWAY_GOOGLE_WORKER_ID: ${{ secrets.TEST_GATEWAY_GOOGLE_WORKER_ID }}
       run: |
-        sudo bin/install_minikube.sh && minikube version &&\
-        bin/minikube_start.sh &&\
-        sudo bin/install_kubectl.sh && kubectl version --client &&\
+        if [ "${{ github.event.inputs.skip_tests }}" == "yes" ] || git log -1 --pretty=format:"%s" | grep -- --skip-tests; then
+          SKIP_TESTS=yes
+        else
+          SKIP_TESTS=no
+        fi &&\
         sudo bin/install_helm.sh && helm version &&\
-        sudo bin/install_python.sh &&\
-        sudo bin/install_redis_cli.sh &&\
-        bin/python_init_venv_requirements_module.sh &&\
-        bin/redis_start_wait.sh &&\
-        bin/minikube_wait.sh &&\
-        bin/prometheus_deploy_wait.sh &&\
         bin/docker_login.sh &&\
-        . venv/bin/activate &&\
-        export DEBUG=yes &&\
-        export DEBUG_VERBOSITY=10 &&\
-        export REDIS_HOST=172.17.0.1 &&\
-        export CWM_ZONE=EU &&\
-        export CWM_ADDITIONAL_ZONES=iL,Us &&\
-        export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="240.0" &&\
-        export CWM_WORKER_DEPLOYMENT_HELM_CACHE_DIR="$(pwd)/.cwm_worker_deployment_helm_cache" &&\
-        export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633 &&\
-        export WAITER_VERIFY_WORKER_ACCESS=no &&\
-        echo running tests &&\
-        pytest &&\
+        if [ "${SKIP_TESTS}" == "no" ]; then
+          sudo bin/install_minikube.sh && minikube version &&\
+          bin/minikube_start.sh &&\
+          sudo bin/install_kubectl.sh && kubectl version --client &&\
+          sudo bin/install_python.sh &&\
+          sudo bin/install_redis_cli.sh &&\
+          bin/python_init_venv_requirements_module.sh &&\
+          bin/redis_start_wait.sh &&\
+          bin/minikube_wait.sh &&\
+          bin/prometheus_deploy_wait.sh &&\
+          . venv/bin/activate &&\
+          export DEBUG=yes &&\
+          export DEBUG_VERBOSITY=10 &&\
+          export REDIS_HOST=172.17.0.1 &&\
+          export CWM_ZONE=EU &&\
+          export CWM_ADDITIONAL_ZONES=iL,Us &&\
+          export DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS="240.0" &&\
+          export CWM_WORKER_DEPLOYMENT_HELM_CACHE_DIR="$(pwd)/.cwm_worker_deployment_helm_cache" &&\
+          export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633 &&\
+          export WAITER_VERIFY_WORKER_ACCESS=no &&\
+          echo running tests &&\
+          pytest
+        fi &&\
         docker pull docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
         docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest\
                      -t cwm_worker_operator . &&\

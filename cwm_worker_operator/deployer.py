@@ -9,9 +9,17 @@ from cwm_worker_operator import logs
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import domains_config as domains_config_module
 from cwm_worker_operator.daemon import Daemon
+from cwm_worker_operator.deployment_flow_manager import DeployerDeploymentFlowManager
 
 
-def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id, debug=False, extra_minio_extra_configs=None):
+def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False,
+                  extra_minio_extra_configs=None, dry_run=None, flow_manager=None):
+    if domains_config is None:
+        domains_config = domains_config_module.DomainsConfig()
+    if deployer_metrics is None:
+        deployer_metrics = metrics.DeployerMetrics()
+    if deployments_manager is None:
+        deployments_manager = DeploymentsManager()
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
     log_kwargs = {"worker_id": worker_id, "start_time": start_time}
     logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
@@ -20,6 +28,8 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
         if not namespace_name:
             deployer_metrics.failed_to_get_volume_config(worker_id, start_time)
             logs.debug_info("Failed to get volume config", **log_kwargs)
+            return
+        if flow_manager and not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
             return
         logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
         minio_extra_configs = {
@@ -127,39 +137,53 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
             "extraObjects": extra_objects
         }).replace("__NAMESPACE_NAME__", namespace_name)
         if debug or config.DEBUG_VERBOSITY >= 10 or config.DEPLOYER_WITH_HELM_DRY_RUN:
+            print('---- deployment_config_json ----')
             print(deployment_config_json, flush=True)
+            print('--------------------------------')
         deployment_config = json.loads(deployment_config_json)
         if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS:
+            if debug:
+                print('DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS is true - removing extraObjects from deployment config')
             extra_objects = deployment_config.pop('extraObjects')
             deployment_config['extraObjects'] = []
-        logs.debug("initializing deployment", debug_verbosity=4, **log_kwargs)
+        logs.debug("initializing deployment", debug_verbosity=9, **log_kwargs)
         deployments_manager.init(deployment_config)
-        logs.debug("initialized deployment", debug_verbosity=4, **log_kwargs)
+        logs.debug("initialized deployment", debug_verbosity=9, **log_kwargs)
         if config.DEPLOYER_USE_EXTERNAL_SERVICE:
             deployments_manager.deploy_external_service(deployment_config)
             logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
         if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
             deployments_manager.deploy_extra_objects(deployment_config, extra_objects)
             logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
-        if debug or config.DEPLOYER_WITH_HELM_DRY_RUN:
-            deployments_manager.deploy(deployment_config, dry_run=True, with_init=False)
+        if debug or config.DEPLOYER_WITH_HELM_DRY_RUN or dry_run:
+            print(deployments_manager.deploy(deployment_config, dry_run=True, with_init=False))
             logs.debug("deployed dry run", debug_verbosity=4, **log_kwargs)
-        try:
-            deploy_output = deployments_manager.deploy(deployment_config, with_init=False)
-        except Exception:
-            if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
-                traceback.print_exc(file=sys.stdout)
-                print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
-            domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
-            deployer_metrics.deploy_failed(worker_id, start_time)
-            logs.debug_info("failed to deploy", **log_kwargs)
-            return
-        logs.debug("deployed", debug_verbosity=4, **log_kwargs)
-        if config.DEBUG and config.DEBUG_VERBOSITY > 5:
-            print(deploy_output, flush=True)
-        deployer_metrics.deploy_success(worker_id, start_time)
-        domains_config.set_worker_waiting_for_deployment(worker_id)
-        logs.debug_info("success", **log_kwargs)
+        if dry_run:
+            print('dry_run: not deploying')
+        else:
+            try:
+                deploy_output = deployments_manager.deploy(deployment_config, with_init=False)
+            except Exception:
+                if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
+                    traceback.print_exc(file=sys.stdout)
+                    print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
+                attempt_number = domains_config.get_worker_deployment_attempt_number(worker_id)
+                if attempt_number >= config.DEPLOYER_MAX_ATTEMPT_NUMBERS:
+                    domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
+                    print("{} failed attempts, giving up".format(attempt_number))
+                else:
+                    domains_config.increment_worker_deployment_attempt_number(worker_id)
+                    domains_config.set_worker_waiting_for_deployment(worker_id, wait_for_error=True)
+                    print("Will retry ({} / {} attempts)".format(attempt_number+1, config.DEPLOYER_MAX_ATTEMPT_NUMBERS))
+                deployer_metrics.deploy_failed(worker_id, start_time)
+                logs.debug_info("failed to deploy", **log_kwargs)
+                return
+            logs.debug("deployed", debug_verbosity=4, **log_kwargs)
+            if config.DEBUG and config.DEBUG_VERBOSITY >= 9:
+                print(deploy_output, flush=True)
+            deployer_metrics.deploy_success(worker_id, start_time)
+            domains_config.set_worker_waiting_for_deployment(worker_id)
+            logs.debug_info("success", **log_kwargs)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
@@ -169,10 +193,10 @@ def deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_
 
 def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
     deployer_metrics = metrics
-    worker_ids_waiting_for_deployment_complete = domains_config.get_worker_ids_waiting_for_deployment_complete()
-    for worker_id in domains_config.get_worker_ids_ready_for_deployment():
-        if worker_id not in worker_ids_waiting_for_deployment_complete:
-            deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id, extra_minio_extra_configs=extra_minio_extra_configs)
+    flow_manager = DeployerDeploymentFlowManager(domains_config)
+    for worker_id in flow_manager.iterate_worker_ids_ready_for_deployment():
+        deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id,
+                      extra_minio_extra_configs=extra_minio_extra_configs, flow_manager=flow_manager)
 
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):

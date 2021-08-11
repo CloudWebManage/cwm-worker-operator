@@ -153,6 +153,10 @@ spec:
           value: {{ if $.Values.operator.DEPLOYER_USE_EXTERNAL_SERVICE }}"yes"{{ else }}"no"{{ end }}
         - name: DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS
           value: {{ if $.Values.operator.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS }}"yes"{{ else }}"no"{{ end }}
+        - name: DEPLOYER_MAX_ATTEMPT_NUMBERS
+          value: {{ $.Values.operator.DEPLOYER_MAX_ATTEMPT_NUMBERS | quote }}
+        - name: DEPLOYER_WAIT_DEPLOYMENT_ERROR_MAX_SECONDS
+          value: {{ $.Values.operator.DEPLOYER_WAIT_DEPLOYMENT_ERROR_MAX_SECONDS | quote }}
         - name: DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.operator.DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: FORCE_UPDATE_MAX_HOURS_TTL

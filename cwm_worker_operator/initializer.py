@@ -5,7 +5,8 @@ from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
 from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
-from cwm_worker_operator.domains_config import VolumeConfig, VolumeConfigGatewayTypeS3
+from cwm_worker_operator.domains_config import VolumeConfig
+from cwm_worker_operator.deployment_flow_manager import InitializerDeploymentFlowManager
 
 
 def failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time):
@@ -36,6 +37,11 @@ def initialize_worker(domains_config, initializer_metrics, worker_id, volume_con
             initializer_metrics.invalid_volume_zone(worker_id, start_time)
             logs.debug_info("Invalid volume zone", **log_kwargs)
             return
+        if hostname and hostname not in volume_config.hostnames:
+            initializer_metrics.invalid_hostname(worker_id, start_time)
+            logs.debug_info("Invalid hostname", **log_kwargs)
+            domains_config.set_worker_error_by_hostname(hostname, domains_config.WORKER_ERROR_INVALID_HOSTNAME)
+            return
         domains_config.del_worker_force_update(worker_id)
         initializer_metrics.initialized(worker_id, start_time)
         domains_config.set_worker_ready_for_deployment(worker_id)
@@ -49,29 +55,23 @@ def initialize_worker(domains_config, initializer_metrics, worker_id, volume_con
 
 def run_single_iteration(domains_config, metrics, **_):
     initializer_metrics = metrics
-    worker_ids_ready_for_deployment = domains_config.get_worker_ids_ready_for_deployment()
-    worker_ids_waiting_for_deployment_complete = domains_config.get_worker_ids_waiting_for_deployment_complete()
-    hostnames_waiting_for_initialization = domains_config.get_hostnames_waiting_for_initlization()
-    worker_ids_force_update = domains_config.get_worker_ids_force_update()
-    hostnames_forced_update = set()
-    for worker_id in worker_ids_force_update:
+    flow_manager = InitializerDeploymentFlowManager(domains_config)
+    for worker_id in flow_manager.iterate_worker_ids_forced_update():
         start_time = common.now()
-        if worker_id not in worker_ids_ready_for_deployment and worker_id not in worker_ids_waiting_for_deployment_complete:
-            volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id, metrics=initializer_metrics, force_update=True)
-            for hostname in volume_config.hostnames:
-                hostnames_forced_update.add(hostname)
-            initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time)
-    for hostname in hostnames_waiting_for_initialization:
-        if hostname not in hostnames_forced_update:
-            start_time = common.now()
-            volume_config = domains_config.get_cwm_api_volume_config(hostname=hostname, metrics=initializer_metrics)
-            worker_id = volume_config.id
-            if not worker_id or volume_config._error:
-                if config.DEBUG and config.DEBUG_VERBOSITY >= 5:
-                    print(volume_config)
-                failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time)
-            elif worker_id not in worker_ids_ready_for_deployment and worker_id not in worker_ids_waiting_for_deployment_complete and worker_id not in worker_ids_force_update:
-                initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time, hostname=hostname)
+        volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id, metrics=initializer_metrics, force_update=True)
+        for hostname in volume_config.hostnames:
+            flow_manager.add_hostname_forced_update(hostname)
+        initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time)
+    for hostname in flow_manager.iterate_hostnames_waiting_for_initialization():
+        start_time = common.now()
+        volume_config = domains_config.get_cwm_api_volume_config(hostname=hostname, metrics=initializer_metrics)
+        worker_id = volume_config.id
+        if not worker_id or volume_config._error:
+            if config.DEBUG and config.DEBUG_VERBOSITY >= 5:
+                print(volume_config)
+            failed_to_get_volume_config(domains_config, initializer_metrics, hostname, start_time)
+        elif flow_manager.is_worker_id_valid_for_initialization(worker_id):
+            initialize_worker(domains_config, initializer_metrics, worker_id, volume_config, start_time, hostname=hostname)
 
 
 def start_daemon(once=False, with_prometheus=True, initializer_metrics=None, domains_config=None):
