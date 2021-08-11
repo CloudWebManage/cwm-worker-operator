@@ -15,7 +15,10 @@ def _check_for_deployment_complete(domains_config, deployments_manager, waiter_m
     for hostname in volume_config.hostnames:
         if hostname not in volume_config.hostname_certs and hostname in volume_config.hostname_challenges:
             has_hostnames_without_cert_but_with_challenge = True
-            check_hostname_challenge = volume_config.hostname_challenges[hostname]
+            check_hostname_challenge = {
+                'host': hostname,
+                **volume_config.hostname_challenges[hostname]
+            }
             break
     if deployments_manager.is_ready(namespace_name, "minio", minimal_check=has_hostnames_without_cert_but_with_challenge):
         internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")

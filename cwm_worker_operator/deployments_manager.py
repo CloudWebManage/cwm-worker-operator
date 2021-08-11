@@ -153,9 +153,12 @@ class DeploymentsManager:
         internal_hostname = internal_hostname['http']
         if check_hostname_challenge:
             path = '/.well-known/acme-challenge/{}'.format(check_hostname_challenge['token'])
+            headers = {'Host': check_hostname_challenge['host']}
+        else:
+            headers = None
         url = "http://{}:8080{}".format(internal_hostname, path)
         try:
-            res = requests.get(url, timeout=2)
+            res = requests.get(url, timeout=2, headers=headers)
         except Exception as e:
             logs.debug("Failed readiness check", debug_verbosity=3, exception=str(e), **log_kwargs)
             res = None
