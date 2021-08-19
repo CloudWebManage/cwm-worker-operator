@@ -20,6 +20,8 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         deployer_metrics = metrics.DeployerMetrics()
     if deployments_manager is None:
         deployments_manager = DeploymentsManager()
+    if flow_manager is None:
+        flow_manager = DeployerDeploymentFlowManager(domains_config)
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
     log_kwargs = {"worker_id": worker_id, "start_time": start_time}
     logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
@@ -28,9 +30,12 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         if not namespace_name:
             deployer_metrics.failed_to_get_volume_config(worker_id, start_time)
             logs.debug_info("Failed to get volume config", **log_kwargs)
+            flow_manager.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
             return
-        if flow_manager and not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
-            return
+        if not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
+            if not dry_run or not debug:
+                logs.debug_info("flow_manager says that worker_hostnames are not valid for deployment, sorry", **log_kwargs)
+                return
         logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
         minio_extra_configs = {
             'browser': volume_config.browser_enabled,
@@ -169,11 +174,10 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
                     print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
                 attempt_number = domains_config.get_worker_deployment_attempt_number(worker_id)
                 if attempt_number >= config.DEPLOYER_MAX_ATTEMPT_NUMBERS:
-                    domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
+                    flow_manager.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
                     print("{} failed attempts, giving up".format(attempt_number))
                 else:
-                    domains_config.increment_worker_deployment_attempt_number(worker_id)
-                    domains_config.set_worker_waiting_for_deployment(worker_id, wait_for_error=True)
+                    flow_manager.wait_retry_deployment(worker_id)
                     print("Will retry ({} / {} attempts)".format(attempt_number+1, config.DEPLOYER_MAX_ATTEMPT_NUMBERS))
                 deployer_metrics.deploy_failed(worker_id, start_time)
                 logs.debug_info("failed to deploy", **log_kwargs)
@@ -182,7 +186,7 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
             if config.DEBUG and config.DEBUG_VERBOSITY >= 9:
                 print(deploy_output, flush=True)
             deployer_metrics.deploy_success(worker_id, start_time)
-            domains_config.set_worker_waiting_for_deployment(worker_id)
+            flow_manager.set_worker_waiting_for_deployment(worker_id)
             logs.debug_info("success", **log_kwargs)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), **log_kwargs)

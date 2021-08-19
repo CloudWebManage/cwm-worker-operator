@@ -17,12 +17,8 @@ def test_invalid_volume_config(domains_config, waiter_metrics, deployments_manag
     domains_config.keys.volume_config.set(worker_id, '{}')
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
-    waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
-        waiting_for_deployment_key: '',
         volume_config_key: '',
-        ready_for_deployment_key: ''
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
     assert len(deployments_manager.calls) == 0
@@ -43,7 +39,7 @@ def test_deployment_not_ready(domains_config, waiter_metrics, deployments_manage
         ready_for_deployment_key: ''
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache']
-    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio'])]
+    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio', False])]
 
 
 def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployments_manager):
@@ -60,7 +56,7 @@ def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployment
         volume_config_key: ''
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',timeout']
-    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio'])]
+    assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio', False])]
 
 
 def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
@@ -86,7 +82,7 @@ def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',success']
     print(deployments_manager.calls)
     assert len(deployments_manager.calls) == 3
-    assert deployments_manager.calls[0] == ('is_ready', [namespace_name, 'minio'])
+    assert deployments_manager.calls[0] == ('is_ready', [namespace_name, 'minio', False])
     assert deployments_manager.calls[1] == ('get_hostname', [namespace_name, 'minio'])
     assert deployments_manager.calls[2][0] == 'verify_worker_access'
     assert deployments_manager.calls[2][1][0] == internal_hostname
@@ -119,3 +115,31 @@ def test_wait_for_error(domains_config, waiter_metrics, deployments_manager):
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache']
     assert len(deployments_manager.calls) == 0
+
+
+def test_minimal_check(domains_config, waiter_metrics, deployments_manager):
+    config.PROMETHEUS_METRICS_WITH_IDENTIFIER = False
+    config.WAITER_VERIFY_WORKER_ACCESS = False
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl={
+        'token': 'TOKEN',
+        'payload': 'PAYLOAD'
+    })
+    internal_hostname = 'internal.hostname'
+    domains_config.keys.worker_ready_for_deployment.set(worker_id, '')
+    domains_config.keys.worker_waiting_for_deployment_complete.set(worker_id, '')
+    deployments_manager.namespace_deployment_type_is_ready['{}-minio-minimal'.format(namespace_name)] = True
+    deployments_manager.namespace_deployment_type_hostname['{}-minio'.format(namespace_name)] = internal_hostname
+    waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
+    volume_config_key = domains_config.keys.volume_config._(worker_id)
+    ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
+    hostname_available_key = domains_config.keys.hostname_available._(hostname)
+    hostname_ingress_hostname_key = domains_config.keys.hostname_ingress_hostname._(hostname)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+        hostname_available_key: '',
+        hostname_ingress_hostname_key: '"{}"'.format(internal_hostname),
+        volume_config_key: '',
+    }
+    assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',success']
+    assert len(deployments_manager.calls) == 2
+    assert deployments_manager.calls[0] == ('is_ready', [namespace_name, 'minio', True])
+    assert deployments_manager.calls[1] == ('get_hostname', [namespace_name, 'minio'])

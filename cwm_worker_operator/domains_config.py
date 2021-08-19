@@ -92,6 +92,10 @@ class DomainsConfigKeyStatic(DomainsConfigKey):
 
     def _(self):
         return self.key
+    
+    def set(self, value):
+        with self.get_redis() as r:
+            r.set(self._(), value)
 
 
 class DomainsConfigKeys:
@@ -119,6 +123,7 @@ class DomainsConfigKeys:
         self.worker_total_used_bytes = DomainsConfigKeyPrefix("worker:total-used-bytes", 'internal', domains_config, keys_summary_param='worker_id')
         self.alerts = DomainsConfigKeyStatic("alerts", 'internal', domains_config)
         self.worker_last_clear_cache = DomainsConfigKeyPrefix("worker:last_clear_cache", 'internal', domains_config, keys_summary_param='worker_id')
+        self.updater_last_cwm_api_update = DomainsConfigKeyStatic("updater_last_cwm_api_update", 'internal', domains_config)
 
         # metrics_redis - keys shared with deployments to get metrics
         self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config, keys_summary_param='namespace_name')

@@ -140,8 +140,8 @@ class DeploymentsManager:
     def deploy(self, deployment_config, **kwargs):
         return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
 
-    def is_ready(self, namespace_name, deployment_type):
-        return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type)
+    def is_ready(self, namespace_name, deployment_type, minimal_check=False):
+        return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, minimal_check=minimal_check)
 
     def get_hostname(self, namespace_name, deployment_type):
         return {
@@ -149,11 +149,16 @@ class DeploymentsManager:
             for protocol in ['http', 'https']
         }
 
-    def verify_worker_access(self, internal_hostname, log_kwargs, path='/minio/health/live'):
+    def verify_worker_access(self, internal_hostname, log_kwargs, path='/minio/health/live', check_hostname_challenge=None):
         internal_hostname = internal_hostname['http']
+        if check_hostname_challenge:
+            path = '/.well-known/acme-challenge/{}'.format(check_hostname_challenge['token'])
+            headers = {'Host': check_hostname_challenge['host']}
+        else:
+            headers = None
         url = "http://{}:8080{}".format(internal_hostname, path)
         try:
-            res = requests.get(url, timeout=2)
+            res = requests.get(url, timeout=2, headers=headers)
         except Exception as e:
             logs.debug("Failed readiness check", debug_verbosity=3, exception=str(e), **log_kwargs)
             res = None
@@ -162,6 +167,8 @@ class DeploymentsManager:
         elif res.status_code != 200:
             logs.debug("Failed readiness check", debug_verbosity=3, status_code=res.status_code, **log_kwargs)
             return False
+        elif check_hostname_challenge:
+            return res.text.strip() == check_hostname_challenge['payload'].strip()
         else:
             return True
 
