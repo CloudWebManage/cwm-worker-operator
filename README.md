@@ -1,15 +1,35 @@
 # cwm-worker-operator
 
-Python library and CLI for controlling the life-cycle of workloads deployed on the cwm cluster. Main entrypoints are defined in the [cli](https://github.com/CloudWebManage/cwm-worker-operator/blob/main/cwm_worker_operator/cli.py) and include daemons which runs continuously and periodically handle various operations. After library is installed, you can see all the available CLI commands by running `cwm-worker-operator --help`. Project includes a helm template which is used for production deployment which runs and configures all the daemons on the cwm k8s cluster.
+![CI](https://github.com/CloudWebManage/cwm-worker-operator/workflows/CI/badge.svg?branch=main&event=push)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/CloudWebManage/cwm-worker-operator)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/CloudWebManage/cwm-worker-operator/blob/main/LICENSE)
 
-- [cwm-worker-operator](#cwm-worker-operator)
-  - [Local Development](#local-development)
-    - [Install](#install)
-    - [Start Infrastructure](#start-infrastructure)
-    - [Run Tests](#run-tests)
-  - [Helm chart Development](#helm-chart-development)
+![Lines of code](https://img.shields.io/tokei/lines/github/CloudWebManage/cwm-worker-operator?label=LOC)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/CloudWebManage/cwm-worker-operator)
+![GitHub repo size](https://img.shields.io/github/repo-size/CloudWebManage/cwm-worker-operator)
+
+- [Introduction](#introduction)
+- [Local Development](#local-development)
+  - [Install](#install)
+  - [Start Infrastructure](#start-infrastructure)
+  - [Run Tests](#run-tests)
+- [Helm Chart Development](#helm-chart-development)
+
+## Introduction
+
+Python library and CLI for controlling the lifecycle of workloads deployed on
+the CWM cluster. The main entry points are defined in the
+[cli](https://github.com/CloudWebManage/cwm-worker-operator/blob/main/cwm_worker_operator/cli.py)
+and include daemons that run continuously and periodically handle various
+operations. After the installation, run `cwm-worker-operator --help` command to
+see all the supported CLI commands. The project also includes a Helm template
+used for the production deployment that runs and configures all the daemons on
+the CWM k8s cluster.
 
 ## Local Development
+
+Python 3.8.5 or later is required. If multiple Python 3 versions are available,
+use 3.8.5 or later appropriately e.g. `python3.8 -m venv venv`.
 
 ### Install
 
@@ -17,6 +37,8 @@ Create `virtualenv`:
 
 ```shell
 python3 -m venv venv
+venv/bin/python -m pip install --upgrade pip
+venv/bin/python -m pip install --upgrade setuptools wheel
 ```
 
 Install dependencies:
@@ -36,13 +58,13 @@ venv/bin/python -m pip install -e .
 Start a Minikube cluster:
 
 ```shell
-bin/minikube_start.sh && bin/minikube_wait.sh
+minikube start --driver=docker --kubernetes-version=v1.18.15
 ```
 
 Make sure you are connected to the Minikube cluster:
 
 ```shell
-kubectl get nodes
+minikube kubectl -- get nodes -A
 ```
 
 Start a Redis server:
@@ -96,6 +118,12 @@ source .env
 
 ### Run Tests
 
+Install test dependencies:
+
+```shell
+venv/bin/python -m pip install -r tests/requirements.txt
+```
+
 Activate the `virtualenv`:
 
 ```shell
@@ -108,7 +136,7 @@ Run all tests:
 pytest
 ```
 
-Run a test with full output, by specifying part of the test method name:
+Run a test with the full output by specifying part of the test method name:
 
 ```shell
 pytest -sk "invalid_volume_config"
@@ -123,7 +151,7 @@ pytest -s tests/test_initializer.py
 Pytest CLI provides a lot of command-line options. For details, check its help
 message or refer to [pytest documentation](https://docs.pytest.org/en/latest/).
 
-## Helm chart Development
+## Helm Chart Development
 
 Verify the connection to the Minikube cluster:
 
@@ -139,7 +167,8 @@ HELMARGS="--set cwm_api_url=$CWM_API_URL,packages_reader_github_user=$PACKAGES_R
 
 Deploy using one of the following options:
 
-- Use the published Docker images:l
+- Use the published Docker images:
+
   - Create a docker pull secret:
 
     ```shell
@@ -148,7 +177,8 @@ Deploy using one of the following options:
     ```
 
 - Build your own Docker images:
-  - Switch Docker daemon to use the minikube Docker daemon:
+
+  - Switch Docker daemon to use the Minikube Docker daemon:
 
     ```shell
     eval $(minikube -p minikube docker-env)
@@ -162,7 +192,7 @@ Deploy using one of the following options:
 
 Deploy:
 
-```shel
+```shell
 helm upgrade --install cwm-worker-operator ./helm $HELMARGS
 ```
 
@@ -172,3 +202,4 @@ Start a port-forward to the Redis:
 kubectl port-forward service/cwm-worker-operator-redis 6379
 ```
 
+For more details, refer to the [CI workflow](./.github/workflows/ci.yml).
