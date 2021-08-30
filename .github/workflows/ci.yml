@@ -34,7 +34,7 @@ jobs:
         KUBECTL_VERSION: "v1.19.0"
       run: |
         curl -s https://raw.githubusercontent.com/CloudWebManage/uumpa-ci-toolbox/main/bin/github_actions_install.sh \
-          | bash -s a9377e24ffba1fedd28fe49b3f0f2ab2ab891f35 CloudWebManage/uumpa-ci-toolbox &&\
+          | bash -s 807a483b65f3ec28787300499d961338a9d6bc4a CloudWebManage/uumpa-ci-toolbox &&\
         uci github actions self-checkout --config-user-name "cwm-worker-operator-ci" &&\
         if [ "${{ github.event.inputs.skip_tests }}" == "yes" ] || uci git check-last-commit-message --contains --skip-tests; then
           SKIP_TESTS=yes
