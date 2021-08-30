@@ -8,7 +8,6 @@ import datetime
 import subprocess
 
 from cwm_worker_operator.deployments_manager import DeploymentsManager
-from cwm_worker_operator import config
 
 
 def test_init_cache():
@@ -38,9 +37,7 @@ def test_deploy():
             'type': 'minio',
             'namespace': namespace_name
         },
-        'minio': {
-            'createPullSecret': config.PULL_SECRET
-        },
+        'minio': {},
         'extraObjects': []
     }
     deployments_manager.init(deployment_config)
