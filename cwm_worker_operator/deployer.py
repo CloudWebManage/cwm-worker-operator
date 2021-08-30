@@ -54,8 +54,6 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         minio = {
             'domain_name': volume_config.hostnames[0] if len(volume_config.hostnames) else ''
         }
-        if config.PULL_SECRET:
-            minio['createPullSecret'] = config.PULL_SECRET
         if volume_config.client_id and volume_config.secret:
             minio["access_key"] = volume_config.client_id
             minio["secret_key"] = volume_config.secret

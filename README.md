@@ -90,8 +90,6 @@ Add secret env vars to the `.env` (you can get them from Jenkins):
 
 ```shell
 export CWM_API_URL=
-export PACKAGES_READER_GITHUB_USER=
-export PACKAGES_READER_GITHUB_TOKEN=
 export AWS_ROUTE53_HOSTEDZONE_ID=
 export AWS_ROUTE53_HOSTEDZONE_DOMAIN=
 export AWS_ACCESS_KEY_ID=
@@ -162,19 +160,14 @@ kubectl get nodes
 Set helm arguments:
 
 ```shell
-HELMARGS="--set cwm_api_url=$CWM_API_URL,packages_reader_github_user=$PACKAGES_READER_GITHUB_USER,packages_reader_github_token=$PACKAGES_READER_GITHUB_TOKEN"
+HELMARGS="--set cwm_api_url=$CWM_API_URL"
 ```
 
 Deploy using one of the following options:
 
 - Use the published Docker images:
 
-  - Create a docker pull secret:
-
-    ```shell
-    echo '{"auths":{"docker.pkg.github.com":{"auth":"'"$(echo -n "${PACKAGES_READER_GITHUB_USER}:${PACKAGES_READER_GITHUB_TOKEN}" | base64 -w0)"'"}}}' | \
-      kubectl create secret generic github --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin
-    ```
+  - No additional action needed, images are public
 
 - Build your own Docker images:
 
@@ -187,7 +180,7 @@ Deploy using one of the following options:
   - Build the image:
 
     ```shell
-    docker build -t docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest .
+    docker build -t ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest .
     ```
 
 Deploy:

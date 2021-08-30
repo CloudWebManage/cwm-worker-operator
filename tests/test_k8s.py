@@ -7,7 +7,7 @@ import subprocess
 from cwm_worker_operator.common import get_namespace_name_from_worker_id
 from cwm_worker_operator.config import DUMMY_TEST_HOSTNAME, DUMMY_TEST_WORKER_ID
 
-from .common import build_operator_docker_for_minikube, set_github_secret
+from .common import build_operator_docker_for_minikube
 
 
 def wait_for_cmd(cmd, expected_returncode, ttl_seconds, error_msg, expected_output=None):
@@ -32,21 +32,16 @@ def test_k8s(domains_config):
         wait_for_cmd('kubectl get deployment cwm-worker-operator cwm-worker-operator-redis-ingress cwm-worker-operator-redis-metrics',
                      1, 30, 'waited too long for operator to be deleted')
         build_operator_docker_for_minikube()
-        set_github_secret()
         print('deploying k8s')
         helmargs = "--set " \
                    "cwm_api_url={CWM_API_URL}," \
                    "cwm_api_key={CWM_API_KEY}," \
                    "cwm_api_secret={CWM_API_SECRET}," \
-                   "packages_reader_github_user={PACKAGES_READER_GITHUB_USER}," \
-                   "packages_reader_github_token={PACKAGES_READER_GITHUB_TOKEN}," \
                    "operator.DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS=240," \
                    "operator.daemons={daemons_helm_list}".format(
             CWM_API_URL=os.environ['CWM_API_URL'],
             CWM_API_KEY=os.environ['CWM_API_KEY'],
             CWM_API_SECRET=os.environ['CWM_API_SECRET'],
-            PACKAGES_READER_GITHUB_USER=os.environ['PACKAGES_READER_GITHUB_USER'],
-            PACKAGES_READER_GITHUB_TOKEN=os.environ['PACKAGES_READER_GITHUB_TOKEN'],
             daemons_helm_list='{initializer,deployer,waiter,updater,deleter,metrics-updater}',
         )
         cmd = 'helm upgrade --install cwm-worker-operator ./helm {}'.format(helmargs)

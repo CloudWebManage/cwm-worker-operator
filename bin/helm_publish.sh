@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-echo "${CWM_WORKER_HELM_DEPLOY_KEY}" > cwm_worker_helm_deploy_key &&\
-chmod 400 cwm_worker_helm_deploy_key &&\
-export GIT_SSH_COMMAND="ssh -i $(pwd)/cwm_worker_helm_deploy_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" &&\
-git clone git@github.com:CloudWebManage/cwm-worker-helm.git &&\
-git config --global user.name "cwm-worker-operator CI" &&\
-git config --global user.email "cwm-worker-operator-ci@localhost" &&\
+uci git checkout \
+  --github-repo-name CloudWebManage/cwm-worker-helm \
+  --branch-name master \
+  --ssh-key "${CWM_WORKER_HELM_DEPLOY_KEY}" \
+  --path cwm-worker-helm \
+  --config-user-name cwm-worker-operator-ci &&\
 mkdir -p cwm-worker-helm/cwm-worker-operator &&\
 helm package ./helm --version "0.0.0-$(date +%Y%m%dT%H%M%S)" --destination ./cwm-worker-helm/cwm-worker-operator &&\
 helm repo index --url "https://raw.githubusercontent.com/CloudWebManage/cwm-worker-helm/master/cwm-worker-operator/" ./cwm-worker-helm/cwm-worker-operator &&\

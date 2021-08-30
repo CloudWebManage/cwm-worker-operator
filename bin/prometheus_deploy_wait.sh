@@ -3,4 +3,5 @@
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts &&\
 helm repo update &&\
 helm install prometheus prometheus-community/kube-prometheus-stack --values tests/kube-prometheus-stack.values.yaml &&\
-tests/wait_for.sh '[ "$(kubectl get pods | grep prometheus | grep Running | wc -l)" == "4" ]' 300 "waited too long for prometheus"
+uci util wait-for --timeout-seconds 300 --timeout-message "waited too long for prometheus" \
+  '[ "$(kubectl get pods | grep prometheus | grep Running | wc -l)" == "4" ]'
