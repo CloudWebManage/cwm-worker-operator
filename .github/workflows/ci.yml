@@ -9,12 +9,10 @@ on:
         description: 'yes/no: skip tests'
         required: true
         default: 'yes'
-
 jobs:
   ci:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
     - env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PACKAGES_READER_GITHUB_TOKEN: ${{ secrets.PACKAGES_READER_GITHUB_TOKEN }}
@@ -32,25 +30,35 @@ jobs:
         TEST_GATEWAY_AWS_WORKER_ID: ${{ secrets.TEST_GATEWAY_AWS_WORKER_ID }}
         TEST_GATEWAY_AZURE_WORKER_ID: ${{ secrets.TEST_GATEWAY_AZURE_WORKER_ID }}
         TEST_GATEWAY_GOOGLE_WORKER_ID: ${{ secrets.TEST_GATEWAY_GOOGLE_WORKER_ID }}
+        HELM_VERSION: "v3.2.4"
+        MINIKUBE_VERSION: "v1.21.0"
+        MINIKUBE_KUBERNETES_VERSION: "v1.18.15"
+        KUBECTL_VERSION: "v1.19.0"
       run: |
-        if [ "${{ github.event.inputs.skip_tests }}" == "yes" ] || git log -1 --pretty=format:"%s" | grep -- --skip-tests; then
+        curl -s https://raw.githubusercontent.com/CloudWebManage/uumpa-ci-toolbox/main/bin/github_actions_install.sh \
+          | bash -s a9377e24ffba1fedd28fe49b3f0f2ab2ab891f35 CloudWebManage/uumpa-ci-toolbox &&\
+        uci github actions self-checkout --config-user-name "cwm-worker-operator-ci" &&\
+        if [ "${{ github.event.inputs.skip_tests }}" == "yes" ] || uci git check-last-commit-message --contains --skip-tests; then
           SKIP_TESTS=yes
         else
           SKIP_TESTS=no
         fi &&\
-        sudo bin/install_helm.sh && helm version &&\
-        bin/docker_login.sh &&\
+        uci minikube install --version "${MINIKUBE_VERSION}" --with-sudo &&\
+        bin/minikube_start.sh $MINIKUBE_KUBERNETES_VERSION &&\
+        uci kubectl install --version "${KUBECTL_VERSION}" --with-sudo &&\
+        uci helm install --version "${HELM_VERSION}" --with-sudo &&\
+        uci github actions docker-login &&\
+        python -m venv venv &&\
+        venv/bin/pip install --upgrade pip &&\
+        venv/bin/pip install -r requirements.txt &&\
+        venv/bin/pip install -r tests/requirements.txt &&\
+        venv/bin/pip install -e . &&\
+        uci util wait-for --timeout-seconds 240 --timeout-message "waited too long for minikube to start" "minikube status 2>&1 >/dev/null" &&\
         if [ "${SKIP_TESTS}" == "no" ]; then
-          sudo bin/install_minikube.sh && minikube version &&\
-          bin/minikube_start.sh &&\
-          sudo bin/install_kubectl.sh && kubectl version --client &&\
-          sudo bin/install_python.sh &&\
-          sudo bin/install_redis_cli.sh &&\
-          bin/python_init_venv_requirements_module.sh &&\
+          sudo apt-get install -y redis-tools &&\
           bin/redis_start_wait.sh &&\
-          bin/minikube_wait.sh &&\
+          kubectl get nodes &&\
           bin/prometheus_deploy_wait.sh &&\
-          . venv/bin/activate &&\
           export DEBUG=yes &&\
           export DEBUG_VERBOSITY=10 &&\
           export REDIS_HOST=172.17.0.1 &&\
@@ -61,14 +69,27 @@ jobs:
           export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633 &&\
           export WAITER_VERIFY_WORKER_ACCESS=no &&\
           echo running tests &&\
-          pytest
+          venv/bin/pytest
         fi &&\
-        docker pull docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest &&\
-        docker build --cache-from docker.pkg.github.com/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest\
-                     -t cwm_worker_operator . &&\
-        bin/docker_push_sha.sh &&\
-        if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-          bin/docker_push_latest.sh &&\
+        uci docker build-cache \
+          --cache-from ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest \
+          -t cwm_worker_operator . &&\
+        uci docker tag-push \
+          --source-tag-name cwm_worker_operator \
+          --push-tag-name "ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:${GITHUB_SHA}" &&\
+        if uci docs render-markdown-from-click-cli --python-venv venv \
+            --cli-command cwm-worker-operator --main-command main --cli-module cwm_worker_operator.cli --output-file CLI.md \
+            --start-line-contains '<!-- start reference -->' --end-line-contains '<!-- end reference -->'; then
+          if [ "$(uci github actions get-branch-name)" == "main" ]; then
+            git add CLI.md &&\
+            git commit -m "automatic update of CLI reference" &&\
+            git push
+          fi
+        fi &&\
+        if [ "$(uci github actions get-branch-name)" == "main" ]; then
+          uci docker tag-push \
+            --source-tag-name cwm_worker_operator \
+            --push-tag-name "ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest" &&\
           sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
           bin/helm_publish.sh
         fi
