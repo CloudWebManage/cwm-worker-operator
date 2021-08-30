@@ -71,7 +71,7 @@ jobs:
         fi &&\
         uci docker build-cache \
           --cache-from ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest \
-          -t cwm_worker_operator . &&\
+          -- -t cwm_worker_operator . &&\
         uci docker tag-push \
           --source-tag-name cwm_worker_operator \
           --push-tag-name "ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:${GITHUB_SHA}" &&\
