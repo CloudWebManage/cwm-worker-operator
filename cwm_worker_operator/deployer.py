@@ -73,7 +73,6 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
             "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS,
             "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,
             "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config.keys.deployment_api_metric.key_prefix,
-            **({"LOG_PROVIDER": "stdout"} if volume_config.debug_mode else {}),
             **minio_extra_configs.pop('metricsLogger', {})
         }
         minio['cache'] = {

@@ -208,7 +208,6 @@ class VolumeConfig:
                 pass
         self.geo_cache_enabled = bool(data.get('geo-cache'))
         self.browser_enabled = bool(data.get('minio-browser', True))
-        self.debug_mode = bool(minio_extra_configs.pop('debug-mode', None))
         self.minio_extra_configs = minio_extra_configs
         self.cwm_worker_deployment_extra_configs = data.get("cwm_worker_deployment_extra_configs", {})
         self.cwm_worker_extra_objects = data.get("cwm_worker_extra_objects", [])
