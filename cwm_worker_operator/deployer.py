@@ -90,13 +90,15 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         for i, hostname in enumerate(volume_config.hostnames):
             nginx_hostname = {'id': i, 'name': hostname}
             if hostname in volume_config.hostname_certs:
-                nginx_hostname.update(pem=volume_config.hostname_certs[hostname]['pem'],
-                                      key=volume_config.hostname_certs[hostname]['key'])
+                nginx_hostname.update(fullchain=volume_config.hostname_certs[hostname]['fullchain'],
+                                      chain=volume_config.hostname_certs[hostname]['chain'],
+                                      privkey=volume_config.hostname_certs[hostname]['privkey'])
             if hostname in volume_config.hostname_challenges:
                 nginx_hostname.update(cc_token=volume_config.hostname_challenges[hostname]['token'],
                                       cc_payload=volume_config.hostname_challenges[hostname]['payload'])
             nginx_hostnames.append(nginx_hostname)
         minio['nginx'] = {
+            'dhparam_key': config.DHPARAM_KEY,
             'hostnames': nginx_hostnames,
             'CDN_CACHE_ENABLE': volume_config.cache_enabled if not volume_config.gateway else volume_config.geo_cache_enabled,
             'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',

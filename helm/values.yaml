@@ -120,6 +120,15 @@ operator:
   DEPLOYER_WITH_HELM_DRY_RUN: false
   CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "5"
   UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS: "7200"
+  DHPARAM_KEY: |
+    -----BEGIN DH PARAMETERS-----
+    MIIBCAKCAQEAuueQU6VmApLtG08PRJiq5nBrBPoieQ0MhAI3jZAuahu0AnQ/nnio
+    aIfCvnnwilebPID8/a9iFzzqkcZWwAK/OaYn2p6t/9mfyYFVkWI394rCXTjXp8qa
+    l5fl0cEzQT5erIi+UKKjFw1jirmigriLPzM+JvZUTzvkpeI7QNiFirg6Oq6IZiM+
+    +sIqeaCWA3ughSIzcKQ/w6qNjPTrDHbxc41AZS1o5xzngmMGHBl0Nw7kvd0b6tZN
+    I1ZLzZKeEApAE5f8z8eDdGXDbHaCd7bs9qhak7xUQNs8wEomV8F8rYDBnCwAKZSD
+    LsHbKShgAFY7jHqIwkMm3N89kIqkQgrswwIBAg==
+    -----END DH PARAMETERS-----
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
