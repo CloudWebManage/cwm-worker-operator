@@ -3,6 +3,7 @@ from cwm_worker_operator import common
 from cwm_worker_operator import config
 
 from .common import get_volume_config_ssl_keys
+from .test_domains_config import CERTIFICATE_KEY, CERTIFICATE_PEM, INTERMEDIATE_CERTIFICATES
 
 
 def assert_domain_deployer_metrics(deployer_metrics, observation):
@@ -42,8 +43,9 @@ def assert_deployment_success(worker_id, hostname, namespace_name, domains_confi
         assert deployment_config['minio']['nginx']['hostnames'][i+1]['name'] == expected_hostname
         expected_keys = {'name', 'id'}
         if expected_additional_hostnames[expected_hostname]['ssl']:
-            expected_keys.add('key')
-            expected_keys.add('pem')
+            expected_keys.add('fullchain')
+            expected_keys.add('chain')
+            expected_keys.add('privkey')
         if expected_additional_hostnames[expected_hostname].get('challenge'):
             expected_keys.add('cc_payload')
             expected_keys.add('cc_token')
@@ -197,3 +199,21 @@ def test_deployment_challenge(domains_config, deployer_metrics, deployments_mana
     assert hostnames[1]['cc_payload'] == 'yyPAYLOADzz'
     assert 'cc_token' not in hostnames[2] and 'cc_payload' not in hostnames[2]
     assert 'cc_token' not in hostnames[0] and 'cc_payload' not in hostnames[0]
+
+
+def test_deployment_ssl_chain(domains_config, deployer_metrics, deployments_manager):
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config(with_ssl={
+        'privateKey': CERTIFICATE_KEY,
+        'fullChain': [*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES],
+        'chain': INTERMEDIATE_CERTIFICATES
+    })
+    deployment_config = assert_deployment_success(
+        worker_id, hostname, namespace_name, domains_config, deployer_metrics, deployments_manager,
+        expected_additional_hostnames={}
+    )
+    hostnames = deployment_config['minio']['nginx']['hostnames']
+    assert len(hostnames) == 1
+    assert set(hostnames[0].keys()) == {'privkey', 'name', 'chain', 'fullchain', 'id'}
+    assert hostnames[0]['privkey'] == "\n".join(CERTIFICATE_KEY)
+    assert hostnames[0]['fullchain'] == "\n".join([*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES])
+    assert hostnames[0]['chain'] == "\n".join(INTERMEDIATE_CERTIFICATES)

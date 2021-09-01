@@ -171,11 +171,19 @@ class VolumeConfig:
         if len(self.protocols_enabled) > 0:
             for hostname in minio_extra_configs.pop('hostnames', []):
                 self.hostnames.append(hostname['hostname'])
-                if 'https' in self.protocols_enabled and hostname.get('certificate_key') and hostname.get('certificate_pem'):
-                    self.hostname_certs[hostname['hostname']] = {
-                        'key': "\n".join(hostname['certificate_key']),
-                        'pem': "\n".join(hostname['certificate_pem'])
-                    }
+                if 'https' in self.protocols_enabled:
+                    if hostname.get('privateKey') and hostname.get('fullChain'):
+                        self.hostname_certs[hostname['hostname']] = {
+                            'privkey': "\n".join(hostname['privateKey']),
+                            'fullchain': "\n".join(hostname['fullChain']),
+                            'chain': "\n".join(hostname['chain']) if hostname.get('chain') else '',
+                        }
+                    elif hostname.get('certificate_key') and hostname.get('certificate_pem'):
+                        self.hostname_certs[hostname['hostname']] = {
+                            'privkey': "\n".join(hostname['certificate_key']),
+                            'fullchain': "\n".join(hostname['certificate_pem']),
+                            'chain': ""
+                        }
                 if hostname.get('token') and hostname.get('payload'):
                     self.hostname_challenges[hostname['hostname']] = {
                         'token': hostname['token'],

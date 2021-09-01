@@ -12,7 +12,7 @@ from .common import set_volume_config_key, get_volume_config_dict, get_volume_co
 
 CERTIFICATE_PEM = ["-----BEGIN CERTIFICATE-----", "MIIETTCCAzWgAwIBAgIBADANBgkqhkiG9w0BAQsFADCBwDEnMCUGA1UEAwweNGVl", "NGFiMDU2Yy5nZW8uY2xvdWR3bS1vYmouY29tMSkwJwYJKoZIhvcNAQkBFhpvYmpl", "Y3RzdG9yYWdlb3JpQGdtYWlsLmNvbTEiMCAGA1UECgwZb2JqZWN0c3RvcmFnZS5j", "bG91ZHdtLmNvbTEiMCAGA1UECwwZb2JqZWN0c3RvcmFnZS5jbG91ZHdtLmNvbTEL", "MAkGA1UEBhMCWFgxFTATBgNVBAcMDERlZmF1bHQgQ2l0eTAeFw0yMTA1MTAxMjM3", "MDdaFw0yMjA1MTAxMjM3MDdaMIHAMScwJQYDVQQDDB40ZWU0YWIwNTZjLmdlby5j", "bG91ZHdtLW9iai5jb20xKTAnBgkqhkiG9w0BCQEWGm9iamVjdHN0b3JhZ2VvcmlA", "Z21haWwuY29tMSIwIAYDVQQKDBlvYmplY3RzdG9yYWdlLmNsb3Vkd20uY29tMSIw", "IAYDVQQLDBlvYmplY3RzdG9yYWdlLmNsb3Vkd20uY29tMQswCQYDVQQGEwJYWDEV", "MBMGA1UEBwwMRGVmYXVsdCBDaXR5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB", "CgKCAQEAuV7j9Vla8Zr59lBrTIcQlLtDjwL+/hXjPNz0nOKqt2YmjDuZ+c5+A0k/", "BcMpkh8byttFfKhkz66HefO6BzI+at11PyRn/zfQ6NpRAUMIwJb9wuIcNH5e5RtC", "0D3ZZoQVtHz0+UyCQdCgQ5/n7AQ9g0j1u1dNU/1qJ5y37vh8TFiVxuiQ/A2lLJQq", "Hccd6z39jC9HzXrVrH7TowHy4tgGieg1F41rqLuW7vl4vScnb6efZpi1a/5iMy8f", "RVLiSlpTWcGc7Ood1LoxzviR5HENZ8+ILYkbdBUJ6ZgnP4g+woY8Jo5WoeT8ruwr", "YSNpbz7QFahVw1s7Ypr7z5EHB9PTdQIDAQABo1AwTjAdBgNVHQ4EFgQUFexsmCL7", "uySB9HnU4TUx7Qn5gugwHwYDVR0jBBgwFoAUFexsmCL7uySB9HnU4TUx7Qn5gugw", "DAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEARQMUrM1zANELXKDWRc2T", "TWQvj/0LmkhLnxeI4B66l1unFMwJNi5Rvokz+CsA7rwEOwHeCPcUGcQNbQl5/KFf", "E8k8jtlpatS/dN6ZlRFGVQV5AOcL1aKVMfsjgSjwGJCDgJ2/A0KWL/fQ7O5+0+Fh", "s9Gq8YWgFLBzsS/j1JxdA4z9jfSj8maMQNx0RZClfCYXyWqw0fgDu1U/GT28XTT6", "LLwK/1bkPQygIrnYN3A1vNAR+8oGZqf00MMaY7w/Of61mMm9HK03wHu9OI3B9Luh", "SsUwkNFMcGFzf9qkf8+6Pu1f6rMR9oDHWAq3ipKunNqJpHPlEzBkrf9OeoUPkxZ7", "nw==", "-----END CERTIFICATE-----"]
 CERTIFICATE_KEY = ["-----BEGIN PRIVATE KEY-----", "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC5XuP1WVrxmvn2", "UGtMhxCUu0OPAv7+FeM83PSc4qq3ZiaMO5n5zn4DST8FwymSHxvK20V8qGTProd5", "87oHMj5q3XU/JGf/N9Do2lEBQwjAlv3C4hw0fl7lG0LQPdlmhBW0fPT5TIJB0KBD", "n+fsBD2DSPW7V01T/WonnLfu+HxMWJXG6JD8DaUslCodxx3rPf2ML0fNetWsftOj", "AfLi2AaJ6DUXjWuou5bu+Xi9Jydvp59mmLVr/mIzLx9FUuJKWlNZwZzs6h3UujHO", "+JHkcQ1nz4gtiRt0FQnpmCc/iD7Chjwmjlah5Pyu7CthI2lvPtAVqFXDWztimvvP", "kQcH09N1AgMBAAECggEAAfFztEu2f1ffjOx04316+AQqhiJC6Aj0s9uhGM/reDay", "6r9pMswuV/x5k6bjFawLz4mS5eah/+dVdjrO1Wp6awZdR0cra+p63yYCuV+phNNQ", "X62dHBPDDOXHQoWTdNann5e7va1GpEf6lhrkBH5a4rhuEwOsRNggN8AV0YR7URWM", "Exz+nC3Krczm+nLf7AsAOgKib7R7aEPkds8FEfxrmeirmSx3Vi54stH+lx5qHY04", "Dl5/xDsXwAU09orvar68lRfBEmncfilUk7puYa0gK1n1t6uZlnDNncPG/GRFtuMp", "3BF0HOpa3qARE0ZfJGvFK0MsdGKi7SrG2+JgjlG/9QKBgQDceUGsbLY8TZVChrxS", "lzdMGCVFElGefI5vaA3AYxoUFLIX/3s1tPqJkcbAaT+Xh2++pMUig6uaW5uQb+FX", "ewnSPf51CUqLxMWd0uQN2idCsNhFP0pDUFYAhutMtHlO0zRyIDw8g06H7bPou8nJ", "9KkGhDgtplHqmfVkYZziRMLjpwKBgQDXPZpTilj0BArpUog75QJ+Ze5E7vzUiIOu", "3lw1GvKkdF1shfltO759C7Sd1BbMqL7q+MT9lOfXc1qNEFuSYbPgMZ9STpgnG5Ks", "LyDFlXbwLEwyTMbCgv68aTxpMwU1jtpEiP+uqcdZ7rR1kc55jCGtm76D8iZD0JUv", "lzpoUmqjgwKBgAClWkvnBaGnmIhZXLPhPYg7ieBp7VNJiiFJbMDjiXAFn3/yf6no", "ndNJWgu2QzlubCVi1jEDsb0CB7KkoURgV+cFx3kQTeea6/lKZOClgvfvDLMnPFB2", "K8pUmtveq3xPohezgHms6M39JEnKQw0UampaeM+pbRQC33Ur1AnVqbyBAoGAfGyb", "EuHt7BmOKTTRljYbi+/mnii9NSs5XFQkX3qVe6Xc/8gu2QtpYaXrojUhfOuree+X", "CLQUlcKUPOmQ1fzu25Iz9IOEh070Kd8QhceSOuKQpZ8mYvkQwt/e0T1yLHTJDkdX", "7qMsn3tTDIfeIPt12IMozeOkZR1lsF4uoHHMPXsCgYB8R8dmpClH7EtM9YGhcLG7", "/VsQwQDphUIZbXk96IuniM4zaaJNsOwnOnKLSCbF+xVIx9/rXdAQkQz41/aVRpbV", "wxzh66N26SXnC1xg0eBb8m+52dZ6cXXKClLTyYTlQANeXhRgI3VNduZrY+riNC+v", "V2r1dtutQ5v0tQm1MIGvxw==", "-----END PRIVATE KEY-----"]
-
+INTERMEDIATE_CERTIFICATES = ["-----BEGIN CERTIFICATE-----", "MIIETTCCAzINTERMEDIATE_CERTIFICATE_1", "nw==", "-----END CERTIFICATE-----", "-----BEGIN CERTIFICATE-----", "MIIETTCCAzINTERMEDIATE_CERTIFICATE_2", "nw==", "-----END CERTIFICATE-----"]
 
 class MockMetrics:
 
@@ -112,9 +112,9 @@ def test_worker_keys(domains_config):
     assert volume_config.hostnames == [hostname, hostname + '2', hostname + '3']
     assert volume_config.zone == 'EU'
     assert volume_config.hostname_certs == {
-        hostname: {'key': "\n".join(CERTIFICATE_KEY), 'pem': "\n".join(CERTIFICATE_PEM)},
-        hostname + '2': {'key': "\n".join(CERTIFICATE_KEY), 'pem': "\n".join(CERTIFICATE_PEM)},
-        hostname + '3': {'key': "\n".join(CERTIFICATE_KEY), 'pem': "\n".join(CERTIFICATE_PEM)},
+        hostname: {'privkey': "\n".join(CERTIFICATE_KEY), 'fullchain': "\n".join(CERTIFICATE_PEM), 'chain': ''},
+        hostname + '2': {'privkey': "\n".join(CERTIFICATE_KEY), 'fullchain': "\n".join(CERTIFICATE_PEM), 'chain': ''},
+        hostname + '3': {'privkey': "\n".join(CERTIFICATE_KEY), 'fullchain': "\n".join(CERTIFICATE_PEM), 'chain': ''},
     }
     assert namespace == get_namespace_name_from_worker_id(worker_id)
 
@@ -472,3 +472,20 @@ def test_get_volume_config_challenge_attributes(domains_config):
     volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
     assert hostname not in volume_config.hostname_challenges
     assert volume_config.hostname_challenges['hostname2.com'] == {'token': 'aaTOKENbb', 'payload': 'zzPAYLOADyy'}
+
+
+def test_get_volume_config_ssl_chain(domains_config):
+    worker_id, hostname = 'worker1', 'worker1.com'
+    domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = get_volume_config_dict(
+        worker_id=worker_id, hostname=hostname, with_ssl={
+            'privateKey': CERTIFICATE_KEY,
+            'fullchain': [*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES],
+            'chain': INTERMEDIATE_CERTIFICATES
+        }
+    )
+    volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
+    assert volume_config.hostname_certs[hostname] == {
+        'privkey': CERTIFICATE_KEY,
+        'fullchain': [*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES],
+        'chain': INTERMEDIATE_CERTIFICATES
+    }
