@@ -479,13 +479,13 @@ def test_get_volume_config_ssl_chain(domains_config):
     domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = get_volume_config_dict(
         worker_id=worker_id, hostname=hostname, with_ssl={
             'privateKey': CERTIFICATE_KEY,
-            'fullchain': [*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES],
+            'fullChain': [*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES],
             'chain': INTERMEDIATE_CERTIFICATES
         }
     )
     volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
     assert volume_config.hostname_certs[hostname] == {
-        'privkey': CERTIFICATE_KEY,
-        'fullchain': [*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES],
-        'chain': INTERMEDIATE_CERTIFICATES
+        'privkey': "\n".join(CERTIFICATE_KEY),
+        'fullchain': "\n".join([*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES]),
+        'chain': "\n".join(INTERMEDIATE_CERTIFICATES)
     }
