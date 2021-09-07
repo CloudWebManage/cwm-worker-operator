@@ -310,9 +310,7 @@ def test_get_volume_config_api_call():
     mec = res['minio_extra_configs']
     assert isinstance(mec['hostnames'], list)
     mech = mec['hostnames'][0]
-    assert mech['hostname'] == '{}.eu.cloudwm-obj.com'.format(worker_id)
-    assert isinstance(mech['certificate_key'], list)
-    assert isinstance(mech['certificate_pem'], list)
+    assert mech['hostname'] == '{}.as.cloudwm-obj.com'.format(worker_id)
     assert set(mec['protocols-enabled']) == {'HTTP', 'HTTPS'}
 
 
@@ -320,7 +318,7 @@ def test_get_volume_config_api_call_gateway():
     domains_config = DomainsConfig()
     worker_id = os.environ['TEST_GATEWAY_WORKER_ID']
     res = domains_config._cwm_api_volume_config_api_call('id', worker_id)
-    print(res)
+    # print(res)
     assert res['type'] == 'gateway'
     assert res['instanceId'] == worker_id
     assert res['provider'] == 'cwm'
@@ -338,8 +336,9 @@ def test_get_volume_config_api_call_gateway():
     got_hostname = False
     for mech in mec['hostnames']:
         if mech['hostname'] == '{}.eu.cloudwm-obj.com'.format(worker_id):
-            assert isinstance(mech['certificate_key'], list)
-            assert isinstance(mech['certificate_pem'], list)
+            assert isinstance(mech['privateKey'], list)
+            assert isinstance(mech['chain'], list) or not mech['chain']
+            assert isinstance(mech['fullChain'], list)
             got_hostname = True
     assert got_hostname
 

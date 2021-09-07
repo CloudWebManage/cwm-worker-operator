@@ -160,6 +160,8 @@ class VolumeConfig:
         self.id = data.get('instanceId')
         self._error = data.get('__error')
         self._last_update = data.get('__last_update')
+        self.zone = data.get('zone')
+        self.primary_hostname = None
         self.hostnames = []
         self.hostname_certs = {}
         self.hostname_challenges = {}
@@ -171,6 +173,8 @@ class VolumeConfig:
         if len(self.protocols_enabled) > 0:
             for hostname in minio_extra_configs.pop('hostnames', []):
                 self.hostnames.append(hostname['hostname'])
+                if not self.primary_hostname and self.zone and hostname['hostname'].split('.')[1] == self.zone.lower():
+                    self.primary_hostname = hostname['hostname']
                 if 'https' in self.protocols_enabled:
                     if hostname.get('privateKey') and hostname.get('fullChain'):
                         self.hostname_certs[hostname['hostname']] = {
@@ -189,6 +193,8 @@ class VolumeConfig:
                         'token': hostname['token'],
                         'payload': hostname['payload']
                     }
+        if not self.primary_hostname and self.hostnames:
+            self.primary_hostname = self.hostnames[0]
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
         self.cache_enabled = bool(data.get('cache'))
@@ -211,7 +217,6 @@ class VolumeConfig:
         self.minio_extra_configs = minio_extra_configs
         self.cwm_worker_deployment_extra_configs = data.get("cwm_worker_deployment_extra_configs", {})
         self.cwm_worker_extra_objects = data.get("cwm_worker_extra_objects", [])
-        self.zone = data.get('zone')
         self.disable_force_delete = data.get("disable_force_delete")
         self.disable_force_update = data.get("disable_force_update")
         self.is_valid_zone_for_cluster = bool(self.zone and (self.zone.lower() == config.CWM_ZONE.lower() or self.zone.lower() in map(str.lower, config.CWM_ADDITIONAL_ZONES)))
@@ -249,9 +254,9 @@ class VolumeConfig:
 
     def update_for_hostname(self, hostname):
         if not self._original_gateway and hostname:
-            if not self.is_valid_zone_for_cluster and self.hostnames and hostname.lower() != self.hostnames[0].lower():
-                protocol = 'https' if self.hostname_certs.get(self.hostnames[0]) else 'http'
-                self.gateway = VolumeConfigGatewayTypeS3('{}://{}'.format(protocol, self.hostnames[0]), self.client_id, self.secret)
+            if not self.is_valid_zone_for_cluster and self.primary_hostname and hostname.lower() != self.primary_hostname.lower():
+                protocol = 'https' if self.hostname_certs.get(self.primary_hostname) else 'http'
+                self.gateway = VolumeConfigGatewayTypeS3('{}://{}'.format(protocol, self.primary_hostname), self.client_id, self.secret)
                 self.gateway_updated_for_request_hostname = hostname
             elif hostname.lower() in config.MOCK_GATEWAYS.keys():
                 self.gateway = VolumeConfigGatewayTypeS3(**config.MOCK_GATEWAYS[hostname.lower()])
