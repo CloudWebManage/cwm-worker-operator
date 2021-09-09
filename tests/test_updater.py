@@ -37,16 +37,16 @@ def test_send_agg_metrics(domains_config, updater_metrics, cwm_api_manager):
     updater.send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager)
     assert cwm_api_manager.mock_calls_log == [
         ('_do_send_agg_metrics', {
-            'instance_id': worker_id,
-            'measurements': [{'t': t1, 'disk_usage_bytes': 23911,
+            'instanceId': worker_id,
+            'measurements': [{'t': t1, 'storage_bytes': 23911,
                               'bytes_in': 50000000000, 'bytes_out': 400000000000, 'num_requests_in': 1000, 'num_requests_out': 7000, 'num_requests_misc': 500,
-                              "cpu_seconds": 1234.5, 'ram_gib': bytes_to_gib(579404200)},
-                             {'t': t2, 'disk_usage_bytes': 53955,
+                              "cpu_seconds": 1234.5, 'ram_bytes': 579404200},
+                             {'t': t2, 'storage_bytes': 53955,
                               'bytes_in': 51200000000, 'bytes_out': 413000000000, 'num_requests_in': 1120, 'num_requests_out': 7230, 'num_requests_misc': 503,
-                              "cpu_seconds": 1098.3, 'ram_gib': bytes_to_gib(579404200)},
-                             {'t': t3, 'disk_usage_bytes': 9344,
+                              "cpu_seconds": 1098.3, 'ram_bytes': 579404200},
+                             {'t': t3, 'storage_bytes': 9344,
                               'bytes_in': 51800000000, 'bytes_out': 422000000000, 'num_requests_in': 1280, 'num_requests_out': 7680, 'num_requests_misc': 513,
-                              "cpu_seconds": 2338.9, 'ram_gib': 0.0}]})
+                              "cpu_seconds": 2338.9, 'ram_bytes': 0}]})
     ]
     # metrics not sent because less than 60 seconds since last send
     cwm_api_manager.mock_calls_log = []
@@ -197,25 +197,28 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
     assert cwm_api_manager.mock_calls_log[0][0] == 'get_cwm_updates'
     assert cwm_api_manager.mock_calls_log[1:] == [
         ('_do_send_agg_metrics', {
-            "instance_id": worker_id_deployed_has_action_recent_update,
+            "instanceId": worker_id_deployed_has_action_recent_update,
             "measurements": [
-                {"t": recent_update_t1, 'disk_usage_bytes': 1234,
+                {"t": recent_update_t1, 'storage_bytes': 1234,
                  "bytes_in": 5000, "bytes_out": 40000, "num_requests_in": 1000, "num_requests_out": 7000, "num_requests_misc": 500,
-                 "cpu_seconds": 1234.5, "ram_gib": bytes_to_gib(5678)},
-                {"t": recent_update_t2, 'disk_usage_bytes': 1234,
+                 "cpu_seconds": 1234.5, "ram_bytes": 5678},
+                {"t": recent_update_t2, 'storage_bytes': 1234,
                  "bytes_in": 5120, "bytes_out": 41300, "num_requests_in": 1120, "num_requests_out": 7230, "num_requests_misc": 503,
-                 "cpu_seconds": 2334.5, "ram_gib": bytes_to_gib(5766)},
-                {"t": recent_update_t3, 'disk_usage_bytes': 1234,
+                 "cpu_seconds": 2334.5, "ram_bytes": 5766},
+                {"t": recent_update_t3, 'storage_bytes': 1234,
                  "bytes_in": 5180, "bytes_out": 42200, "num_requests_in": 1280, "num_requests_out": 7680, "num_requests_misc": 513,
-                 "cpu_seconds": 4334.5, "ram_gib": bytes_to_gib(5987)},
+                 "cpu_seconds": 4334.5, "ram_bytes": 5987},
             ]
         }),
         ('_do_send_agg_metrics', {
-            'instance_id': worker_id_deployed_has_action_old_update,
+            'instanceId': worker_id_deployed_has_action_old_update,
             'measurements': [
-                {'t': old_update_t1, 'bytes_in': 0, 'bytes_out': 0, 'num_requests_in': 1000, 'num_requests_out': 7000, 'num_requests_misc': 0, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_bytes': 0},
-                {'t': old_update_t2, 'bytes_in': 5120, 'bytes_out': 45000, 'num_requests_in': 0,  'num_requests_out': 6930, 'num_requests_misc': 0, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_bytes': 0},
-                {'t': old_update_t3, 'bytes_in': 5180, 'bytes_out': 42200, 'num_requests_in': 1280, 'num_requests_out': 7680, 'num_requests_misc': 513, 'cpu_seconds': 0.0, 'ram_gib': 0.0, 'disk_usage_bytes': 0},
+                {'t': old_update_t1, 'bytes_in': 0, 'bytes_out': 0, 'num_requests_in': 1000, 'num_requests_out': 7000,
+                 'num_requests_misc': 0, 'cpu_seconds': 0.0, 'ram_bytes': 0, 'storage_bytes': 0},
+                {'t': old_update_t2, 'bytes_in': 5120, 'bytes_out': 45000, 'num_requests_in': 0,  'num_requests_out': 6930,
+                 'num_requests_misc': 0, 'cpu_seconds': 0.0, 'ram_bytes': 0, 'storage_bytes': 0},
+                {'t': old_update_t3, 'bytes_in': 5180, 'bytes_out': 42200, 'num_requests_in': 1280, 'num_requests_out': 7680,
+                 'num_requests_misc': 513, 'cpu_seconds': 0.0, 'ram_bytes': 0, 'storage_bytes': 0},
             ]
         })
     ]
