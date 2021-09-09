@@ -25,6 +25,7 @@ Commands:
   initializer                     Initializes requests to deploy workers...
   metrics-updater                 Aggregates metric data from workers
   nodes-checker                   Checks nodes health and updates DNS...
+  send-agg-metrics                Send aggregated metrics to CWM api for...
   updater                         Initiates updates for workers, also sends...
   waiter                          Waits for deployed workers to be available
   web-ui                          A web interfacte for debugging
@@ -391,5 +392,22 @@ Options:
   --from-before-seconds TEXT
   --from-datetime TEXT
   --help                      Show this message and exit.
+```
+
+#### cwm-worker-operator send-agg-metrics
+
+```
+Usage: cwm-worker-operator send-agg-metrics [OPTIONS] WORKER_ID MINUTES_JSON
+
+  Send aggregated metrics to CWM api for debugging
+
+  Example minutes_json data ("t": "%Y%m%d%H%M%S"): [     {         "t":
+  "20210825214533",         "disk_usage_bytes": 100,         "bytes_in":
+  200,         "bytes_out": 300,         "num_requests_in": 5,
+  "num_requests_out": 10,         "num_requests_misc": 15,
+  "sum_cpu_seconds": 50,         "ram_limit_bytes": 100     } ]
+
+Options:
+  --help  Show this message and exit.
 ```
 <!-- end reference -->
