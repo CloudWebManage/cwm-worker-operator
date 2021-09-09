@@ -13,27 +13,30 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  alerter
-  cleaner
-  clear-cacher
-  cwm-api-volume-config-api-call
-  deleter
-  deployer
-  disk-usage-updater
-  get-cwm-api-volume-config
-  get-cwm-updates
-  initializer
-  metrics-updater
-  nodes-checker
-  updater
-  waiter
-  web-ui
+  alerter                         Sends alerts (to Slack)
+  cleaner                         Cleanup unused Minio cache data from nodes
+  clear-cacher                    Handles requests for Nginx clear cache...
+  cwm-api-volume-config-api-call  Make a low-level API call to get cwm...
+  deleter                         Deletes worker deployments
+  deployer                        Deploys workers
+  disk-usage-updater              Collects disk usage data for workers
+  get-cwm-api-volume-config       Make an operator api call to get instance...
+  get-cwm-updates                 Make a low-level CWM api call to get cwm...
+  initializer                     Initializes requests to deploy workers...
+  metrics-updater                 Aggregates metric data from workers
+  nodes-checker                   Checks nodes health and updates DNS...
+  updater                         Initiates updates for workers, also sends...
+  waiter                          Waits for deployed workers to be available
+  web-ui                          A web interfacte for debugging
 ```
 
 #### cwm-worker-operator initializer
 
 ```
 Usage: cwm-worker-operator initializer [OPTIONS] COMMAND [ARGS]...
+
+  Initializes requests to deploy workers (the first step in deployment
+  process)
 
 Options:
   --help  Show this message and exit.
@@ -57,11 +60,13 @@ Options:
 ```
 Usage: cwm-worker-operator deployer [OPTIONS] COMMAND [ARGS]...
 
+  Deploys workers
+
 Options:
   --help  Show this message and exit.
 
 Commands:
-  deploy_worker
+  deploy_worker  Manually deploy a worker for debugging
   start_daemon
 ```
 
@@ -80,6 +85,8 @@ Options:
 ```
 Usage: cwm-worker-operator deployer deploy_worker [OPTIONS]
 
+  Manually deploy a worker for debugging
+
 Options:
   --worker-id TEXT
   --debug
@@ -91,6 +98,8 @@ Options:
 
 ```
 Usage: cwm-worker-operator waiter [OPTIONS] COMMAND [ARGS]...
+
+  Waits for deployed workers to be available
 
 Options:
   --help  Show this message and exit.
@@ -114,11 +123,13 @@ Options:
 ```
 Usage: cwm-worker-operator deleter [OPTIONS] COMMAND [ARGS]...
 
+  Deletes worker deployments
+
 Options:
   --help  Show this message and exit.
 
 Commands:
-  delete
+  delete        Manually delete a worker for debugging
   start_daemon
 ```
 
@@ -137,6 +148,8 @@ Options:
 ```
 Usage: cwm-worker-operator deleter delete [OPTIONS]
 
+  Manually delete a worker for debugging
+
 Options:
   --worker-id TEXT
   --hostname TEXT
@@ -149,6 +162,8 @@ Options:
 
 ```
 Usage: cwm-worker-operator updater [OPTIONS] COMMAND [ARGS]...
+
+  Initiates updates for workers, also sends aggregated metrics to CWM
 
 Options:
   --help  Show this message and exit.
@@ -172,6 +187,8 @@ Options:
 ```
 Usage: cwm-worker-operator metrics-updater [OPTIONS] COMMAND [ARGS]...
 
+  Aggregates metric data from workers
+
 Options:
   --help  Show this message and exit.
 
@@ -194,6 +211,8 @@ Options:
 ```
 Usage: cwm-worker-operator web-ui [OPTIONS] COMMAND [ARGS]...
 
+  A web interfacte for debugging
+
 Options:
   --help  Show this message and exit.
 
@@ -214,6 +233,8 @@ Options:
 
 ```
 Usage: cwm-worker-operator disk-usage-updater [OPTIONS] COMMAND [ARGS]...
+
+  Collects disk usage data for workers
 
 Options:
   --help  Show this message and exit.
@@ -238,6 +259,8 @@ Options:
 ```
 Usage: cwm-worker-operator alerter [OPTIONS] COMMAND [ARGS]...
 
+  Sends alerts (to Slack)
+
 Options:
   --help  Show this message and exit.
 
@@ -259,6 +282,8 @@ Options:
 
 ```
 Usage: cwm-worker-operator cleaner [OPTIONS] COMMAND [ARGS]...
+
+  Cleanup unused Minio cache data from nodes
 
 Options:
   --help  Show this message and exit.
@@ -282,6 +307,8 @@ Options:
 ```
 Usage: cwm-worker-operator nodes-checker [OPTIONS] COMMAND [ARGS]...
 
+  Checks nodes health and updates DNS records accordingly
+
 Options:
   --help  Show this message and exit.
 
@@ -303,6 +330,8 @@ Options:
 
 ```
 Usage: cwm-worker-operator clear-cacher [OPTIONS] COMMAND [ARGS]...
+
+  Handles requests for Nginx clear cache from users
 
 Options:
   --help  Show this message and exit.
@@ -328,6 +357,10 @@ Usage: cwm-worker-operator cwm-api-volume-config-api-call [OPTIONS]
                                                           QUERY_PARAM
                                                           QUERY_VALUE
 
+  Make a low-level API call to get cwm instance volume configuration
+
+  Supported QUERY_PARAM values: id / hostname
+
 Options:
   --help  Show this message and exit.
 ```
@@ -337,8 +370,10 @@ Options:
 ```
 Usage: cwm-worker-operator get-cwm-api-volume-config [OPTIONS]
 
+  Make an operator api call to get instance volume config from cache
+
 Options:
-  --force-update
+  --force-update    Ignore the cache and force update from CWM api
   --hostname TEXT
   --worker-id TEXT
   --help            Show this message and exit.
@@ -348,6 +383,9 @@ Options:
 
 ```
 Usage: cwm-worker-operator get-cwm-updates [OPTIONS]
+
+  Make a low-level CWM api call to get cwm instance updates in the given
+  time-range
 
 Options:
   --from-before-seconds TEXT
