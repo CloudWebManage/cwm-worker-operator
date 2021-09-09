@@ -123,3 +123,30 @@ def get_cwm_updates(from_before_seconds, from_datetime):
     for update in CwmApiManager().get_cwm_updates(from_datetime):
         print('  ' + json.dumps({'worker_id': update['worker_id'], 'update_time': update['update_time'].strftime('%Y-%m-%d %H:%M:%S')}))
     print(']')
+
+
+@main.command()
+@click.argument('WORKER_ID')
+@click.argument('MINUTES_JSON')
+def send_agg_metrics(worker_id, minutes_json):
+    """
+    Send aggregated metrics to CWM api for debugging
+
+    Example minutes_json data ("t": "%Y%m%d%H%M%S"):
+    [
+        {
+            "t": "20210825214533",
+            "disk_usage_bytes": 100,
+            "bytes_in": 200,
+            "bytes_out": 300,
+            "num_requests_in": 5,
+            "num_requests_out": 10,
+            "num_requests_misc": 15,
+            "sum_cpu_seconds": 50,
+            "ram_limit_bytes": 100
+        }
+    ]
+    """
+    import json
+    from cwm_worker_operator.cwm_api_manager import CwmApiManager
+    CwmApiManager().send_agg_metrics(worker_id, json.loads(minutes_json))
