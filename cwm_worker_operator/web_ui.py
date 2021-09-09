@@ -1,3 +1,6 @@
+"""
+A web interfacte for debugging
+"""
 import traceback
 from http.server import ThreadingHTTPServer
 from http.server import BaseHTTPRequestHandler

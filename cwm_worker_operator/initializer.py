@@ -1,3 +1,6 @@
+"""
+Initializes requests to deploy workers (the first step in deployment process)
+"""
 import traceback
 
 from cwm_worker_operator import config

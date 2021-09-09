@@ -1,3 +1,6 @@
+"""
+Collects disk usage data for workers
+"""
 import traceback
 import subprocess
 

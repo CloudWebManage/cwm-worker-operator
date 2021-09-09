@@ -1,3 +1,6 @@
+"""
+Waits for deployed workers to be available
+"""
 import traceback
 
 from cwm_worker_operator import metrics

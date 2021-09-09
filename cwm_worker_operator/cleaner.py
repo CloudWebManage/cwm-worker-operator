@@ -1,3 +1,6 @@
+"""
+Cleanup unused Minio cache data from nodes
+"""
 from cwm_worker_operator import config
 from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon

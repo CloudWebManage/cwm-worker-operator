@@ -1,3 +1,6 @@
+"""
+Handles requests for Nginx clear cache from users
+"""
 import traceback
 
 from cwm_worker_operator import config

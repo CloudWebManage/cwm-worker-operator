@@ -17,14 +17,19 @@
 
 ## Introduction
 
-Python library and CLI for controlling the lifecycle of workloads deployed on
-the CWM cluster. The main entry points are defined in the
-[cli](https://github.com/CloudWebManage/cwm-worker-operator/blob/main/cwm_worker_operator/cli.py)
-and include daemons that run continuously and periodically handle various
-operations. After the installation, run `cwm-worker-operator --help` command to
-see all the supported CLI commands. The project also includes a Helm template
-used for the production deployment that runs and configures all the daemons on
-the CWM k8s cluster.
+Python daemons which control the lifecycle of workloads deployed on the
+CWM cluster.
+
+See the [CLI reference](CLI.md) for details of the different daemons.
+
+The project also includes a Helm template used for the production
+deployment that runs and configures all the daemons on the CWM k8s cluster.
+
+## Documentation
+
+Each daemon module should include it's documentation in the module file __doc__
+section. This is a string at the beginning of the file. This string is then
+displayed in the [CLI reference](CLI.md).
 
 ## Local Development
 

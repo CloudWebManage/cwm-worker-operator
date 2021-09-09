@@ -2,7 +2,6 @@ import sys
 import importlib
 
 import click
-import pytz
 
 
 @click.group(context_settings={'max_content_width': 200})
@@ -26,7 +25,7 @@ for daemon in [
             click.Option(['--worker-id']),
             click.Option(['--debug'], is_flag=True),
             click.Option(['--dry-run'], is_flag=True),
-        ]}
+        ], 'help': 'Manually deploy a worker for debugging'}
     }},
     {'name': 'waiter'},
     {'name': 'deleter', 'extra_commands': {
@@ -35,7 +34,7 @@ for daemon in [
             click.Option(['--hostname']),
             click.Option(['--deployment-timeout-string']),
             click.Option(['--with-metrics'], is_flag=True)
-        ]}
+        ], 'help': 'Manually delete a worker for debugging'}
     }},
     {'name': 'updater'},
     {'name': 'metrics-updater'},
@@ -47,12 +46,14 @@ for daemon in [
     {'name': 'clear-cacher'},
 ]:
     try:
+        daemon_module = importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_')))
         main.add_command(click.Group(
             name=daemon['name'],
+            help=daemon_module.__doc__,
             commands={
                 'start_daemon': click.Command(
                     name='start_daemon',
-                    callback=importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_'))).start_daemon,
+                    callback=daemon_module.start_daemon,
                     params=[
                         *([click.Option(['--once'], is_flag=True)] if daemon.get('with_once') != False else [])
                     ]
@@ -61,7 +62,8 @@ for daemon in [
                     extra_command_name: click.Command(
                         name=extra_command_name,
                         callback=extra_commands_callback_decorator(getattr(importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_'))), extra_command['callback_method'])),
-                        params=extra_command['params']
+                        params=extra_command['params'],
+                        help=extra_command['help']
                     ) for extra_command_name, extra_command in daemon.get('extra_commands', {}).items()
                 }
             }
@@ -79,16 +81,23 @@ if kubernetes_not_configured:
 @click.argument('QUERY_PARAM')
 @click.argument('QUERY_VALUE')
 def cwm_api_volume_config_api_call(query_param, query_value):
+    """Make a low-level API call to get cwm instance volume configuration
+
+    Supported QUERY_PARAM values: id / hostname
+    """
     import json
     from cwm_worker_operator.cwm_api_manager import CwmApiManager
     print(json.dumps(CwmApiManager().volume_config_api_call(query_param, query_value)))
 
 
 @main.command()
-@click.option('--force-update', is_flag=True)
+@click.option('--force-update', is_flag=True, help='Ignore the cache and force update from CWM api')
 @click.option('--hostname')
 @click.option('--worker-id')
 def get_cwm_api_volume_config(force_update=False, hostname=None, worker_id=None):
+    """
+    Make an operator api call to get instance volume config from cache
+    """
     from cwm_worker_operator import domains_config
     print(domains_config.DomainsConfig().get_cwm_api_volume_config(force_update=force_update, hostname=hostname, worker_id=worker_id))
 
@@ -97,6 +106,9 @@ def get_cwm_api_volume_config(force_update=False, hostname=None, worker_id=None)
 @click.option('--from-before-seconds')
 @click.option('--from-datetime')
 def get_cwm_updates(from_before_seconds, from_datetime):
+    """
+    Make a low-level CWM api call to get cwm instance updates in the given time-range
+    """
     import datetime
     import json
     from cwm_worker_operator.cwm_api_manager import CwmApiManager

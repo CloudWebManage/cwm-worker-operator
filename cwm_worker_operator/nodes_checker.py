@@ -1,3 +1,6 @@
+"""
+Checks nodes health and updates DNS records accordingly
+"""
 from cwm_worker_operator import config
 from cwm_worker_operator.daemon import Daemon
 

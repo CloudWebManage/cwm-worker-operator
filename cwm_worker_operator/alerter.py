@@ -1,3 +1,6 @@
+"""
+Sends alerts (to Slack)
+"""
 import json
 import traceback
 

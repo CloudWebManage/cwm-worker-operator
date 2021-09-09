@@ -1,3 +1,6 @@
+"""
+Initiates updates for workers, also sends aggregated metrics to CWM
+"""
 import datetime
 import traceback
 

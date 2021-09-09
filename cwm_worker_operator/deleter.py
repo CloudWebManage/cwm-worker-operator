@@ -1,3 +1,6 @@
+"""
+Deletes worker deployments
+"""
 import traceback
 
 from cwm_worker_operator import logs

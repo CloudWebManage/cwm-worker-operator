@@ -1,3 +1,6 @@
+"""
+Deploys workers
+"""
 import sys
 import json
 import traceback

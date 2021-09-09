@@ -1,3 +1,6 @@
+"""
+Aggregates metric data from workers
+"""
 import traceback
 from collections import defaultdict
 
