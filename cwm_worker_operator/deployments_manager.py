@@ -103,12 +103,16 @@ class NodeCleanupPod:
     def list_cache_namespaces(self):
         ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n {} exec {} -- ls /cache'.format(self.namespace_name, self.pod_name))
         assert ret == 0, out
-        return [s.strip() for s in out.split() if s and s.strip()]
+        return [s.strip().replace('minio-', '').replace('nginx-', '') for s in out.split() if s and s.strip()]
 
     def clear_cache_namespace(self, cache_namespace_name):
         if len(cache_namespace_name) > 1:
             subprocess.check_output(
-                ['kubectl', '-n', self.namespace_name, 'exec', self.pod_name, '--', 'rm', '-rf', os.path.join("/cache", cache_namespace_name)],
+                ['kubectl', '-n', self.namespace_name, 'exec', self.pod_name, '--', 'rm', '-rf', os.path.join("/cache", 'minio-{}'.format(cache_namespace_name))],
+                env={**os.environ, "DEBUG": ""}
+            )
+            subprocess.check_output(
+                ['kubectl', '-n', self.namespace_name, 'exec', self.pod_name, '--', 'rm', '-rf', os.path.join("/cache", 'nginx-{}'.format(cache_namespace_name))],
                 env={**os.environ, "DEBUG": ""}
             )
 

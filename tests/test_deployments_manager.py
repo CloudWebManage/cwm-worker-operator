@@ -154,15 +154,25 @@ def test_node_cleanup_pod():
     try:
         with deployments_manager.node_cleanup_pod('minikube') as ncp:
             subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- rm -rf /cache/example007--com')
+            subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- rm -rf /cache/minio-example007--com')
+            subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- rm -rf /cache/nginx-example007--com')
             assert ncp.list_cache_namespaces() == []
-            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- mkdir -p /cache/example007--com')
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- mkdir -p /cache/minio-example007--com')
             assert ret == 0, out
-            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- touch /cache/example007--com/test.txt')
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- mkdir -p /cache/nginx-example007--com')
             assert ret == 0, out
-            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/example007--com/test.txt')
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- touch /cache/minio-example007--com/test.txt')
+            assert ret == 0, out
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- touch /cache/nginx-example007--com/test.txt')
+            assert ret == 0, out
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/minio-example007--com/test.txt')
+            assert ret == 0, out
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/nginx-example007--com/test.txt')
             assert ret == 0, out
             ncp.clear_cache_namespace('example007--com')
-            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/example007--com/test.txt')
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/minio-example007--com/test.txt')
+            assert ret == 1, 'file in cache directory was not deleted'
+            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec cwm-worker-operator-node-cleanup -- cat /cache/nginx-example007--com/test.txt')
             assert ret == 1, 'file in cache directory was not deleted'
     finally:
         subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role-; DEBUG= kubectl uncordon minikube')
