@@ -161,7 +161,6 @@ class VolumeConfig:
         self._error = data.get('__error')
         self._last_update = data.get('__last_update')
         self.zone = data.get('zone')
-        self.primary_hostname = None
         self.hostnames = []
         self.hostname_certs = {}
         self.hostname_challenges = {}
@@ -170,11 +169,16 @@ class VolumeConfig:
         for protocol in minio_extra_configs.pop('protocols-enabled', ['http', 'https']):
             if protocol.lower() in ['http', 'https']:
                 self.protocols_enabled.add(protocol.lower())
+        self.zone_hostname, self.geo_hostname, self.root_hostname = None, None, None
         if len(self.protocols_enabled) > 0:
             for hostname in minio_extra_configs.pop('hostnames', []):
                 self.hostnames.append(hostname['hostname'])
-                if not self.primary_hostname and self.zone and hostname['hostname'].split('.')[1] == self.zone.lower():
-                    self.primary_hostname = hostname['hostname']
+                if not self.zone_hostname and self.zone and hostname['hostname'].lower() == '{}.{}.{}'.format(self.id, self.zone.lower(), config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
+                    self.zone_hostname = hostname['hostname']
+                if not self.geo_hostname and hostname['hostname'].lower() == '{}.geo.{}'.format(self.id, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
+                    self.geo_hostname = hostname['hostname']
+                if not self.root_hostname and hostname['hostname'].lower() == '{}.{}'.format(self.id, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
+                    self.root_hostname = hostname['hostname']
                 if 'https' in self.protocols_enabled:
                     if hostname.get('privateKey') and hostname.get('fullChain'):
                         self.hostname_certs[hostname['hostname']] = {
@@ -193,8 +197,8 @@ class VolumeConfig:
                         'token': hostname['token'],
                         'payload': hostname['payload']
                     }
-        if not self.primary_hostname and self.hostnames:
-            self.primary_hostname = self.hostnames[0]
+
+        self.primary_hostname = self.zone_hostname or self.geo_hostname or self.root_hostname
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
         self.cache_enabled = bool(data.get('cache'))
@@ -255,7 +259,7 @@ class VolumeConfig:
     def update_for_hostname(self, hostname):
         if not self._original_gateway and hostname:
             if not self.is_valid_zone_for_cluster and self.primary_hostname and hostname.lower() != self.primary_hostname.lower():
-                protocol = 'https' if self.hostname_certs.get(self.primary_hostname) else 'http'
+                protocol = 'https' if self.hostname_certs.get(self.primary_hostname) and 'https' in self.protocols_enabled else 'http'
                 self.gateway = VolumeConfigGatewayTypeS3('{}://{}'.format(protocol, self.primary_hostname), self.client_id, self.secret)
                 self.gateway_updated_for_request_hostname = hostname
             elif hostname.lower() in config.MOCK_GATEWAYS.keys():
@@ -276,9 +280,9 @@ class VolumeConfig:
                 if credentials_instanceId and credentials_clientId and credentials_secret:
                     gateway_volume_config = domains_config.get_cwm_api_volume_config(worker_id=credentials_instanceId, force_update=not is_data_from_cache)
                     if len(gateway_volume_config.hostnames) > 0:
-                        gateway_hostname = gateway_volume_config.hostnames[0]
+                        gateway_hostname = gateway_volume_config.primary_hostname if gateway_volume_config.primary_hostname else gateway_volume_config.hostnames[0]
                         return VolumeConfigGatewayTypeS3(
-                            url='{}://{}'.format('https' if gateway_volume_config.hostname_certs.get(gateway_hostname) else 'http', gateway_hostname),
+                            url='{}://{}'.format('https' if gateway_volume_config.hostname_certs.get(gateway_hostname) and 'https' in gateway_volume_config.protocols_enabled else 'http', gateway_hostname),
                             access_key=credentials_clientId,
                             secret_access_key=credentials_secret
                         )

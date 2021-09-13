@@ -192,7 +192,7 @@ def test_initialize_invalid_hostname(domains_config, initializer_metrics):
     volume_config_hostname_error_key = domains_config.keys.hostname_error._(volume_config_hostname)
     # set mock volume config in api with hostname which does not match the worker hostname
     domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
-        'instanceId': worker_id, 'zone': 'INVALID', 'minio_extra_configs': {'hostnames': [{'hostname': volume_config_hostname}]}
+        'instanceId': worker_id, 'zone': 'EU', 'minio_extra_configs': {'hostnames': [{'hostname': volume_config_hostname}]}
     }
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
@@ -201,7 +201,7 @@ def test_initialize_invalid_hostname(domains_config, initializer_metrics):
         volume_config_hostname_error_key: 'INVALID_HOSTNAME'
     }
     assert_volume_config(domains_config, worker_id, {
-        'zone': 'INVALID',
+        'zone': 'EU',
         '__request_hostname': hostname
     }, '')
     # success observation is for success getting volume config from api

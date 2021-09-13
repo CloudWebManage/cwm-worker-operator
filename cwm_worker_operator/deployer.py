@@ -88,7 +88,8 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
             "watermark_high": 90,
             **minio_extra_configs.pop('cache', {})
         }
-        nginx_hostnames = []
+        nginx_primary_hostname = None
+        nginx_secondary_hostnames = []
         for i, hostname in enumerate(volume_config.hostnames):
             nginx_hostname = {'id': i, 'name': hostname}
             if hostname in volume_config.hostname_certs:
@@ -98,10 +99,13 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
             if hostname in volume_config.hostname_challenges:
                 nginx_hostname.update(cc_token=volume_config.hostname_challenges[hostname]['token'],
                                       cc_payload=volume_config.hostname_challenges[hostname]['payload'])
-            nginx_hostnames.append(nginx_hostname)
+            if not nginx_primary_hostname and volume_config.primary_hostname and nginx_hostname['name'].lower() == volume_config.primary_hostname.lower():
+                nginx_primary_hostname = nginx_hostname
+            else:
+                nginx_secondary_hostnames.append(nginx_hostname)
         minio['nginx'] = {
             'dhparam_key': config.DHPARAM_KEY,
-            'hostnames': nginx_hostnames,
+            'hostnames': [*([nginx_primary_hostname] if nginx_primary_hostname else []), *nginx_secondary_hostnames],
             'CDN_CACHE_ENABLE': volume_config.cache_enabled if not volume_config.gateway else volume_config.geo_cache_enabled,
             'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',
             'CDN_CACHE_PROXY_CACHE_VALID_200': '{}m'.format(volume_config.cache_expiry_minutes),

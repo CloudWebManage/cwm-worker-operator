@@ -198,9 +198,9 @@ spec:
           value: {{ $.Values.operator.AWS_SECRET_ACCESS_KEY | quote }}
         - name: AWS_ROUTE53_HOSTEDZONE_ID
           value: {{ $.Values.operator.AWS_ROUTE53_HOSTEDZONE_ID | quote }}
+        {{ end }}
         - name: AWS_ROUTE53_HOSTEDZONE_DOMAIN
           value: {{ $.Values.operator.AWS_ROUTE53_HOSTEDZONE_DOMAIN | quote }}
-        {{ end }}
         - name: DUMMY_TEST_WORKER_ID
           value: {{ $.Values.operator.DUMMY_TEST_WORKER_ID | quote }}
         - name: DUMMY_TEST_HOSTNAME
