@@ -520,8 +520,12 @@ class DomainsConfig:
                 yield request_hostname
 
     def set_worker_available(self, worker_id, ingress_hostname):
+        # del_worker_keys deletes the initialize hostname keys which are used to
+        # determine the list of hostnames to set available, so we need to keep
+        # the list of hostnames in a variable here
+        hostnames = list(self.iterate_worker_hostnames(worker_id))
         self.del_worker_keys(worker_id, with_volume_config=False, with_available=False, with_ingress=False)
-        for hostname in self.iterate_worker_hostnames(worker_id):
+        for hostname in hostnames:
             self.keys.hostname_available.set(hostname, '')
             self.keys.hostname_ingress_hostname.set(hostname, json.dumps(ingress_hostname))
 
