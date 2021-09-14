@@ -1,5 +1,17 @@
 """
-Checks nodes health and updates DNS records accordingly
+Checks nodes and updates DNS records accordingly
+
+It doesn't actually do any healthchecks itself, it just updates DNS records for
+all cluster worker nodes. Each worker node also gets an AWS Route53 healthcheck
+which does the actual healthcheck and removes it from DNS if it fails. The
+healthchecks check cwm-worker-ingress /healthz path, so if the ingress stops
+responding the node is removed from DNS.
+
+In addition to the DNS healthchecks, the cwm-worker-ingress checks redis key
+node:healthy, if key is missing the /healthz path returns an error. nodes_checker
+updates this redis key to true for all worker nodes and to false for any nodes
+which are not currently listed as worker nodes - so nodes which are removed
+will instantly stop serving.
 """
 from cwm_worker_operator import config
 from cwm_worker_operator.daemon import Daemon

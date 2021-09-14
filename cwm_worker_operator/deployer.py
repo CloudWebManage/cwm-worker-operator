@@ -106,7 +106,7 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         minio['nginx'] = {
             'dhparam_key': config.DHPARAM_KEY,
             'hostnames': [*([nginx_primary_hostname] if nginx_primary_hostname else []), *nginx_secondary_hostnames],
-            'CDN_CACHE_ENABLE': volume_config.cache_enabled if not volume_config.gateway else volume_config.geo_cache_enabled,
+            'CDN_CACHE_ENABLE': volume_config.cache_enabled,
             'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',
             'CDN_CACHE_PROXY_CACHE_VALID_200': '{}m'.format(volume_config.cache_expiry_minutes),
             'CDN_CACHE_PROXY_INACTIVE': '{}m'.format(volume_config.cache_expiry_minutes + 1),
