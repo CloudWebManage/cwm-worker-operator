@@ -511,13 +511,23 @@ class DomainsConfig:
         return False
 
     def iterate_worker_hostnames(self, worker_id):
+        all_yielded_hostnames = set()
         volume_hostnames = set()
         for hostname in self.get_cwm_api_volume_config(worker_id=worker_id).hostnames:
             volume_hostnames.add(hostname.lower())
             yield hostname
-        for request_hostname in self.get_hostnames_waiting_for_initlization():
-            if request_hostname.lower() not in volume_hostnames and common.is_hostnames_match_in_list(request_hostname, volume_hostnames):
-                yield request_hostname
+            all_yielded_hostnames.add(hostname.lower())
+        for hostnames_iterator in [
+            self.get_hostnames_waiting_for_initlization,
+            self.keys.hostname_error.iterate_prefix_key_suffixes,
+            self.keys.hostname_available.iterate_prefix_key_suffixes
+        ]:
+            for request_hostname in hostnames_iterator():
+                if request_hostname.lower() in all_yielded_hostnames:
+                    continue
+                if common.is_hostnames_match_in_list(request_hostname, volume_hostnames):
+                    yield request_hostname
+                    all_yielded_hostnames.add(request_hostname.lower())
 
     def set_worker_available(self, worker_id, ingress_hostname):
         # del_worker_keys deletes the initialize hostname keys which are used to
