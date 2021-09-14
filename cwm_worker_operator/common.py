@@ -50,3 +50,16 @@ def get_worker_id_from_namespace_name(namespace_name):
     for char in UPPERCASE_LETTERS:
         worker_id = worker_id.replace(char.lower() + '-' + char.lower(), char)
     return worker_id
+
+
+def is_hostnames_match(full_hostname, partial_hostname):
+    if full_hostname.lower() == partial_hostname.lower():
+        return True
+    elif '.'.join(full_hostname.split('.')[1:]).lower() == partial_hostname.lower():
+        return True
+    else:
+        return False
+
+
+def is_hostnames_match_in_list(full_hostname, partial_hostnames):
+    return any((is_hostnames_match(full_hostname, partial_hostname) for partial_hostname in partial_hostnames))

@@ -31,7 +31,7 @@ def initialize_worker(domains_config, initializer_metrics, flow_manager, worker_
             initializer_metrics.invalid_volume_zone(worker_id, start_time)
             logs.debug_info("Invalid volume zone", **log_kwargs)
             return
-        if hostname and hostname not in volume_config.hostnames:
+        if hostname and not common.is_hostnames_match_in_list(hostname, volume_config.hostnames):
             initializer_metrics.invalid_hostname(worker_id, start_time)
             logs.debug_info("Invalid hostname", **log_kwargs)
             flow_manager.set_hostname_error(hostname, domains_config.WORKER_ERROR_INVALID_HOSTNAME)
