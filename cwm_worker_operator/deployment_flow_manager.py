@@ -1,4 +1,5 @@
 from cwm_worker_operator import config
+from cwm_worker_operator import common
 from cwm_worker_operator.domains_config import DomainsConfig
 
 
@@ -70,8 +71,8 @@ class DeployerDeploymentFlowManager:
     def is_valid_worker_hostnames_for_deployment(self, worker_id, hostnames):
         if self.domains_config.keys.worker_force_update.exists(worker_id):
             return True
-        for hostname in hostnames:
-            if self.domains_config.keys.hostname_initialize.exists(hostname):
+        for request_hostname in self.domains_config.keys.hostname_initialize.iterate_prefix_key_suffixes():
+            if common.is_hostnames_match_in_list(request_hostname, hostnames):
                 return True
         print('WARNING! worker_id is not marked for force_update and none of the hostnames are waiting to initialize:'
               'deleting ready for deployment key and skipping')
