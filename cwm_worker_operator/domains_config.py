@@ -233,6 +233,8 @@ class VolumeConfig:
             request_data['__request_hostname'] = request_hostname
             self._last_update = request_data["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
             domains_config.keys.volume_config.set(request_worker_id, json.dumps(request_data))
+            if request_hostname is not None:
+                domains_config.keys.volume_config.set(request_hostname, json.dumps(request_data))
 
 
     def __str__(self):
@@ -410,8 +412,7 @@ class DomainsConfig:
             raise Exception("either hostname or worker_id param is required")
         start_time = common.now()
         if force_update or not worker_id:
-            # TODO: support cache for getting volume config based on hostname
-            val = None
+            val = self.keys.volume_config.get(hostname)
         else:
             val = self.keys.volume_config.get(worker_id)
         if val is None:
@@ -448,11 +449,12 @@ class DomainsConfig:
                     metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
             return VolumeConfig(volume_config, self, request_hostname=hostname, is_data_from_cache=False, request_worker_id=worker_id)
         else:
+            volume_config = json.loads(val)
+            if worker_id is None:
+                worker_id = volume_config['instanceId']
             if metrics:
-                # success from cache is only possible when we got a worker_id
-                # TODO: add support for cache based on hostname
                 metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
-            return VolumeConfig(json.loads(val), self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
+            return VolumeConfig(volume_config, self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
 
     def set_worker_error(self, worker_id, error_msg):
         for hostname in self.iterate_worker_hostnames(worker_id):
