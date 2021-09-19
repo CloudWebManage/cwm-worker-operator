@@ -133,18 +133,26 @@ def test_iterate_cluster_nodes():
     node = json.loads(out)
     node_ip = node['status']['addresses'][0]['address']
     deployments_manager = DeploymentsManager()
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl label --overwrite node minikube cwmc-cleaner-cordon=yes')
+    assert ret == 0, out
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role-; DEBUG= kubectl uncordon minikube')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip}]
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip,
+                                                                  'cleaner_cordoned': True}]
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role=worker:NoSchedule')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip}]
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip,
+                                                                  'cleaner_cordoned': True}]
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl cordon minikube')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': True, 'public_ip': node_ip}]
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': True, 'name': 'minikube', 'unschedulable': True, 'public_ip': node_ip,
+                                                                  'cleaner_cordoned': True}]
     ret, out = subprocess.getstatusoutput('DEBUG= kubectl taint node minikube cwmc-role- && DEBUG= kubectl uncordon minikube')
     assert ret == 0, out
-    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip}]
+    ret, out = subprocess.getstatusoutput('DEBUG= kubectl label node minikube cwmc-cleaner-cordon-')
+    assert ret == 0, out
+    assert list(deployments_manager.iterate_cluster_nodes()) == [{'is_worker': False, 'name': 'minikube', 'unschedulable': False, 'public_ip': node_ip,
+                                                                  'cleaner_cordoned': False}]
 
 
 def test_node_cleanup_pod():
