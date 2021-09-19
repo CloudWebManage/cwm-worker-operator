@@ -12,11 +12,12 @@ class Daemon:
     def __init__(self, name, sleep_time_between_iterations_seconds,
                  metrics_class=None, domains_config=None, metrics=None, run_single_iteration_callback=None,
                  prometheus_metrics_port=None, run_single_iteration_extra_kwargs=None,
-                 deployments_manager=None):
+                 deployments_manager=None, run_initialization_callback=None):
         self.name = name
         self.metrics = metrics if metrics else (metrics_class() if metrics_class else None)
         self.domains_config = domains_config if domains_config else DomainsConfig()
         self.run_single_iteration_callback = run_single_iteration_callback
+        self.run_initialization_callback = run_initialization_callback
         self.prometheus_metrics_port = prometheus_metrics_port
         self.sleep_time_between_iterations_seconds = sleep_time_between_iterations_seconds
         self.run_single_iteration_extra_kwargs = {} if run_single_iteration_extra_kwargs is None else run_single_iteration_extra_kwargs
@@ -28,6 +29,13 @@ class Daemon:
         with logs.alert_exception_catcher(self.domains_config, daemon=self.name):
             if with_prometheus:
                 prometheus_client.start_http_server(self.prometheus_metrics_port)
+            if self.run_initialization_callback:
+                self.run_initialization_callback(
+                    domains_config=self.domains_config,
+                    metrics=self.metrics,
+                    deployments_manager=self.deployments_manager,
+                    **self.run_single_iteration_extra_kwargs
+                )
             if once:
                 self.run_single_iteration(**self.run_single_iteration_extra_kwargs)
             else:

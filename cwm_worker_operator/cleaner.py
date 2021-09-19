@@ -1,5 +1,5 @@
 """
-Cleanup unused Minio cache data from nodes
+Cleanup unused cache data from nodes
 """
 from cwm_worker_operator import config
 from cwm_worker_operator import common
@@ -25,12 +25,20 @@ def run_single_iteration(domains_config: DomainsConfig, deployments_manager, **_
             cleanup_node(node, domains_config, deployments_manager)
 
 
+def run_initialization(domains_config: DomainsConfig, deployments_manager, **_):
+    print('uncordoning nodes')
+    for node in deployments_manager.iterate_cluster_nodes():
+        if node['is_worker'] and node['cleaner_cordoned']:
+            deployments_manager.node_cleaner_uncordon_node(node['name'])
+
+
 def start_daemon(once=False, domains_config=None, deployments_manager=None):
     Daemon(
         name="cleaner",
         sleep_time_between_iterations_seconds=config.CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,
         domains_config=domains_config,
         run_single_iteration_callback=run_single_iteration,
+        run_initialization_callback=run_initialization,
         deployments_manager=deployments_manager
     ).start(
         once=once,
