@@ -27,6 +27,9 @@ except Exception as e:
 urllib3.disable_warnings()
 
 
+NODE_CLEANER_CORDON_LABEL = 'cwmc-cleaner-cordon'
+
+
 class NodeCleanupPod:
 
     def __init__(self, namespace_name, pod_name, node_name):
@@ -90,12 +93,13 @@ class NodeCleanupPod:
             time.sleep(1)
 
     def cordon(self):
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl label --overwrite node {} {}=yes'.format(self.node_name, NODE_CLEANER_CORDON_LABEL))
+        assert ret == 0, out
         ret, out = subprocess.getstatusoutput('DEBUG= kubectl cordon {}'.format(self.node_name))
         assert ret == 0, out
 
     def uncordon(self):
-        ret, out = subprocess.getstatusoutput('DEBUG= kubectl uncordon {}'.format(self.node_name))
-        assert ret == 0, out
+        DeploymentsManager().node_cleaner_uncordon_node(self.node_name)
 
     def delete(self, wait):
         subprocess.getstatusoutput('DEBUG= kubectl -n {} delete pod {} {}'.format(self.namespace_name, self.pod_name, "--wait" if wait else ""))
@@ -219,11 +223,13 @@ class DeploymentsManager:
                         break
                 unschedulable = bool(node.get('spec', {}).get('unschedulable'))
                 public_ip = node.get('status', {}).get('addresses', [{}])[0].get('address', '')
+                labels = node.get('metadata', {}).get('labels', {})
                 yield {
                     'name': node_name,
                     'is_worker': is_worker,
                     'unschedulable': unschedulable,
-                    'public_ip': public_ip
+                    'public_ip': public_ip,
+                    'cleaner_cordoned': labels.get(NODE_CLEANER_CORDON_LABEL) == 'yes'
                 }
 
     @contextmanager
@@ -235,6 +241,12 @@ class DeploymentsManager:
         finally:
             ncp.uncordon()
             ncp.delete(wait=False)
+
+    def node_cleaner_uncordon_node(self, node_name):
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl label node {} {}-'.format(node_name, NODE_CLEANER_CORDON_LABEL))
+        assert ret == 0, out
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl uncordon {}'.format(node_name))
+        assert ret == 0, out
 
     def worker_has_pod_on_node(self, namespace_name, node_name):
         ret, out = subprocess.getstatusoutput('kubectl get pods -n {} -ocustom-columns=node:spec.nodeName | tail -n +2 | grep \'^{}$\''.format(namespace_name, node_name))
