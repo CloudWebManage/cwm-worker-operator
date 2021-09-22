@@ -14,19 +14,55 @@ Options:
 
 Commands:
   alerter                         Sends alerts (to Slack)
-  cleaner                         Cleanup unused Minio cache data from nodes
-  clear-cacher                    Handles requests for Nginx clear cache...
-  cwm-api-volume-config-api-call  Make a low-level API call to get cwm...
+  cleaner                         Cleanup unused cache data from nodes
+  clear-cacher                    Handles requests for Nginx clear cache from
+                                  users
+
+  cwm-api-volume-config-api-call  Make a low-level API call to get cwm
+                                  instance volume configuration
+
   deleter                         Deletes worker deployments
   deployer                        Deploys workers
   disk-usage-updater              Collects disk usage data for workers
-  get-cwm-api-volume-config       Make an operator api call to get instance...
-  get-cwm-updates                 Make a low-level CWM api call to get cwm...
-  initializer                     Initializes requests to deploy workers...
+  get-cwm-api-volume-config       Make an operator api call to get instance
+                                  volume config from cache
+
+  get-cwm-updates                 Make a low-level CWM api call to get cwm
+                                  instance updates in the given time-range
+
+  initializer                     Initializes requests to deploy workers (the
+                                  first step in deployment process)
+
   metrics-updater                 Aggregates metric data from workers
-  nodes-checker                   Checks nodes health and updates DNS...
-  send-agg-metrics                Send aggregated metrics to CWM api for...
-  updater                         Initiates updates for workers, also sends...
+  nodes-checker                   Checks nodes and updates DNS records
+                                  accordingly
+                                  
+                                  It doesn't actually do any healthchecks
+                                  itself, it just updates DNS records for all
+                                  cluster worker nodes. Each worker node also
+                                  gets an AWS Route53 healthcheck which does
+                                  the actual healthcheck and removes it from
+                                  DNS if it fails. The healthchecks check cwm-
+                                  worker-ingress /healthz path, so if the
+                                  ingress stops responding the node is removed
+                                  from DNS.
+                                  
+                                  In addition to the DNS healthchecks, the
+                                  cwm-worker-ingress checks redis key
+                                  node:healthy, if key is missing the /healthz
+                                  path returns an error. nodes_checker updates
+                                  this redis key to true for all worker nodes
+                                  and to false for any nodes which are not
+                                  currently listed as worker nodes - so nodes
+                                  which are removed will instantly stop
+                                  serving.
+
+  send-agg-metrics                Send aggregated metrics to CWM api for
+                                  debugging
+
+  updater                         Initiates updates for workers, also sends
+                                  aggregated metrics to CWM
+
   waiter                          Waits for deployed workers to be available
   web-ui                          A web interfacte for debugging
 ```
@@ -284,7 +320,7 @@ Options:
 ```
 Usage: cwm-worker-operator cleaner [OPTIONS] COMMAND [ARGS]...
 
-  Cleanup unused Minio cache data from nodes
+  Cleanup unused cache data from nodes
 
 Options:
   --help  Show this message and exit.
@@ -308,7 +344,19 @@ Options:
 ```
 Usage: cwm-worker-operator nodes-checker [OPTIONS] COMMAND [ARGS]...
 
-  Checks nodes health and updates DNS records accordingly
+  Checks nodes and updates DNS records accordingly
+
+  It doesn't actually do any healthchecks itself, it just updates DNS
+  records for all cluster worker nodes. Each worker node also gets an AWS
+  Route53 healthcheck which does the actual healthcheck and removes it from
+  DNS if it fails. The healthchecks check cwm-worker-ingress /healthz path,
+  so if the ingress stops responding the node is removed from DNS.
+
+  In addition to the DNS healthchecks, the cwm-worker-ingress checks redis
+  key node:healthy, if key is missing the /healthz path returns an error.
+  nodes_checker updates this redis key to true for all worker nodes and to
+  false for any nodes which are not currently listed as worker nodes - so
+  nodes which are removed will instantly stop serving.
 
 Options:
   --help  Show this message and exit.
@@ -401,11 +449,20 @@ Usage: cwm-worker-operator send-agg-metrics [OPTIONS] WORKER_ID MINUTES_JSON
 
   Send aggregated metrics to CWM api for debugging
 
-  Example minutes_json data ("t": "%Y%m%d%H%M%S"): [     {         "t":
-  "20210825214533",         "disk_usage_bytes": 100,         "bytes_in":
-  200,         "bytes_out": 300,         "num_requests_in": 5,
-  "num_requests_out": 10,         "num_requests_misc": 15,
-  "sum_cpu_seconds": 50,         "ram_limit_bytes": 100     } ]
+  Example minutes_json data ("t": "%Y%m%d%H%M%S"):
+  [
+      {
+          "t": "20210825214533",
+          "disk_usage_bytes": 100,
+          "bytes_in": 200,
+          "bytes_out": 300,
+          "num_requests_in": 5,
+          "num_requests_out": 10,
+          "num_requests_misc": 15,
+          "sum_cpu_seconds": 50,
+          "ram_limit_bytes": 100
+      }
+  ]
 
 Options:
   --help  Show this message and exit.
