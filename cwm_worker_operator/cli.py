@@ -4,7 +4,7 @@ import importlib
 import click
 
 
-@click.group(context_settings={'max_content_width': 200})
+@click.group()
 def main():
     pass
 
@@ -50,6 +50,7 @@ for daemon in [
         main.add_command(click.Group(
             name=daemon['name'],
             help=daemon_module.__doc__,
+            short_help=daemon_module.__doc__,
             commands={
                 'start_daemon': click.Command(
                     name='start_daemon',
@@ -77,7 +78,7 @@ if kubernetes_not_configured:
     print("WARNING! Kubernetes is not configured, some commands are not available", file=sys.stderr)
 
 
-@main.command()
+@main.command(short_help="Make a low-level API call to get cwm instance volume configuration")
 @click.argument('QUERY_PARAM')
 @click.argument('QUERY_VALUE')
 def cwm_api_volume_config_api_call(query_param, query_value):
@@ -90,7 +91,7 @@ def cwm_api_volume_config_api_call(query_param, query_value):
     print(json.dumps(CwmApiManager().volume_config_api_call(query_param, query_value)))
 
 
-@main.command()
+@main.command(short_help="Make an operator api call to get instance volume config from cache")
 @click.option('--force-update', is_flag=True, help='Ignore the cache and force update from CWM api')
 @click.option('--hostname')
 @click.option('--worker-id')
@@ -102,7 +103,7 @@ def get_cwm_api_volume_config(force_update=False, hostname=None, worker_id=None)
     print(domains_config.DomainsConfig().get_cwm_api_volume_config(force_update=force_update, hostname=hostname, worker_id=worker_id))
 
 
-@main.command()
+@main.command(short_help="Make a low-level CWM api call to get cwm instance updates in the given time-range")
 @click.option('--from-before-seconds')
 @click.option('--from-datetime')
 def get_cwm_updates(from_before_seconds, from_datetime):
@@ -125,13 +126,14 @@ def get_cwm_updates(from_before_seconds, from_datetime):
     print(']')
 
 
-@main.command()
+@main.command(short_help="Send aggregated metrics to CWM api for debugging")
 @click.argument('WORKER_ID')
 @click.argument('MINUTES_JSON')
 def send_agg_metrics(worker_id, minutes_json):
     """
     Send aggregated metrics to CWM api for debugging
 
+    \b
     Example minutes_json data ("t": "%Y%m%d%H%M%S"):
     [
         {
