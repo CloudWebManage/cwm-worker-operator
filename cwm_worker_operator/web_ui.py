@@ -1,6 +1,7 @@
 """
 A web interfacte for debugging
 """
+import json
 import traceback
 from http.server import ThreadingHTTPServer
 from http.server import BaseHTTPRequestHandler
@@ -9,85 +10,149 @@ from cwm_worker_operator import config
 from cwm_worker_operator import domains_config
 
 
-def get_header(server):
-    yield '<p>' + ' | '.join([
-        '<a href="/">index</a>',
-        '<a href="/worker/cldtst">worker</a>',
-        '<a href="/hostname/loadtest.cwmc-eu-test2.cloudwm-obj.com">hostname</a>',
-        '<a href="/redis_key/ingress/hostname:error:loadtest.cwmc-eu-test2.cloudwm-obj.com">redis key</a>'
-    ]) + '</p>'
+def get_header(is_api, server):
+    if is_api:
+        yield {
+            'header': True,
+            'index': '/api/',
+            'worker': '/api/worker/<WORKER_ID>',
+            'hostname': '/api/hostname/<HOSTNAME>',
+            'redis key': '/api/redis_key/<POOL>/<REDIS_KEY>',
+        }
+    else:
+        yield '<p>' + ' | '.join([
+            '<a href="/">index</a>',
+            '<a href="/worker/cldtst">worker</a>',
+            '<a href="/hostname/loadtest.cwmc-eu-test2.cloudwm-obj.com">hostname</a>',
+            '<a href="/redis_key/ingress/hostname:error:loadtest.cwmc-eu-test2.cloudwm-obj.com">redis key</a>'
+        ]) + '</p>'
 
 
-def get_keys_summary(server, worker_id=None, hostname=None):
-    for key in server.dc.get_keys_summary(worker_id=worker_id, hostname=hostname):
+def get_keys_summary(is_api, server, worker_id=None, hostname=None):
+    for key in server.dc.get_keys_summary(worker_id=worker_id, hostname=hostname, is_api=is_api):
         if key:
-            yield "<b>{} ({})</b><br/>\n".format(key['title'], key['total'])
-            for _key in key['keys']:
-                yield "{}<br/>".format(_key)
-            yield "<br/>"
+            if is_api:
+                yield {k: v for k, v in key.items() if k in ['title', 'total', 'keys']}
+            else:
+                yield "<b>{} ({})</b><br/>\n".format(key['title'], key['total'])
+                for _key in key['keys']:
+                    yield "{}<br/>".format(_key)
+                yield "<br/>"
 
 
-def get_index(server):
-    yield from get_header(server)
-    yield from get_keys_summary(server)
+def get_index(is_api, server):
+    yield from get_header(is_api, server)
+    yield from get_keys_summary(is_api, server)
 
 
-def get_worker(server, worker_id):
-    yield from get_header(server)
+def get_worker(is_api, server, worker_id):
+    yield from get_header(is_api, server)
     if not worker_id:
-        yield "Please input a worker id"
+        yield "Please input a worker id" if not is_api else {'error': 'missing worker id'}
         return
-    yield "<h3>Worker ID: {}</h3>".format(worker_id)
+    if not is_api:
+        yield "<h3>Worker ID: {}</h3>".format(worker_id)
     if worker_id.startswith('delete/'):
         worker_id = worker_id.replace('delete/', '')
         server.dc.del_worker_keys(worker_id)
-        yield '<p style="color:red;font-weight:bold;">Deleted all worker keys</p>' \
-              '<p><a href="/worker/{}">back to worker</a></p>'.format(worker_id)
+        if is_api:
+            yield {'ok': True, 'msg': 'Deleted all worker keys'}
+            yield {'footer': True, 'back to worker': '/api/worker/{}'.format(worker_id)}
+        else:
+            yield '<p style="color:red;font-weight:bold;">Deleted all worker keys</p>' \
+                  '<p><a href="/worker/{}">back to worker</a></p>'.format(worker_id)
     else:
-        yield from get_keys_summary(server, worker_id)
-        yield '<hr/>'
-        yield '<p style="color:red;font-weight:bold;">Delete all worker keys? (may includes hostname keys not displayed here!) <a href="/worker/delete/{}">YES</a></p>'.format(worker_id)
+        yield from get_keys_summary(is_api, server, worker_id)
+        if is_api:
+            yield {'footer': True, 'delete all worker keys': '/api/worker/delete/{}'.format(worker_id)}
+        else:
+            yield '<hr/>'
+            yield '<p style="color:red;font-weight:bold;">Delete all worker keys? (may includes hostname keys not displayed here!) <a href="/worker/delete/{}">YES</a></p>'.format(worker_id)
 
 
-def get_hostname(server, hostname):
-    yield from get_header(server)
+def get_hostname(is_api, server, hostname):
+    yield from get_header(is_api, server)
     if not hostname:
-        yield "Please input a hostname"
+        yield "Please input a hostname" if not is_api else {'error': 'missing hostname'}
         return
-    yield "<h3>Hostname: {}</h3>".format(hostname)
+    if not is_api:
+        yield "<h3>Hostname: {}</h3>".format(hostname)
     if hostname.startswith('delete/'):
         hostname = hostname.replace('delete/', '')
         server.dc.del_worker_hostname_keys(hostname)
-        yield '<p style="color:red;font-weight:bold;">Deleted all hostname keys (related worker keys were not deleted!)</p>' \
-              '<p><a href="/hostname/{}">back to hostname</a></p>'.format(hostname)
+        if is_api:
+            yield {'ok': True, 'msg': 'Deleted all hostname keys (related worker keys were not deleted!)'}
+            yield {'footer': True, 'back to hostname': '/api/hostname/{}'.format(hostname)}
+        else:
+            yield '<p style="color:red;font-weight:bold;">Deleted all hostname keys (related worker keys were not deleted!)</p>' \
+                  '<p><a href="/hostname/{}">back to hostname</a></p>'.format(hostname)
     else:
-        yield from get_keys_summary(server, hostname=hostname)
-        yield '<hr/>'
-        yield '<p style="color:red;font-weight:bold;">Delete all hostname keys? (will not delete related worker keys!) <a href="/hostname/delete/{}">YES</a></p>'.format(hostname)
+        yield from get_keys_summary(is_api, server, hostname=hostname)
+        if is_api:
+            yield {'footer': True, 'delete all hostname keys': '/api/hostname/delete/{}'.format(hostname)}
+        else:
+            yield '<hr/>'
+            yield '<p style="color:red;font-weight:bold;">Delete all hostname keys? (will not delete related worker keys!) <a href="/hostname/delete/{}">YES</a></p>'.format(hostname)
 
 
-def get_redis_key(server, pool, key):
-    yield from get_header(server)
+def get_redis_key(is_api, server, pool, key):
+    yield from get_header(is_api, server)
     with getattr(server.dc, 'get_{}_redis'.format(pool))() as r:
         if key.startswith('delete/'):
             key = key.replace('delete/', '')
             r.delete(key)
-            yield '<p style="color:red;font-weight:bold;">Deleted key: {}</p>'.format(key)
+            if is_api:
+                yield {'ok': True, 'msg': 'deleted key'}
+            else:
+                yield '<p style="color:red;font-weight:bold;">Deleted key: {}</p>'.format(key)
         elif key.startswith('set/'):
             *key, value = key.replace('set/', '').split('/')
             key = '/'.join(key)
             r.set(key, value)
-            yield '<p style="color:red;font-weight:bold;">Key was set: {} = {}</p>'.format(key, value)
+            if is_api:
+                yield {'ok': True, 'msg': 'key was set'}
+            else:
+                yield '<p style="color:red;font-weight:bold;">Key was set: {} = {}</p>'.format(key, value)
         else:
             value = r.get(key)
             if value:
                 value = value.decode()
-            yield "{} = {}<br/>".format(key, value)
-            yield '<p style="color:red;font-weight:bold;"><a href="/redis_key/{}/set/{}/VALUE">Set key (edit URL, replace VALUE)</a></p>'.format(pool, key)
-            yield '<p style="color:red;font-weight:bold;">Delete key? <a href="/redis_key/{}/delete/{}">YES</a></p>'.format(pool, key)
+            if is_api:
+                yield {'key': key, 'value': value}
+            else:
+                yield "{} = {}<br/>".format(key, value)
+            if is_api:
+                yield {'footer': True,
+                       'set key': '/api/redis_key/{}/set/{}/<VALUE>'.format(pool, key),
+                       'delete key': '/api/redis_key/{}/delete/{}'.format(pool, key)}
+            else:
+                yield '<p style="color:red;font-weight:bold;"><a href="/redis_key/{}/set/{}/VALUE">Set key (edit URL, replace VALUE)</a></p>'.format(pool, key)
+                yield '<p style="color:red;font-weight:bold;">Delete key? <a href="/redis_key/{}/delete/{}">YES</a></p>'.format(pool, key)
 
 
 class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
+
+    def _send_response(self, res):
+        if self.is_api:
+            self._send_json(res)
+        else:
+            self._send_html(res)
+
+    def _send_json(self, res):
+        if config.DEBUG:
+            print("start send_json")
+        self.send_response(200)
+        self.send_header("Content-type", "application/json; charset=utf-8")
+        self.end_headers()
+        if config.DEBUG:
+            print("start send_json write")
+        self.wfile.write(b'[\n')
+        for data in res:
+            self.wfile.write(json.dumps(data).encode())
+            self.wfile.write(b',\n')
+        self.wfile.write(b'null]')
+        if config.DEBUG:
+            print("end send_html")
 
     def _send_html(self, html):
         if config.DEBUG:
@@ -120,18 +185,23 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
         if config.DEBUG:
             print("Start do_GET ({})".format(self.path))
         try:
+            self.is_api = self.path.startswith('/api')
+            if self.is_api:
+                self.path = self.path.replace('/api', '', 1)
+                if not self.path:
+                    self.path = '/'
             if self.path == '/':
-                self._send_html(get_index(self.server))
+                self._send_response(get_index(self.is_api, self.server))
             elif self.path.startswith('/worker/'):
                 worker_id = self.path.replace('/worker/', '')
-                self._send_html(get_worker(self.server, worker_id))
+                self._send_response(get_worker(self.is_api, self.server, worker_id))
             elif self.path.startswith('/hostname/'):
                 hostname = self.path.replace('/hostname/', '')
-                self._send_html(get_hostname(self.server, hostname))
+                self._send_response(get_hostname(self.is_api, self.server, hostname))
             elif self.path.startswith('/redis_key/'):
                 pool, *key = self.path.replace('/redis_key/', '').split('/')
                 key = '/'.join(key)
-                self._send_html(get_redis_key(self.server, pool, key))
+                self._send_response(get_redis_key(self.is_api, self.server, pool, key))
             else:
                 self._send_request_error()
         except:

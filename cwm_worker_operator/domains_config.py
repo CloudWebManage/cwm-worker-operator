@@ -668,7 +668,7 @@ class DomainsConfig:
                 latest_value = value
         return latest_value if latest_value else None
 
-    def get_key_summary_single_multi_domain(self, r, key_name, key, max_keys_per_summary):
+    def get_key_summary_single_multi_domain(self, r, key_name, key, max_keys_per_summary, is_api=False):
         if isinstance(key, DomainsConfigKeyStatic):
             match = key._()
         else:
@@ -686,7 +686,7 @@ class DomainsConfig:
             'pool': key.redis_pool_name
         }
 
-    def get_key_summary_single(self, key_name, key, worker_id, max_keys_per_summary, hostname=None):
+    def get_key_summary_single(self, key_name, key, worker_id, max_keys_per_summary, hostname=None, is_api=False):
         with key.get_redis() as r:
             key_summary_param = getattr(key, 'keys_summary_param', None)
             if worker_id or hostname:
@@ -702,7 +702,7 @@ class DomainsConfig:
                         value = value.decode()
                     return {
                         'title': key_name,
-                        'keys': ['{} = {}'.format(_key, value)],
+                        'keys': ['{} = {}'.format(_key, value)] if not is_api else [{_key: value}],
                         'total': 1 if value else 0,
                         'pool': key.redis_pool_name
                     }
@@ -712,7 +712,7 @@ class DomainsConfig:
                 return self.get_key_summary_single_multi_domain(r, key_name, key, max_keys_per_summary)
 
 
-    def get_key_summary_prefix_subkeys(self, key_name, key, worker_id, max_keys_per_summary, hostname=None):
+    def get_key_summary_prefix_subkeys(self, key_name, key, worker_id, max_keys_per_summary, hostname=None, is_api=False):
         with key.get_redis() as r:
             key_summary_param = getattr(key, 'keys_summary_param', None)
             if worker_id or hostname:
@@ -729,7 +729,10 @@ class DomainsConfig:
                     for _key in r.scan_iter(match):
                         _total_keys += 1
                         if len(_keys) < max_keys_per_summary*3:
-                            _keys.append('{} = {}'.format(_key.decode(), r.get(_key).decode()))
+                            if is_api:
+                                _keys.append({_key.decode(): r.get(_key).decode()})
+                            else:
+                                _keys.append('{} = {}'.format(_key.decode(), r.get(_key).decode()))
                     return {
                         'title': key_name,
                         'keys': _keys,
@@ -739,17 +742,17 @@ class DomainsConfig:
                 else:
                     return None
             else:
-                return self.get_key_summary_single_multi_domain(r, key_name, key, max_keys_per_summary)
+                return self.get_key_summary_single_multi_domain(r, key_name, key, max_keys_per_summary, is_api=is_api)
 
-    def get_keys_summary(self, max_keys_per_summary=10, worker_id=None, hostname=None):
+    def get_keys_summary(self, max_keys_per_summary=10, worker_id=None, hostname=None, is_api=False):
         for key_name in dir(self.keys):
             key = getattr(self.keys, key_name)
             if not isinstance(key, DomainsConfigKey):
                 continue
             if getattr(key, 'keys_summary_type', None) == 'prefix-subkeys':
-                yield self.get_key_summary_prefix_subkeys(key_name, key, worker_id, max_keys_per_summary, hostname=hostname)
+                yield self.get_key_summary_prefix_subkeys(key_name, key, worker_id, max_keys_per_summary, hostname=hostname, is_api=is_api)
             else:
-                yield self.get_key_summary_single(key_name, key, worker_id, max_keys_per_summary, hostname=hostname)
+                yield self.get_key_summary_single(key_name, key, worker_id, max_keys_per_summary, hostname=hostname, is_api=is_api)
 
     def set_worker_total_used_bytes(self, worker_id, total_used_bytes):
         value = str(total_used_bytes)
