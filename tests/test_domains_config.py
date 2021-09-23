@@ -273,13 +273,13 @@ def test_del_worker_keys(domains_config):
             key.set(namespace_name, val)
         else:
             raise Exception("Invalid keys_summary_param: {}".format(keys_summary_param))
-    domains_config.del_worker_keys(worker_id)
+    domains_config.del_worker_keys(worker_id, with_volume_config=True)
     assert domains_config._get_all_redis_pools_keys() == {
         'deploymentid:last_action:{}'.format(namespace_name),
         'deploymentid:minio-metrics:{}:foo'.format(namespace_name),
         'worker:aggregated-metrics-last-sent-update:worker1',
         'worker:aggregated-metrics:worker1',
-        'worker:total-used-bytes:worker1',
+        'worker:total-used-bytes:worker1'
     }
     domains_config.del_worker_keys(worker_id, with_metrics=True)
     assert domains_config._get_all_redis_pools_keys() == set()
