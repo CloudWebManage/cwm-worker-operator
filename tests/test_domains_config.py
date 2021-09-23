@@ -273,7 +273,7 @@ def test_del_worker_keys(domains_config):
             key.set(namespace_name, val)
         else:
             raise Exception("Invalid keys_summary_param: {}".format(keys_summary_param))
-    domains_config.del_worker_keys(worker_id, with_volume_config=True)
+    domains_config.del_worker_keys(worker_id)
     assert domains_config._get_all_redis_pools_keys() == {
         'deploymentid:last_action:{}'.format(namespace_name),
         'deploymentid:minio-metrics:{}:foo'.format(namespace_name),

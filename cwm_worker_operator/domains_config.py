@@ -455,10 +455,10 @@ class DomainsConfig:
                     metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
             return VolumeConfig(volume_config, self, request_hostname=hostname, is_data_from_cache=False, request_worker_id=worker_id)
         else:
-            if metrics and worker_id:
-                metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
-            volume_config = json.loads(val)
-            return VolumeConfig(volume_config, self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
+            volume_config = VolumeConfig(json.loads(val), self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
+            if metrics and (worker_id or volume_config.id):
+                metrics.cwm_api_volume_config_success_from_cache((worker_id or volume_config.id), start_time)
+            return volume_config
 
     def set_worker_error(self, worker_id, error_msg):
         for hostname in self.iterate_worker_hostnames(worker_id):
@@ -555,6 +555,7 @@ class DomainsConfig:
 
     def del_worker_hostname_keys(self, hostname, with_error=True, with_available=True, with_ingress=True):
         self.keys.hostname_initialize.delete(hostname)
+        self.keys.volume_config_hostname_worker_id.delete(hostname)
         if with_available:
             self.keys.hostname_available.delete(hostname)
         if with_ingress:
@@ -565,11 +566,8 @@ class DomainsConfig:
 
     def del_worker_keys(self, worker_id, with_error=True, with_volume_config=True, with_available=True, with_ingress=True, with_metrics=False):
         try:
-            hostnames = set()
             for hostname in self.iterate_worker_hostnames(worker_id):
                 self.del_worker_hostname_keys(hostname, with_error=with_error, with_available=with_available, with_ingress=with_ingress)
-                if with_volume_config:
-                    hostnames.add(hostname)
         except:
             print("Failed to delete worker hostname keys")
             traceback.print_exc()
@@ -591,8 +589,6 @@ class DomainsConfig:
                     r.delete(*keys)
         if with_volume_config:
             self.keys.volume_config.delete(worker_id)
-            for hostname in hostnames:
-                self.keys.volume_config_hostname_worker_id.delete(hostname)
 
 
     def set_worker_force_update(self, worker_id):
