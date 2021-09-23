@@ -47,7 +47,6 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
     worker_id, hostname = 'worker1', 'invalid-zone.com'
     domains_config.keys.hostname_initialize.set(hostname, '')
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    volume_config_hostname_worker_id_key = domains_config.keys.volume_config_hostname_worker_id._(hostname)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
     # set mock volume config in api with invalid zone
     domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
@@ -56,8 +55,7 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         volume_config_key: '',
-        hostname_error_key: 'INVALID_VOLUME_ZONE',
-        volume_config_hostname_worker_id_key: worker_id
+        hostname_error_key: 'INVALID_VOLUME_ZONE'
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': 'INVALID',
