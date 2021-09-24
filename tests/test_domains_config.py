@@ -168,6 +168,21 @@ def test_get_volume_config_error(domains_config):
     assert namespace == None
 
 
+def test_volume_config_hostname_worker_id_cache(domains_config):
+    dc = domains_config
+    worker_id = 'worker1'
+    hostname = 'example007.com'
+    dc._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
+        'instanceId': worker_id, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
+    }
+    volume_config = dc.get_cwm_api_volume_config(hostname=hostname)
+    assert volume_config.id == worker_id
+    assert domains_config.keys.volume_config_hostname_worker_id.get(hostname).decode() == worker_id
+
+    dc.del_worker_hostname_keys(hostname)
+    assert domains_config.keys.volume_config_hostname_worker_id.get(hostname) == None
+
+
 def test_volume_config_force_update(domains_config):
     dc = domains_config
     worker_id = 'worker1'
