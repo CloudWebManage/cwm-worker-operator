@@ -115,6 +115,38 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
     assert [','.join(o['labels']) for o in initializer_metrics.observations] == [',success', ',initialized', ',success', ',initialized']
 
 
+def test_volume_config_hostname_worker_id_cache(domains_config, initializer_metrics):
+    worker_id, hostname = 'worker1', 'valid-domain.com'
+    domains_config.keys.hostname_initialize.set(hostname, '')
+    volume_config_key = domains_config.keys.volume_config._(worker_id)
+    volume_config_hostname_worker_id_key = domains_config.keys.volume_config_hostname_worker_id._(hostname)
+    hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
+    worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
+    # set mock volume config in api with valid zone
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
+        'instanceId': worker_id, 'zone': config.CWM_ZONE, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
+    }
+    initializer.run_single_iteration(domains_config, initializer_metrics)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        volume_config_key,
+        worker_ready_for_deployment_key
+    ]) == {
+        hostname_initialize_key: '',
+        worker_ready_for_deployment_key: "",
+        volume_config_key: "",
+        volume_config_hostname_worker_id_key: worker_id,
+    }
+    assert_volume_config(domains_config, worker_id, {
+        'zone': config.CWM_ZONE,
+        '__request_hostname': hostname
+    }, '')
+    assert domains_config.keys.volume_config_hostname_worker_id.get(hostname).decode() == worker_id
+    assert isinstance(common.strptime(domains_config.keys.worker_ready_for_deployment.get(worker_id).decode(), '%Y%m%dT%H%M%S.%f'), datetime.datetime)
+    # success observation is for success getting volume config from api
+    # initialized is from initializer
+    assert [','.join(o['labels']) for o in initializer_metrics.observations] == [',success', ',initialized']
+
+
 def test_force_update_valid_domain(domains_config, initializer_metrics):
     worker_id, hostname = 'worker1', 'force-update.domain'
     volume_config_key = domains_config.keys.volume_config._(worker_id)
