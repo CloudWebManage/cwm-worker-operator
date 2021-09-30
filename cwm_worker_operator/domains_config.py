@@ -418,7 +418,7 @@ class DomainsConfig:
         elif hostname:
             cached_worker_id = self.keys.volume_config_hostname_worker_id.get(hostname)
             if cached_worker_id:
-                val = self.keys.volume_config.get(cached_worker_id)
+                val = self.keys.volume_config.get(cached_worker_id.decode())
         elif worker_id:
             val = self.keys.volume_config.get(worker_id)
         if val is None:
