@@ -92,7 +92,7 @@ class DomainsConfigKeyStatic(DomainsConfigKey):
 
     def _(self):
         return self.key
-    
+
     def set(self, value):
         with self.get_redis() as r:
             r.set(self._(), value)
@@ -113,6 +113,7 @@ class DomainsConfigKeys:
         # internal_redis - keys used internally only by cwm-worker-operator
         self.hostname_error_attempt_number = DomainsConfigKeyTemplate("hostname:error_attempt_number:{}", 'internal', domains_config, keys_summary_param='hostname')
         self.volume_config = DomainsConfigKeyPrefix("worker:volume:config", 'internal', domains_config, keys_summary_param='worker_id')
+        self.volume_config_hostname_worker_id = DomainsConfigKeyPrefix("worker:volume:config:hostname_worker_id", 'internal', domains_config, keys_summary_param='hostname')
         self.worker_ready_for_deployment = DomainsConfigKeyPrefix("worker:opstatus:ready_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_deployment_error_attempt = DomainsConfigKeyPrefixInt("worker:opstatus:deployment_error_attempt", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_waiting_for_deployment_complete = DomainsConfigKeyPrefix("worker:opstatus:waiting_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
@@ -233,6 +234,8 @@ class VolumeConfig:
             request_data['__request_hostname'] = request_hostname
             self._last_update = request_data["__last_update"] = common.now().strftime("%Y%m%dT%H%M%S")
             domains_config.keys.volume_config.set(request_worker_id, json.dumps(request_data))
+        if domains_config and request_hostname and self.id is not None:
+            domains_config.keys.volume_config_hostname_worker_id.set(request_hostname, self.id)
 
 
     def __str__(self):
@@ -409,10 +412,14 @@ class DomainsConfig:
         else:
             raise Exception("either hostname or worker_id param is required")
         start_time = common.now()
-        if force_update or not worker_id:
-            # TODO: support cache for getting volume config based on hostname
+        val = None
+        if force_update:
             val = None
-        else:
+        elif hostname:
+            cached_worker_id = self.keys.volume_config_hostname_worker_id.get(hostname)
+            if cached_worker_id:
+                val = self.keys.volume_config.get(cached_worker_id.decode())
+        elif worker_id:
             val = self.keys.volume_config.get(worker_id)
         if val is None:
             if hostname:
@@ -448,11 +455,10 @@ class DomainsConfig:
                     metrics.cwm_api_volume_config_error_from_api(worker_id or 'missing', start_time)
             return VolumeConfig(volume_config, self, request_hostname=hostname, is_data_from_cache=False, request_worker_id=worker_id)
         else:
-            if metrics:
-                # success from cache is only possible when we got a worker_id
-                # TODO: add support for cache based on hostname
-                metrics.cwm_api_volume_config_success_from_cache(worker_id, start_time)
-            return VolumeConfig(json.loads(val), self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
+            volume_config = VolumeConfig(json.loads(val), self, request_hostname=hostname, is_data_from_cache=True, request_worker_id=worker_id)
+            if metrics and (worker_id or volume_config.id):
+                metrics.cwm_api_volume_config_success_from_cache((worker_id or volume_config.id), start_time)
+            return volume_config
 
     def set_worker_error(self, worker_id, error_msg):
         for hostname in self.iterate_worker_hostnames(worker_id):
@@ -549,6 +555,7 @@ class DomainsConfig:
 
     def del_worker_hostname_keys(self, hostname, with_error=True, with_available=True, with_ingress=True):
         self.keys.hostname_initialize.delete(hostname)
+        self.keys.volume_config_hostname_worker_id.delete(hostname)
         if with_available:
             self.keys.hostname_available.delete(hostname)
         if with_ingress:
@@ -582,6 +589,7 @@ class DomainsConfig:
                     r.delete(*keys)
         if with_volume_config:
             self.keys.volume_config.delete(worker_id)
+
 
     def set_worker_force_update(self, worker_id):
         self.keys.worker_force_update.set(worker_id, '')

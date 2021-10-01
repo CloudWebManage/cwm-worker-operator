@@ -168,6 +168,23 @@ def test_get_volume_config_error(domains_config):
     assert namespace == None
 
 
+def test_volume_config_hostname_worker_id_cache(domains_config):
+    dc = domains_config
+    worker_id = 'worker1'
+    hostname = 'example007.com'
+    dc._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
+        'instanceId': worker_id, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
+    }
+    volume_config = dc.get_cwm_api_volume_config(hostname=hostname)
+    assert volume_config.id == worker_id
+
+    # empty volume configs and try to get it from cache
+    dc._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {}
+    volume_config = dc.get_cwm_api_volume_config(hostname=hostname)
+    assert volume_config.id == worker_id
+    assert volume_config.hostnames[0] == hostname
+
+
 def test_volume_config_force_update(domains_config):
     dc = domains_config
     worker_id = 'worker1'
@@ -279,7 +296,7 @@ def test_del_worker_keys(domains_config):
         'deploymentid:minio-metrics:{}:foo'.format(namespace_name),
         'worker:aggregated-metrics-last-sent-update:worker1',
         'worker:aggregated-metrics:worker1',
-        'worker:total-used-bytes:worker1',
+        'worker:total-used-bytes:worker1'
     }
     domains_config.del_worker_keys(worker_id, with_metrics=True)
     assert domains_config._get_all_redis_pools_keys() == set()

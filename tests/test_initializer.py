@@ -54,7 +54,7 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
     }
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
-        volume_config_key: "",
+        volume_config_key: '',
         hostname_error_key: 'INVALID_VOLUME_ZONE'
     }
     assert_volume_config(domains_config, worker_id, {
@@ -73,6 +73,8 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
     domains_config.keys.hostname_initialize.set(hostname_2, '')
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     volume_config_key_2 = domains_config.keys.volume_config._(worker_id_2)
+    volume_config_hostname_worker_id_key = domains_config.keys.volume_config_hostname_worker_id._(hostname)
+    volume_config_hostname_worker_id_key_2 = domains_config.keys.volume_config_hostname_worker_id._(hostname_2)
     hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
     hostname_initialize_key_2 = domains_config.keys.hostname_initialize._(hostname_2)
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
@@ -94,7 +96,9 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
         volume_config_key: "",
         hostname_initialize_key_2: '',
         worker_ready_for_deployment_key_2: "",
-        volume_config_key_2: ""
+        volume_config_key_2: "",
+        volume_config_hostname_worker_id_key: worker_id,
+        volume_config_hostname_worker_id_key_2: worker_id_2
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': config.CWM_ZONE,
@@ -127,7 +131,7 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
         worker_ready_for_deployment_key: '',
         volume_config_key: '',
         worker_force_update_key: ''
-   }
+    }
     assert_volume_config(domains_config, worker_id, {
         'zone': config.CWM_ZONE,
         '__request_hostname': None
@@ -162,6 +166,7 @@ def test_force_update_invalid_domain(domains_config, initializer_metrics):
 def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metrics):
     worker_id, hostname = 'worker1', 'force-delete.domain'
     volume_config_key = domains_config.keys.volume_config._(worker_id)
+    volume_config_hostname_worker_id_key = domains_config.keys.volume_config_hostname_worker_id._(hostname)
     hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
     force_delete_domain_key = domains_config.keys.worker_force_delete._(worker_id)
     domains_config.keys.worker_force_delete.set(worker_id, '')
@@ -173,8 +178,9 @@ def test_force_delete_domain_not_allowed_cancel(domains_config, initializer_metr
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         hostname_initialize_key: '',
         force_delete_domain_key: '',
-        volume_config_key: ''
-   }
+        volume_config_key: '',
+        volume_config_hostname_worker_id_key: worker_id
+    }
     assert_volume_config(domains_config, worker_id, {
         'zone': config.CWM_ZONE,
         '__request_hostname': hostname
@@ -188,6 +194,7 @@ def test_initialize_invalid_hostname(domains_config, initializer_metrics):
     volume_config_hostname = 'mismatch-hostname.com'
     domains_config.keys.hostname_initialize.set(hostname, '')
     volume_config_key = domains_config.keys.volume_config._(worker_id)
+    volume_config_hostname_worker_id_key = domains_config.keys.volume_config_hostname_worker_id._(hostname)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
     volume_config_hostname_error_key = domains_config.keys.hostname_error._(volume_config_hostname)
     # set mock volume config in api with hostname which does not match the worker hostname
@@ -198,7 +205,8 @@ def test_initialize_invalid_hostname(domains_config, initializer_metrics):
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
         volume_config_key: "",
         hostname_error_key: 'INVALID_HOSTNAME',
-        volume_config_hostname_error_key: 'INVALID_HOSTNAME'
+        volume_config_hostname_error_key: 'INVALID_HOSTNAME',
+        volume_config_hostname_worker_id_key: worker_id
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': 'EU',
