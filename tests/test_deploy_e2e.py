@@ -201,7 +201,8 @@ def test(domains_config):
     for worker_id, test_config in WORKERS.items():
         _assert_after_initializer(worker_id, test_config, dc, attempt_number=2)
     assert _parse_metrics(mock_initializer_metrics) == {
-        'error': 4, 'failed_to_get_volume_config': 4, 'invalid_volume_zone': 2, 'initialized': 3, 'success': 8}
+        'error': 4, 'failed_to_get_volume_config': 4, 'invalid_volume_zone': 2, 'initialized': 3, 'success': 5, 'success_cache': 3
+    }
 
     print("Running deployer iteration")
     mock_deployer_metrics = MockDeployerMetrics()
