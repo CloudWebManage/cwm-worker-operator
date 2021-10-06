@@ -1,0 +1,12 @@
+{{- if $.Values.redisCommander.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cwm-worker-operator-redis-commander
+spec:
+  ports:
+  - name: "8081"
+    port: 8081
+  selector:
+    app: cwm-worker-operator-redis-commander
+{{- end }}

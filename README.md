@@ -162,10 +162,19 @@ Verify the connection to the Minikube cluster:
 kubectl get nodes
 ```
 
-Set helm arguments:
+source the .env file: `source .env`
 
-```shell
-HELMARGS="--set cwm_api_url=$CWM_API_URL"
+Create helm values file:
+
+```
+echo "
+cwm_api_url: $CWM_API_URL
+cwm_api_key: $CWM_API_KEY
+cwm_api_secret: $CWM_API_SECRET
+
+operator:
+  daemons: [initializer,deployer,waiter,updater,web-ui]
+" > .values.yaml
 ```
 
 Deploy using one of the following options:
@@ -191,7 +200,7 @@ Deploy using one of the following options:
 Deploy:
 
 ```shell
-helm upgrade --install cwm-worker-operator ./helm $HELMARGS
+helm upgrade --install cwm-worker-operator -f .values.yaml ./helm
 ```
 
 Start a port-forward to the Redis:
