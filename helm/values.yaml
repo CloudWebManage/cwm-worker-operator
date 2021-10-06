@@ -150,3 +150,11 @@ operator:
 
 # each object have required attributes: apiVersion, kind, name, spec
 extraObjects: []
+
+redisCommander:
+  enabled: true
+  # Pulled Oct 6, 2021
+  image: rediscommander/redis-commander@sha256:19cd0c49f418779fa2822a0496c5e6516d0c792effc39ed20089e6268477e40a
+  resources:
+    requests: { cpu: "25m", memory: "50Mi" }
+    limits: { memory: "200Mi" }

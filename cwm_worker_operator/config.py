@@ -16,19 +16,19 @@ INGRESS_REDIS_HOST = os.environ.get("INGRESS_REDIS_HOST") or _default_redis_host
 INGRESS_REDIS_PORT = int(os.environ.get("INGRESS_REDIS_PORT") or _default_redis_port)
 INGRESS_REDIS_POOL_MAX_CONNECTIONS = int(os.environ.get("INGRESS_REDIS_POOL_MAX_CONNECTIONS") or _default_redis_pool_max_connections)
 INGRESS_REDIS_POOL_TIMEOUT = int(os.environ.get("INGRESS_REDIS_POOL_TIMEOUT") or _default_redis_pool_timeout)
-INGRESS_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB") or "0")
+INGRESS_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB", "0"))
 
 INTERNAL_REDIS_HOST = os.environ.get("INTERNAL_REDIS_HOST") or _default_redis_host
 INTERNAL_REDIS_PORT = int(os.environ.get("INTERNAL_REDIS_PORT") or _default_redis_port)
 INTERNAL_REDIS_POOL_MAX_CONNECTIONS = int(os.environ.get("INTERNAL_REDIS_POOL_MAX_CONNECTIONS") or _default_redis_pool_max_connections)
 INTERNAL_REDIS_POOL_TIMEOUT = int(os.environ.get("INTERNAL_REDIS_POOL_TIMEOUT") or _default_redis_pool_timeout)
-INTERNAL_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB") or "1")
+INTERNAL_REDIS_DB = int(os.environ.get("INTERNAL_REDIS_DB", "1"))
 
 METRICS_REDIS_HOST = os.environ.get("METRICS_REDIS_HOST") or _default_redis_host
 METRICS_REDIS_PORT = int(os.environ.get("METRICS_REDIS_PORT") or _default_redis_port)
 METRICS_REDIS_POOL_MAX_CONNECTIONS = int(os.environ.get("METRICS_REDIS_POOL_MAX_CONNECTIONS") or _default_redis_pool_max_connections)
 METRICS_REDIS_POOL_TIMEOUT = int(os.environ.get("METRICS_REDIS_POOL_TIMEOUT") or _default_redis_pool_timeout)
-METRICS_REDIS_DB = int(os.environ.get("INGRESS_REDIS_DB") or "2")
+METRICS_REDIS_DB = int(os.environ.get("METRICS_REDIS_DB", "2"))
 
 CWM_API_URL = os.environ["CWM_API_URL"]
 CWM_API_KEY = os.environ["CWM_API_KEY"]

@@ -1,0 +1,31 @@
+{{- if $.Values.redisCommander.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cwm-worker-operator-redis-commander
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: cwm-worker-operator-redis-commander
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: cwm-worker-operator-redis-commander
+    spec:
+      terminationGracePeriodSeconds: 5
+      {{- if $.Values.tolerations }}
+      tolerations:
+{{ toYaml $.Values.tolerations | indent 6 }}
+      {{- end }}
+      containers:
+      - name: commander
+        image: {{ $.Values.redisCommander.image | quote }}
+        resources: {{ toYaml $.Values.redisCommander.resources | nindent 10 }}
+        env:
+        - name: REDIS_HOSTS
+          value: "ingress:cwm-worker-operator-redis-ingress:6379:{{ $.Values.operator.INGRESS_REDIS_DB }},internal:cwm-worker-operator-redis-internal:6379:{{ $.Values.operator.INTERNAL_REDIS_DB }},metrics:cwm-worker-operator-redis-metrics:6379:{{ $.Values.operator.METRICS_REDIS_DB }}"
+{{- end }}
