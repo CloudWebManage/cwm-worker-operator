@@ -77,6 +77,10 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
             "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,
             "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config.keys.deployment_api_metric.key_prefix,
             'LOGS_FLUSH_INTERVAL': '300s',
+            # this is required for the current usage of logging to self
+            # TODO: when we add support for more logging options need to fix this
+            'S3_CHECK_APIKEY_ON_START': 'false',
+            'S3_CHECK_BUCKET': 'false',
             **minio_extra_configs.pop('metricsLogger', {})
         }
         minio['cache'] = {
