@@ -165,7 +165,7 @@ class VolumeConfig:
         self.hostnames = []
         self.hostname_certs = {}
         self.hostname_challenges = {}
-        minio_extra_configs = data.get('minio_extra_configs', {})
+        minio_extra_configs = self.fix_minio_extra_configs(data.get('minio_extra_configs', {}))
         self.protocols_enabled = set()
         for protocol in minio_extra_configs.pop('protocols-enabled', ['http', 'https']):
             if protocol.lower() in ['http', 'https']:
@@ -313,6 +313,21 @@ class VolumeConfig:
                 access_key=data.get('gatewayS3AccessKey') or '',
                 secret_access_key=data.get('gatewayS3SecretAccessKey') or ''
             )
+
+    def fix_minio_extra_configs(self, minio_extra_configs):
+        """fix some configuration errors in source volume config data"""
+        if minio_extra_configs.get('metricsLogger'):
+            metricsLogger = minio_extra_configs['metricsLogger']
+            if (
+                metricsLogger.get('LOG_PROVIDER') == 's3'
+                and metricsLogger.get('S3_NON_AWS_TARGET')
+                and metricsLogger.get('S3_ENDPOINT')
+                and not metricsLogger['S3_ENDPOINT'].lower().startswith('http')
+            ):
+                metricsLogger['S3_ENDPOINT'] = 'https://{}'.format(metricsLogger['S3_ENDPOINT'])
+            if metricsLogger.get('S3_STORE_AS') == 'txt':
+                metricsLogger['S3_STORE_AS'] = 'text'
+        return minio_extra_configs
 
 
 class DomainsConfig:
