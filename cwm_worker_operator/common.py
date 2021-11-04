@@ -63,3 +63,14 @@ def is_hostnames_match(full_hostname, partial_hostname):
 
 def is_hostnames_match_in_list(full_hostname, partial_hostnames):
     return any((is_hostnames_match(full_hostname, partial_hostname) for partial_hostname in partial_hostnames))
+
+
+def dicts_merge(*dicts):
+    res = {}
+    for d in dicts:
+        for k, v in d.items():
+            if isinstance(v, dict) and isinstance(res.get(k), dict):
+                res[k] = dicts_merge(res[k], v)
+            else:
+                res[k] = v
+    return res

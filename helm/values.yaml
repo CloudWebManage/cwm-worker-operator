@@ -129,6 +129,9 @@ operator:
     I1ZLzZKeEApAE5f8z8eDdGXDbHaCd7bs9qhak7xUQNs8wEomV8F8rYDBnCwAKZSD
     LsHbKShgAFY7jHqIwkMm3N89kIqkQgrswwIBAg==
     -----END DH PARAMETERS-----
+  VOLUME_CONFIG_OVERRIDE_URL: ""
+  VOLUME_CONFIG_OVERRIDE_USERNAME: ""
+  VOLUME_CONFIG_OVERRIDE_PASSWORD: ""
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
