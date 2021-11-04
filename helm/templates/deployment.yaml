@@ -215,6 +215,12 @@ spec:
           value: {{ $.Values.operator.UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS | quote }}
         - name: DHPARAM_KEY
           value: {{ $.Values.operator.DHPARAM_KEY | quote }}
+        - name: VOLUME_CONFIG_OVERRIDE_URL
+          value: {{ $.Values.operator.VOLUME_CONFIG_OVERRIDE_URL | quote }}
+        - name: VOLUME_CONFIG_OVERRIDE_USERNAME
+          value: {{ $.Values.operator.VOLUME_CONFIG_OVERRIDE_USERNAME | quote }}
+        - name: VOLUME_CONFIG_OVERRIDE_PASSWORD
+          value: {{ $.Values.operator.VOLUME_CONFIG_OVERRIDE_PASSWORD | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}

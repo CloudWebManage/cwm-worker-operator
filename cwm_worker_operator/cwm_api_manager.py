@@ -1,6 +1,7 @@
-import datetime
 import os
 import json
+import datetime
+import traceback
 
 import requests
 
@@ -66,6 +67,29 @@ class CwmApiManager:
             'measurements': self.get_measurements(minutes)
         })
 
+    def get_override_volume_config(self, volume_config):
+        try:
+            if not config.VOLUME_CONFIG_OVERRIDE_URL or not config.VOLUME_CONFIG_OVERRIDE_USERNAME or not config.VOLUME_CONFIG_OVERRIDE_PASSWORD:
+                return {}
+            worker_id = volume_config.get('instanceId')
+            if not worker_id:
+                return {}
+            res = requests.get(
+                '{}/{}.json'.format(config.VOLUME_CONFIG_OVERRIDE_URL, worker_id),
+                auth=(config.VOLUME_CONFIG_OVERRIDE_USERNAME, config.VOLUME_CONFIG_OVERRIDE_PASSWORD),
+                timeout=5
+            )
+            if res.status_code == 404:
+                return {}
+            elif res.status_code == 200:
+                return res.json()
+            else:
+                raise Exception("Failed to get override config (status_code={})\n{}".format(res.status_code, res.text))
+        except:
+            if config.DEBUG:
+                traceback.print_exc()
+            return {}
+
     def volume_config_api_call(self, query_param, query_value):
         url = "{}?{}={}".format(
             os.path.join(config.CWM_API_URL, 'svc', 'instances', 'getConfiguration'),
@@ -76,7 +100,8 @@ class CwmApiManager:
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET
         }
-        return json.loads(requests.get(url, headers=headers).text, strict=False)
+        volume_config = json.loads(requests.get(url, headers=headers).text, strict=False)
+        return common.dicts_merge(volume_config, self.get_override_volume_config(volume_config))
 
     def get_cwm_updates(self, from_datetime: datetime.datetime):
         url = '{}?from={}'.format(
