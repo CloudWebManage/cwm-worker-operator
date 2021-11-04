@@ -6,7 +6,7 @@ import json
 import traceback
 import urllib.parse
 
-from cwm_worker_operator import config
+from cwm_worker_operator import config, common
 from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
 from cwm_worker_operator.deployments_manager import DeploymentsManager
@@ -40,128 +40,8 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
                 logs.debug_info("flow_manager says that worker_hostnames are not valid for deployment, sorry", **log_kwargs)
                 return
         logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
-        minio_extra_configs = {
-            'browser': volume_config.browser_enabled,
-            **config.MINIO_EXTRA_CONFIG,
-            **volume_config.minio_extra_configs,
-            **(extra_minio_extra_configs if extra_minio_extra_configs else {})
-        }
-        cwm_worker_deployment_extra_configs = {
-            **config.CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG,
-            **volume_config.cwm_worker_deployment_extra_configs
-        }
-        extra_objects = [
-            *config.CWM_WORKER_EXTRA_OBJECTS,
-            *volume_config.cwm_worker_extra_objects
-        ]
-        minio = {
-            'domain_name': volume_config.hostnames[0] if len(volume_config.hostnames) else ''
-        }
-        if volume_config.client_id and volume_config.secret:
-            minio["access_key"] = volume_config.client_id
-            minio["secret_key"] = volume_config.secret
-        if config.DEPLOYER_USE_EXTERNAL_SERVICE:
-            minio["service"] = {
-                "enabled": False
-            }
-        minio["MINIO_GATEWAY_DEPLOYMENT_ID"] = namespace_name
-        minio["metricsLogger"] = {
-            "withRedis": False,
-            "REDIS_HOST": config.METRICS_REDIS_HOST,
-            "REDIS_PORT": config.METRICS_REDIS_PORT,
-            "REDIS_POOL_MAX_CONNECTIONS": config.METRICS_REDIS_POOL_MAX_CONNECTIONS,
-            "REDIS_POOL_TIMEOUT": config.METRICS_REDIS_POOL_TIMEOUT,
-            "REDIS_DB": config.METRICS_REDIS_DB,
-            "REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION": domains_config.keys.deployment_last_action.key_prefix,
-            "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS,
-            "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,
-            "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config.keys.deployment_api_metric.key_prefix,
-            'LOGS_FLUSH_INTERVAL': '300s',
-            # this is required for the current usage of logging to self
-            # TODO: when we add support for more logging options need to fix this
-            'S3_CHECK_APIKEY_ON_START': 'false',
-            'S3_CHECK_BUCKET': 'false',
-            **minio_extra_configs.pop('metricsLogger', {})
-        }
-        minio['cache'] = {
-            "enabled": True,
-            "drives": "/cache",
-            "exclude": "", #  ','.join(['*.{}'.format(ext) for ext in volume_config.cache_exclude_extensions]),
-            "quota": 80,
-            "after": 3,
-            "watermark_low": 70,
-            "watermark_high": 90,
-            **minio_extra_configs.pop('cache', {})
-        }
-        nginx_primary_hostname = None
-        nginx_secondary_hostnames = []
-        for i, hostname in enumerate(volume_config.hostnames):
-            nginx_hostname = {'id': i, 'name': hostname}
-            if hostname in volume_config.hostname_certs:
-                nginx_hostname.update(fullchain=volume_config.hostname_certs[hostname]['fullchain'],
-                                      chain=volume_config.hostname_certs[hostname]['chain'],
-                                      privkey=volume_config.hostname_certs[hostname]['privkey'])
-            if hostname in volume_config.hostname_challenges:
-                nginx_hostname.update(cc_token=volume_config.hostname_challenges[hostname]['token'],
-                                      cc_payload=volume_config.hostname_challenges[hostname]['payload'])
-            if not nginx_primary_hostname and volume_config.primary_hostname and nginx_hostname['name'].lower() == volume_config.primary_hostname.lower():
-                nginx_primary_hostname = nginx_hostname
-            else:
-                nginx_secondary_hostnames.append(nginx_hostname)
-        minio['nginx'] = {
-            'dhparam_key': config.DHPARAM_KEY,
-            'hostnames': [*([nginx_primary_hostname] if nginx_primary_hostname else []), *nginx_secondary_hostnames],
-            'CDN_CACHE_ENABLE': volume_config.cache_enabled,
-            'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',
-            'CDN_CACHE_PROXY_CACHE_VALID_200': '{}m'.format(volume_config.cache_expiry_minutes),
-            'CDN_CACHE_PROXY_INACTIVE': '{}m'.format(volume_config.cache_expiry_minutes + 1),
-            'DISABLE_HTTP': 'http' not in volume_config.protocols_enabled,
-            'DISABLE_HTTPS': 'https' not in volume_config.protocols_enabled,
-            **minio_extra_configs.pop('nginx', {})
-        }
-        if volume_config.gateway:
-            if isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeS3):
-                minio['INSTANCE_TYPE'] = 'gateway_s3'
-                if volume_config.gateway.url:
-                    minio['GATEWAY_ARGS'] = volume_config.gateway.url
-                    try:
-                        parse_result = urllib.parse.urlparse(volume_config.gateway.url)
-                        port = parse_result.port or (80 if parse_result.scheme == 'http' else 443)
-                    except:
-                        port = 443
-                    minio['gatewayNetworkPolicyExtraEgressPorts'] = [port]
-                minio['AWS_ACCESS_KEY_ID'] = volume_config.gateway.access_key
-                minio['AWS_SECRET_ACCESS_KEY'] = volume_config.gateway.secret_access_key
-            elif isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeAzure):
-                minio['INSTANCE_TYPE'] = 'gateway_azure'
-                minio['AZURE_STORAGE_ACCOUNT_NAME'] = volume_config.gateway.account_name
-                minio['AZURE_STORAGE_ACCOUNT_KEY'] = volume_config.gateway.account_key
-            elif isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeGoogle):
-                minio['INSTANCE_TYPE'] = 'gateway_gcs'
-                minio['GATEWAY_ARGS'] = volume_config.gateway.project_id
-                minio['GOOGLE_APPLICATION_CREDENTIALS'] = volume_config.gateway.credentials
-        deployment_config_json = json.dumps({
-            "cwm-worker-deployment": {
-                "type": "minio",
-                "namespace": namespace_name,
-                **cwm_worker_deployment_extra_configs
-            },
-            "minio": {
-                **minio,
-                **minio_extra_configs
-            },
-            "extraObjects": extra_objects
-        }).replace("__NAMESPACE_NAME__", namespace_name)
-        if debug or config.DEBUG_VERBOSITY >= 10 or config.DEPLOYER_WITH_HELM_DRY_RUN:
-            print('---- deployment_config_json ----')
-            print(deployment_config_json, flush=True)
-            print('--------------------------------')
-        deployment_config = json.loads(deployment_config_json)
-        if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS:
-            if debug:
-                print('DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS is true - removing extraObjects from deployment config')
-            extra_objects = deployment_config.pop('extraObjects')
-            deployment_config['extraObjects'] = []
+        deployment_config, extra_objects = get_deployment_config(debug, domains_config, extra_minio_extra_configs,
+                                                                 namespace_name, volume_config)
         logs.debug("initializing deployment", debug_verbosity=9, **log_kwargs)
         deployments_manager.init(deployment_config)
         logs.debug("initialized deployment", debug_verbosity=9, **log_kwargs)
@@ -204,6 +84,137 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
         deployer_metrics.exception(worker_id, start_time)
+
+
+def get_deployment_config(debug, domains_config, extra_minio_extra_configs, namespace_name, volume_config):
+    minio_extra_configs = common.dicts_merge(
+        {'browser': volume_config.browser_enabled},
+        config.MINIO_EXTRA_CONFIG,
+        volume_config.minio_extra_configs,
+        extra_minio_extra_configs if extra_minio_extra_configs else {}
+    )
+    cwm_worker_deployment_extra_configs = common.dicts_merge(
+        config.CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG,
+        volume_config.cwm_worker_deployment_extra_configs
+    )
+    extra_objects = [
+        *config.CWM_WORKER_EXTRA_OBJECTS,
+        *volume_config.cwm_worker_extra_objects
+    ]
+    minio = {
+        'domain_name': volume_config.hostnames[0] if len(volume_config.hostnames) else ''
+    }
+    if volume_config.client_id and volume_config.secret:
+        minio["access_key"] = volume_config.client_id
+        minio["secret_key"] = volume_config.secret
+    if config.DEPLOYER_USE_EXTERNAL_SERVICE:
+        minio["service"] = {
+            "enabled": False
+        }
+    minio["MINIO_GATEWAY_DEPLOYMENT_ID"] = namespace_name
+    minio["metricsLogger"] = common.dicts_merge(
+        {
+            "withRedis": False,
+            "REDIS_HOST": config.METRICS_REDIS_HOST,
+            "REDIS_PORT": config.METRICS_REDIS_PORT,
+            "REDIS_POOL_MAX_CONNECTIONS": config.METRICS_REDIS_POOL_MAX_CONNECTIONS,
+            "REDIS_POOL_TIMEOUT": config.METRICS_REDIS_POOL_TIMEOUT,
+            "REDIS_DB": config.METRICS_REDIS_DB,
+            "REDIS_KEY_PREFIX_DEPLOYMENT_LAST_ACTION": domains_config.keys.deployment_last_action.key_prefix,
+            "UPDATE_GRACE_PERIOD_SECONDS": config.LAST_ACTION_LOGGER_UPDATE_GRACE_PERIOD_SECONDS,
+            "DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS": config.METRICS_LOGGER_DEPLOYMENT_API_METRICS_FLUSH_INTERVAL_SECONDS,
+            "REDIS_KEY_PREFIX_DEPLOYMENT_API_METRIC": domains_config.keys.deployment_api_metric.key_prefix,
+            'LOGS_FLUSH_INTERVAL': '300s',
+            # this is required for the current usage of logging to self
+            # TODO: when we add support for more logging options need to fix this
+            'S3_CHECK_APIKEY_ON_START': 'false',
+            'S3_CHECK_BUCKET': 'false'
+        },
+        minio_extra_configs.pop('metricsLogger', {})
+    )
+    minio['cache'] = common.dicts_merge(
+        {
+            "enabled": True,
+            "drives": "/cache",
+            "exclude": "",  # ','.join(['*.{}'.format(ext) for ext in volume_config.cache_exclude_extensions]),
+            "quota": 80,
+            "after": 3,
+            "watermark_low": 70,
+            "watermark_high": 90,
+        },
+        minio_extra_configs.pop('cache', {})
+    )
+    nginx_primary_hostname = None
+    nginx_secondary_hostnames = []
+    for i, hostname in enumerate(volume_config.hostnames):
+        nginx_hostname = {'id': i, 'name': hostname}
+        if hostname in volume_config.hostname_certs:
+            nginx_hostname.update(fullchain=volume_config.hostname_certs[hostname]['fullchain'],
+                                  chain=volume_config.hostname_certs[hostname]['chain'],
+                                  privkey=volume_config.hostname_certs[hostname]['privkey'])
+        if hostname in volume_config.hostname_challenges:
+            nginx_hostname.update(cc_token=volume_config.hostname_challenges[hostname]['token'],
+                                  cc_payload=volume_config.hostname_challenges[hostname]['payload'])
+        if not nginx_primary_hostname and volume_config.primary_hostname and nginx_hostname['name'].lower() == volume_config.primary_hostname.lower():
+            nginx_primary_hostname = nginx_hostname
+        else:
+            nginx_secondary_hostnames.append(nginx_hostname)
+    minio['nginx'] = common.dicts_merge(
+        {
+            'dhparam_key': config.DHPARAM_KEY,
+            'hostnames': [*([nginx_primary_hostname] if nginx_primary_hostname else []), *nginx_secondary_hostnames],
+            'CDN_CACHE_ENABLE': volume_config.cache_enabled,
+            'CDN_CACHE_NOCACHE_REGEX': '\\.({})$'.format('|'.join(volume_config.cache_exclude_extensions)) if len(volume_config.cache_exclude_extensions) > 0 else '',
+            'CDN_CACHE_PROXY_CACHE_VALID_200': '{}m'.format(volume_config.cache_expiry_minutes),
+            'CDN_CACHE_PROXY_INACTIVE': '{}m'.format(volume_config.cache_expiry_minutes + 1),
+            'DISABLE_HTTP': 'http' not in volume_config.protocols_enabled,
+            'DISABLE_HTTPS': 'https' not in volume_config.protocols_enabled,
+        },
+        minio_extra_configs.pop('nginx', {})
+    )
+    if volume_config.gateway:
+        if isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeS3):
+            minio['INSTANCE_TYPE'] = 'gateway_s3'
+            if volume_config.gateway.url:
+                minio['GATEWAY_ARGS'] = volume_config.gateway.url
+                try:
+                    parse_result = urllib.parse.urlparse(volume_config.gateway.url)
+                    port = parse_result.port or (80 if parse_result.scheme == 'http' else 443)
+                except:
+                    port = 443
+                minio['gatewayNetworkPolicyExtraEgressPorts'] = [port]
+            minio['AWS_ACCESS_KEY_ID'] = volume_config.gateway.access_key
+            minio['AWS_SECRET_ACCESS_KEY'] = volume_config.gateway.secret_access_key
+        elif isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeAzure):
+            minio['INSTANCE_TYPE'] = 'gateway_azure'
+            minio['AZURE_STORAGE_ACCOUNT_NAME'] = volume_config.gateway.account_name
+            minio['AZURE_STORAGE_ACCOUNT_KEY'] = volume_config.gateway.account_key
+        elif isinstance(volume_config.gateway, domains_config_module.VolumeConfigGatewayTypeGoogle):
+            minio['INSTANCE_TYPE'] = 'gateway_gcs'
+            minio['GATEWAY_ARGS'] = volume_config.gateway.project_id
+            minio['GOOGLE_APPLICATION_CREDENTIALS'] = volume_config.gateway.credentials
+    deployment_config_json = json.dumps({
+        "cwm-worker-deployment": common.dicts_merge(
+            {
+                "type": "minio",
+                "namespace": namespace_name,
+            },
+            cwm_worker_deployment_extra_configs
+        ),
+        "minio": common.dicts_merge(minio, minio_extra_configs),
+        "extraObjects": extra_objects
+    }).replace("__NAMESPACE_NAME__", namespace_name)
+    if debug or config.DEBUG_VERBOSITY >= 10 or config.DEPLOYER_WITH_HELM_DRY_RUN:
+        print('---- deployment_config_json ----')
+        print(deployment_config_json, flush=True)
+        print('--------------------------------')
+    deployment_config = json.loads(deployment_config_json)
+    if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS:
+        if debug:
+            print('DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS is true - removing extraObjects from deployment config')
+        extra_objects = deployment_config.pop('extraObjects')
+        deployment_config['extraObjects'] = []
+    return deployment_config, extra_objects
 
 
 def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
