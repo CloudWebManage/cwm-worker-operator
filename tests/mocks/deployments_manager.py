@@ -60,6 +60,7 @@ class MockDeploymentsManager(DeploymentsManager):
         self.dns_records = []
         self.dns_healthcheck_counter = 0
         self.minio_nginx_pods_on_node = []
+        self.check_node_nas_responses = {}
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -143,3 +144,6 @@ class MockDeploymentsManager(DeploymentsManager):
 
     def pod_exec(self, namespace_name, pod_name, *args):
         self.calls.append(('pod_exec', [namespace_name, pod_name, *args]))
+
+    def check_node_nas(self, node_name):
+        return self.check_node_nas_responses[node_name]
