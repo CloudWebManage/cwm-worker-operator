@@ -49,10 +49,13 @@ class NodeCleanupPod:
         ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n {} get pod {} -o json'.format(self.namespace_name, self.pod_name))
         return json.loads(out) if ret == 0 else None
 
+    def kubectl_create(self, obj):
+        kubectl_create(obj)
+
     def init(self):
         self.delete(wait=True)
         self.cordon()
-        kubectl_create({
+        self.kubectl_create({
             "apiVersion": "v1",
             "kind": "Pod",
             "metadata": {
