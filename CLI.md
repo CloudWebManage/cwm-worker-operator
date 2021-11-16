@@ -34,6 +34,12 @@ Commands:
                                   first step in deployment process)
 
   metrics-updater                 Aggregates metric data from workers
+  nas-checker                     Checks health of NAS servers mounting from
+                                  worker nodes
+                                  
+                                  It iterates over all cluster worker nodes
+                                  and mounts each NAS server
+
   nodes-checker                   Checks nodes and updates DNS records
                                   accordingly
                                   
@@ -393,6 +399,32 @@ Commands:
 
 ```
 Usage: cwm-worker-operator clear-cacher start_daemon [OPTIONS]
+
+Options:
+  --once
+  --help  Show this message and exit.
+```
+
+#### cwm-worker-operator nas-checker
+
+```
+Usage: cwm-worker-operator nas-checker [OPTIONS] COMMAND [ARGS]...
+
+  Checks health of NAS servers mounting from worker nodes
+
+  It iterates over all cluster worker nodes and mounts each NAS server
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  start_daemon
+```
+
+#### cwm-worker-operator nas-checker start_daemon
+
+```
+Usage: cwm-worker-operator nas-checker start_daemon [OPTIONS]
 
 Options:
   --once
