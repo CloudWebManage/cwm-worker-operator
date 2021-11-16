@@ -48,7 +48,20 @@ metricsRedis:
     enabled: true
 
 operator:
-  daemons: ["initializer", "deployer", "waiter", "updater", "deleter", "metrics-updater", "web-ui", "disk-usage-updater", "alerter", "cleaner", "nodes-checker", "clear-cacher"]
+  daemons:
+    - initializer
+    - deployer
+    - waiter
+    - updater
+    - deleter
+    - metrics-updater
+    - web-ui
+    - disk-usage-updater
+    - alerter
+    - cleaner
+    - nodes-checker
+    - clear-cacher
+    - nas-checker
   image: ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -132,6 +145,10 @@ operator:
   VOLUME_CONFIG_OVERRIDE_URL: ""
   VOLUME_CONFIG_OVERRIDE_USERNAME: ""
   VOLUME_CONFIG_OVERRIDE_PASSWORD: ""
+  NAS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "5"
+  NAS_IPS: "1.2.3.4,5.6.7.8"
+  # __NAS_IP__ in the template json will be replaced for each nas ip in NAS_IPS
+  NAS_CHECKER_VOLUME_TEMPLATE_JSON: '{"emptyDir": {}}'
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}

@@ -112,3 +112,10 @@ CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS = int(os.environ.get('CLEAR_C
 UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS = int(os.environ.get('UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS') or '7200')
 
 DHPARAM_KEY = os.environ.get('DHPARAM_KEY') or '-----BEGIN DH PARAMETERS-----\nMIIBCAKCAQEAuueQU6VmApLtG08PRJiq5nBrBPoieQ0MhAI3jZAuahu0AnQ/nnio\naIfCvnnwilebPID8/a9iFzzqkcZWwAK/OaYn2p6t/9mfyYFVkWI394rCXTjXp8qa\nl5fl0cEzQT5erIi+UKKjFw1jirmigriLPzM+JvZUTzvkpeI7QNiFirg6Oq6IZiM+\n+sIqeaCWA3ughSIzcKQ/w6qNjPTrDHbxc41AZS1o5xzngmMGHBl0Nw7kvd0b6tZN\nI1ZLzZKeEApAE5f8z8eDdGXDbHaCd7bs9qhak7xUQNs8wEomV8F8rYDBnCwAKZSD\nLsHbKShgAFY7jHqIwkMm3N89kIqkQgrswwIBAg==\n-----END DH PARAMETERS-----'
+
+NAS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS = int(os.environ.get('NAS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS') or '5')
+NAS_IPS = [i.strip() for i in os.environ['NAS_IPS'].split(',') if i.strip()] if os.environ.get('NAS_IPS') else [
+    # values for testing
+    '1.2.3.4', '5.6.7.8'
+]
+NAS_CHECKER_VOLUME_TEMPLATE_JSON = os.environ.get('NAS_CHECKER_VOLUME_TEMPLATE_JSON') or '{"emptyDir": {}}'

@@ -70,6 +70,33 @@ class DomainsConfigKeyPrefixInt(DomainsConfigKeyPrefix):
             return int(r.incr(self._(param)))
 
 
+class DomainsConfigKeyPrefixBoolean(DomainsConfigKeyPrefix):
+
+    def set(self, param, value):
+        if value:
+            super(DomainsConfigKeyPrefixBoolean, self).set(param, '')
+        else:
+            self.delete(param)
+
+    def get(self, param):
+        return bool(self.exists(param))
+
+
+class DomainsConfigKeyPrefixDateTime(DomainsConfigKeyPrefix):
+
+    def set(self, param, value=None):
+        if not value:
+            value = common.now()
+        super(DomainsConfigKeyPrefixDateTime, self).set(param, value.strftime('%Y%m%d%H%M%S'))
+
+    def get(self, param):
+        value = super(DomainsConfigKeyPrefixDateTime, self).get(param)
+        if value:
+            return common.strptime(value.decode(), '%Y%m%d%H%M%S')
+        else:
+            return None
+
+
 class DomainsConfigKeyTemplate(DomainsConfigKey):
 
     def __init__(self, key_template, redis_pool_name, domains_config, **extra_kwargs):
@@ -125,6 +152,8 @@ class DomainsConfigKeys:
         self.alerts = DomainsConfigKeyStatic("alerts", 'internal', domains_config)
         self.worker_last_clear_cache = DomainsConfigKeyPrefix("worker:last_clear_cache", 'internal', domains_config, keys_summary_param='worker_id')
         self.updater_last_cwm_api_update = DomainsConfigKeyStatic("updater_last_cwm_api_update", 'internal', domains_config)
+        self.node_nas_is_healthy = DomainsConfigKeyPrefixBoolean("node:nas:is_healthy", 'internal', domains_config, keys_summary_param='node')
+        self.node_nas_last_check = DomainsConfigKeyPrefixDateTime("node:nas:last_check", 'internal', domains_config, keys_summary_param='node')
 
         # metrics_redis - keys shared with deployments to get metrics
         self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config, keys_summary_param='namespace_name')

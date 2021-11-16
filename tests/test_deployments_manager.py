@@ -228,3 +228,11 @@ def test_dns_healthchecks_records():
     for healthcheck in healthchecks.values():
         deployments_manager.delete_dns_healthcheck(healthcheck['id'])
     assert list(deployments_manager.iterate_dns_healthchecks()) == []
+
+
+def test_check_node_nas():
+    deployments_manager = DeploymentsManager()
+    assert deployments_manager.check_node_nas('minikube') == {
+        '1.2.3.4': True,
+        '5.6.7.8': True
+    }

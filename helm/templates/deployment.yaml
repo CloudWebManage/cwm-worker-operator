@@ -221,6 +221,12 @@ spec:
           value: {{ $.Values.operator.VOLUME_CONFIG_OVERRIDE_USERNAME | quote }}
         - name: VOLUME_CONFIG_OVERRIDE_PASSWORD
           value: {{ $.Values.operator.VOLUME_CONFIG_OVERRIDE_PASSWORD | quote }}
+        - name: NAS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.NAS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: NAS_IPS
+          value: {{ $.Values.operator.NAS_IPS | quote }}
+        - name: NAS_CHECKER_VOLUME_TEMPLATE_JSON
+          value: {{ $.Values.operator.NAS_CHECKER_VOLUME_TEMPLATE_JSON | quote }}
 {{ $.Values.operator.env | indent 8 }}
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}
