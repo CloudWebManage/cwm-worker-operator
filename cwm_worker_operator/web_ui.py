@@ -143,7 +143,7 @@ def get_nodes(is_api, server):
             elif key == 'last_check':
                 nodes.setdefault(node, {}).setdefault('nas_ips', {}).setdefault(nas_ip, {})['nas_last_check'] = server.dc.keys.node_nas_last_check.get('{}:{}'.format(node, nas_ip))
     with server.dc.get_ingress_redis() as r:
-        for key in r.keys('node:healthy:*'):
+        for key in map(bytes.decode, r.keys('node:healthy:*')):
             _, _, node_name = key.split(':')
             nodes.setdefault(node, {})['healthy'] = True
     if not is_api:
