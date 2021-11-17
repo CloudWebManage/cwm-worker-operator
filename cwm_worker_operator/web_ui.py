@@ -145,7 +145,7 @@ def get_nodes(is_api, server):
     with server.dc.get_ingress_redis() as r:
         for key in map(bytes.decode, r.keys('node:healthy:*')):
             _, _, node_name = key.split(':')
-            nodes.setdefault(node, {})['healthy'] = True
+            nodes.setdefault(node_name, {})['healthy'] = True
     if not is_api:
         yield '<table border="1" cellpadding="3">'
         yield '<tr><td><b>node</b></td><td><b>status</b></td><td><b>nas_status</b></td></tr>'
