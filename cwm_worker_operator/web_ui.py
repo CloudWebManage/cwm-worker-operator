@@ -6,7 +6,7 @@ import traceback
 from http.server import ThreadingHTTPServer
 from http.server import BaseHTTPRequestHandler
 
-from cwm_worker_operator import config
+from cwm_worker_operator import config, common
 from cwm_worker_operator import domains_config
 
 
@@ -18,13 +18,15 @@ def get_header(is_api, server):
             'worker': '/api/worker/<WORKER_ID>',
             'hostname': '/api/hostname/<HOSTNAME>',
             'redis key': '/api/redis_key/<POOL>/<REDIS_KEY>',
+            'nodes': '/api/nodes',
         }
     else:
         yield '<p>' + ' | '.join([
             '<a href="/">index</a>',
             '<a href="/worker/cldtst">worker</a>',
             '<a href="/hostname/loadtest.cwmc-eu-test2.cloudwm-obj.com">hostname</a>',
-            '<a href="/redis_key/ingress/hostname:error:loadtest.cwmc-eu-test2.cloudwm-obj.com">redis key</a>'
+            '<a href="/redis_key/ingress/hostname:error:loadtest.cwmc-eu-test2.cloudwm-obj.com">redis key</a>',
+            '<a href="/nodes">nodes</a>',
         ]) + '</p>'
 
 
@@ -130,6 +132,44 @@ def get_redis_key(is_api, server, pool, key):
                 yield '<p style="color:red;font-weight:bold;">Delete key? <a href="/redis_key/{}/delete/{}">YES</a></p>'.format(pool, key)
 
 
+def get_nodes(is_api, server):
+    yield from get_header(is_api, server)
+    nodes = {}
+    with server.dc.get_internal_redis() as r:
+        for key in map(bytes.decode, r.keys('node:nas:*')):
+            _, _, key, node, nas_ip = key.split(':')
+            if key == 'is_healthy':
+                nodes.setdefault(node, {}).setdefault('nas_ips', {}).setdefault(nas_ip, {})['nas_healthy'] = True
+            elif key == 'last_check':
+                nodes.setdefault(node, {}).setdefault('nas_ips', {}).setdefault(nas_ip, {})['nas_last_check'] = server.dc.keys.node_nas_last_check.get('{}:{}'.format(node, nas_ip))
+    with server.dc.get_ingress_redis() as r:
+        for key in r.keys('node:healthy:*'):
+            _, _, node_name = key.split(':')
+            nodes.setdefault(node, {})['healthy'] = True
+    if not is_api:
+        yield '<table border="1" cellpadding="3">'
+        yield '<tr><td><b>node</b></td><td><b>status</b></td><td><b>nas_status</b></td></tr>'
+    for node_name, node_data in nodes.items():
+        node_statuses = []
+        if not node_data.get('healthy'):
+            node_statuses.append('not healthy')
+        node_nas_statuses = []
+        for nas_ip, nas_data in node_data.get('nas_ips', {}).items():
+            if not nas_data.get('nas_healthy', False):
+                node_nas_statuses.append('{}: not healthy'.format(nas_ip))
+            if not nas_data.get('nas_last_check') or (common.now() - nas_data['nas_last_check']).total_seconds() > 3600:
+                node_nas_statuses.append('{}: no last check in past 1 hour'.format(nas_ip))
+        if is_api:
+            yield {'node_name': node_name, 'node_statuses': node_statuses, 'node_nas_statuses': node_nas_statuses}
+        else:
+            yield '<tr><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
+                node_name,
+                ', '.join(node_statuses) if node_statuses else 'OK',
+                ', '.join(node_nas_statuses) if node_nas_statuses else 'OK'
+            )
+    if not is_api:
+        yield '</table>'
+
 class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def _send_response(self, res):
@@ -202,6 +242,8 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
                 pool, *key = self.path.replace('/redis_key/', '').split('/')
                 key = '/'.join(key)
                 self._send_response(get_redis_key(self.is_api, self.server, pool, key))
+            elif self.path.startswith('/nodes'):
+                self._send_response(get_nodes(self.is_api, self.server))
             else:
                 self._send_request_error()
         except:

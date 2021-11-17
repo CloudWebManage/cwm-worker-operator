@@ -253,6 +253,8 @@ spec:
 {{ toYaml $.Values.operator.NodesCheckerResources | indent 10 }}
 {{ else if and (eq . "clear-cacher") $.Values.operator.ClearCacherResources }}
 {{ toYaml $.Values.operator.ClearCacherResources | indent 10 }}
+{{ else if and (eq . "nas-checker") $.Values.operator.NasCheckerResources }}
+{{ toYaml $.Values.operator.NasCheckerResources | indent 10 }}
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
 {{ end }}

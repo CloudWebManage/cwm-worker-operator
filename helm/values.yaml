@@ -161,6 +161,7 @@ operator:
 #  AlerterResources: {}
 #  CleanerResources: {}
 #  NodesCheckerResources: {}
+#  NasCheckerResources: {}
   defaultResources:
     requests:
       cpu: "25m"
