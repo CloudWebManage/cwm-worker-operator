@@ -257,6 +257,8 @@ def test_deployment_last_action(domains_config):
     assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
     dc.keys.deployment_last_action.set(namespace_name, '2020-11-03T22:11:12.123456')
     assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
+    dc.keys.deployment_last_action.set(namespace_name, '2020-11-03T22:11:12+00:00')
+    assert dc.get_deployment_last_action(namespace_name) == datetime.datetime(2020, 11, 3, 22, 11, 12, tzinfo=pytz.UTC)
 
 
 def test_get_worker_ready_for_deployment_start_time_exception(domains_config):

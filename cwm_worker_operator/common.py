@@ -14,7 +14,12 @@ def now():
 
 
 def strptime(value, dateformat):
-    return datetime.datetime.strptime(value + 'z+0000', dateformat+'z%z')
+    if '+' in value:
+        # value already has a timezone specifier
+        return datetime.datetime.strptime(value, dateformat + '%z')
+    else:
+        # value does not have a timezone specifier, we assume utc
+        return datetime.datetime.strptime(value + 'z+0000', dateformat+'z%z')
 
 
 def bytes_to_gib(bytes, ndigits=2):
