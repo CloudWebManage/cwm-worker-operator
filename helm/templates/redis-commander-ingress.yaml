@@ -1,0 +1,23 @@
+{{ if $.Values.redisCommander.ingress.enabled }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/auth-secret: {{ $.Values.redisCommander.ingress.httpAuthSecretName }}
+    nginx.ingress.kubernetes.io/auth-type: basic
+  name: cwm-worker-opreator-redis-commander
+  namespace: default
+spec:
+  rules:
+  - host: {{ $.Values.redisCommander.ingress.domain }}
+    http:
+      paths:
+      - backend:
+          serviceName: cwm-worker-operator-redis-commander
+          servicePort: 8081
+  tls:
+  - hosts:
+    - {{ $.Values.redisCommander.ingress.domain }}
+    secretName: cwm-worker-opreator-redis-commander-cert
+{{ end }}

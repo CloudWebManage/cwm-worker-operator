@@ -1,19 +1,20 @@
+{{ range $.Values.operator.daemons }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cwm-worker-operator
+  name: cwm-worker-operator-{{ . }}
 spec:
   replicas: 1
   revisionHistoryLimit: {{ $.Values.revisionHistoryLimit }}
   selector:
     matchLabels:
-      app: cwm-worker-operator
+      app: cwm-worker-operator-{{ . }}
   strategy:
 {{ $.Values.strategy | indent 4 }}
   template:
     metadata:
       labels:
-        app: cwm-worker-operator
+        app: cwm-worker-operator-{{ . }}
     spec:
       {{- if $.Values.tolerations }}
       tolerations:
@@ -22,30 +23,7 @@ spec:
       terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
       enableServiceLinks: false
       serviceAccountName: cwm-worker-operator
-      {{ if $.Values.internalRedis.persistence.enabled }}
-      volumes:
-        - name: redisdata
-          {{ if $.Values.internalRedis.persistence.volume }}
-{{ toYaml $.Values.internalRedis.persistence.volume | indent 10 }}
-          {{ else }}
-          emptyDir: {}
-          {{ end }}
-      {{ end }}
       containers:
-      - name: redis
-        image: {{ $.Values.internalRedis.image }}
-        imagePullPolicy: {{ $.Values.internalRedis.imagePullPolicy }}
-        {{ if $.Values.internalRedis.persistence.enabled }}
-        args: ["redis-server", "--appendonly", "yes"]
-        {{ end }}
-        resources:
-{{ toYaml $.Values.internalRedis.resources | indent 10 }}
-        {{ if $.Values.internalRedis.persistence.enabled }}
-        volumeMounts:
-          - name: "redisdata"
-            mountPath: "/data"
-        {{ end }}
-{{ range $.Values.operator.daemons }}
       - name: {{ . }}
         {{ if eq . "debug" }}
         command: ["sleep", "86400"]
@@ -257,5 +235,4 @@ spec:
 {{ toYaml $.Values.operator.NasCheckerResources | indent 10 }}
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
-{{ end }}
 {{ end }}

@@ -1,0 +1,37 @@
+{{ if $.Values.enableRedisPvc }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cwm-worker-operator-redis-ingress
+spec:
+  storageClassName: {{ $.Values.storageClassName | quote }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5G
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cwm-worker-operator-redis-internal
+spec:
+  storageClassName: {{ $.Values.storageClassName | quote }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5G
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cwm-worker-operator-redis-metrics
+spec:
+  storageClassName: {{ $.Values.storageClassName | quote }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5G
+{{ end }}

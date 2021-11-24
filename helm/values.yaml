@@ -179,3 +179,16 @@ redisCommander:
   resources:
     requests: { cpu: "25m", memory: "50Mi" }
     limits: { memory: "200Mi" }
+  ingress:
+    enabled: false
+    httpAuthSecretName: ""
+    domain: ""
+
+webUiIngress:
+  enabled: false
+  httpAuthSecretName: ""
+  domain: ""
+
+enableServiceMonitor: false
+enableRedisPvc: false
+storageClassName: ""

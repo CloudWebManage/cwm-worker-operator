@@ -206,7 +206,7 @@ helm upgrade --install cwm-worker-operator -f .values.yaml ./helm
 Start a port-forward to the Redis:
 
 ```shell
-kubectl port-forward service/cwm-worker-operator-redis 6379
+kubectl port-forward service/cwm-worker-operator-redis-internal 6379
 ```
 
 For more details, refer to the [CI workflow](./.github/workflows/ci.yml).

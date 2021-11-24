@@ -1,0 +1,48 @@
+{{ if $.Values.enableServiceMonitor }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cwm-worker-operator-monitor
+  namespace: default
+  labels:
+    app: cwm-worker-operator-monitor
+spec:
+  ports:
+  - name: "8081"
+    port: 8081
+  - name: "8082"
+    port: 8082
+  - name: "8083"
+    port: 8083
+  - name: "8084"
+    port: 8084
+  - name: "8085"
+    port: 8085
+  - name: "8086"
+    port: 8086
+  - name: "8087"
+    port: 8087
+  selector:
+    app: cwm-worker-operator
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cwm-worker-operator-monitor
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - default
+  selector:
+    matchLabels:
+      app: cwm-worker-operator-monitor
+  endpoints:
+  - port: "8081"
+  - port: "8082"
+  - port: "8083"
+  - port: "8084"
+  - port: "8085"
+  - port: "8086"
+  - port: "8087"
+{{ end }}
