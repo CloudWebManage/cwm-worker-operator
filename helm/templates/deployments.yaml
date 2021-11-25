@@ -236,4 +236,5 @@ spec:
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
 {{ end }}
+---
 {{ end }}
