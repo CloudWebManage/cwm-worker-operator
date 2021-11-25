@@ -92,7 +92,7 @@ operator:
   INGRESS_REDIS_POOL_MAX_CONNECTIONS: "50"
   INGRESS_REDIS_POOL_TIMEOUT: "5"
   INGRESS_REDIS_DB: "0"
-  INTERNAL_REDIS_HOST: "localhost"
+  INTERNAL_REDIS_HOST: "cwm-worker-operator-redis-internal.default.svc.cluster.local"
   INTERNAL_REDIS_PORT: "6379"
   INTERNAL_REDIS_POOL_MAX_CONNECTIONS: "50"
   INTERNAL_REDIS_POOL_TIMEOUT: "5"
@@ -179,3 +179,16 @@ redisCommander:
   resources:
     requests: { cpu: "25m", memory: "50Mi" }
     limits: { memory: "200Mi" }
+  ingress:
+    enabled: false
+    httpAuthSecretName: ""
+    domain: ""
+
+webUiIngress:
+  enabled: false
+  httpAuthSecretName: ""
+  domain: ""
+
+enableServiceMonitor: false
+enableRedisPvc: false
+storageClassName: ""

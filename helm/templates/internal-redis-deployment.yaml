@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cwm-worker-operator-redis-internal
+spec:
+  replicas: 1
+  revisionHistoryLimit: {{ $.Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      app: cwm-worker-operator-redis-internal
+  strategy:
+{{ $.Values.strategy | indent 4 }}
+  template:
+    metadata:
+      labels:
+        app: cwm-worker-operator-redis-internal
+    spec:
+      {{- if $.Values.tolerations }}
+      tolerations:
+{{ toYaml $.Values.tolerations | indent 6 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
+      enableServiceLinks: false
+      {{ if $.Values.internalRedis.persistence.enabled }}
+      volumes:
+        - name: redisdata
+          {{ if $.Values.internalRedis.persistence.volume }}
+{{ toYaml $.Values.internalRedis.persistence.volume | indent 10 }}
+          {{ else }}
+          emptyDir: {}
+          {{ end }}
+      {{ end }}
+      containers:
+      - name: redis
+        image: {{ $.Values.internalRedis.image }}
+        imagePullPolicy: {{ $.Values.internalRedis.imagePullPolicy }}
+        {{ if $.Values.internalRedis.persistence.enabled }}
+        args: ["redis-server", "--appendonly", "yes"]
+        {{ end }}
+        resources:
+{{ toYaml $.Values.internalRedis.resources | indent 10 }}
+        {{ if $.Values.internalRedis.persistence.enabled }}
+        volumeMounts:
+          - name: "redisdata"
+            mountPath: "/data"
+        {{ end }}

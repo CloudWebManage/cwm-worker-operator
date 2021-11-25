@@ -1,0 +1,23 @@
+{{ if $.Values.webUiIngress.enabled }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/auth-secret: {{ $.Values.webUiIngress.httpAuthSecretName }}
+    nginx.ingress.kubernetes.io/auth-type: basic
+  name: cwm-worker-opreator-web-ui
+  namespace: default
+spec:
+  rules:
+  - host: {{ $.Values.webUiIngress.domain }}
+    http:
+      paths:
+      - backend:
+          serviceName: cwm-worker-operator-web-ui
+          servicePort: 8182
+  tls:
+  - hosts:
+    - {{ $.Values.webUiIngress.domain }}
+    secretName: cwm-worker-opreator-web-ui-cert
+{{ end }}

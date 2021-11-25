@@ -28,9 +28,7 @@ def test_k8s(domains_config):
     hostname = DUMMY_TEST_HOSTNAME
     try:
         print('deleting operator')
-        subprocess.getstatusoutput('helm delete cwm-worker-operator')
-        wait_for_cmd('kubectl get deployment cwm-worker-operator cwm-worker-operator-redis-ingress cwm-worker-operator-redis-metrics',
-                     1, 30, 'waited too long for operator to be deleted')
+        subprocess.getstatusoutput('helm delete cwm-worker-operator --wait')
         build_operator_docker_for_minikube()
         print('deploying k8s')
         helmargs = "--set " \
@@ -70,10 +68,10 @@ def test_k8s(domains_config):
     except Exception:
         for cmd in ['kubectl get ns',
                     'kubectl get pods',
-                    'kubectl logs deployment/cwm-worker-operator -c redis',
-                    'kubectl logs deployment/cwm-worker-operator -c initializer',
-                    'kubectl logs deployment/cwm-worker-operator -c deployer',
-                    'kubectl logs deployment/cwm-worker-operator -c waiter',
+                    'kubectl logs deployment/cwm-worker-operator-redis-internal -c redis',
+                    'kubectl logs deployment/cwm-worker-operator-initializer -c initializer',
+                    'kubectl logs deployment/cwm-worker-operator-deployer -c deployer',
+                    'kubectl logs deployment/cwm-worker-operator-waiter -c waiter',
                     'kubectl -n {} get pods'.format(namespace_name),
                     'kubectl -n {} describe pod minio-server'.format(namespace_name),
                     'kubectl -n {} logs deployment/minio-server'.format(namespace_name),
