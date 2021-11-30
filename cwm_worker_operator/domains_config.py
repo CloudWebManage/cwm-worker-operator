@@ -227,7 +227,6 @@ class VolumeConfig:
                         'token': hostname['token'],
                         'payload': hostname['payload']
                     }
-
         self.primary_hostname = self.zone_hostname or self.geo_hostname or self.root_hostname
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
@@ -290,7 +289,7 @@ class VolumeConfig:
 
     def update_for_hostname(self, hostname):
         if not self._original_gateway and hostname:
-            if not self.is_valid_zone_for_cluster and self.primary_hostname and common.is_hostnames_match(hostname, self.primary_hostname):
+            if not self.is_valid_zone_for_cluster and self.primary_hostname and not common.is_hostnames_match(hostname, self.primary_hostname):
                 protocol = 'https' if self.hostname_certs.get(self.primary_hostname) and 'https' in self.protocols_enabled else 'http'
                 self.gateway = VolumeConfigGatewayTypeS3('{}://{}'.format(protocol, self.primary_hostname), self.client_id, self.secret)
                 self.gateway_updated_for_request_hostname = hostname

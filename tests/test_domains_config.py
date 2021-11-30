@@ -6,6 +6,7 @@ import pytz
 
 from cwm_worker_operator.domains_config import DomainsConfigKey, DomainsConfig, VolumeConfigGatewayTypeS3, DomainsConfigKeyPrefixInt
 from cwm_worker_operator.common import strptime, get_namespace_name_from_worker_id
+from cwm_worker_operator import config
 
 from .common import set_volume_config_key, get_volume_config_dict, get_volume_config_json
 
@@ -507,3 +508,34 @@ def test_get_volume_config_ssl_chain(domains_config):
         'fullchain': "\n".join([*CERTIFICATE_PEM, *INTERMEDIATE_CERTIFICATES]),
         'chain': "\n".join(INTERMEDIATE_CERTIFICATES)
     }
+
+
+def test_volume_config_invalid_zone_for_cluster(domains_config):
+    worker_id = 'ab123456'
+    # operator is running in zone config.CWM_ZONE (EU)
+    operator_zone = config.CWM_ZONE
+    operator_zone_hostname = '{}.{}.{}'.format(worker_id, operator_zone.lower(), config.AWS_ROUTE53_HOSTEDZONE_DOMAIN)
+    # instance is in a different zone (VO)
+    instance_zone = 'VO'
+    instance_zone_hostname = '{}.{}.{}'.format(worker_id, instance_zone.lower(), config.AWS_ROUTE53_HOSTEDZONE_DOMAIN)
+    assert instance_zone != config.CWM_ZONE
+    assert instance_zone.lower() not in map(str.lower, config.CWM_ADDITIONAL_ZONES)
+    # request is made to geo hostname
+    geo_hostname = '{}.geo.{}'.format(worker_id, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN)
+    domains_config._cwm_api_volume_configs['hostname:{}'.format(geo_hostname)] = get_volume_config_dict(
+        worker_id=worker_id, hostname=instance_zone_hostname,
+        additional_hostnames=[
+            {'hostname': operator_zone_hostname},
+            {'hostname': geo_hostname},
+        ],
+        additional_volume_config={
+            'zone': instance_zone
+        }
+    )
+    volume_config = domains_config.get_cwm_api_volume_config(hostname=geo_hostname)
+    assert volume_config.zone_hostname == instance_zone_hostname
+    assert volume_config.primary_hostname == instance_zone_hostname
+    assert volume_config.geo_hostname == geo_hostname
+    assert not volume_config.is_valid_zone_for_cluster
+    assert volume_config.gateway_updated_for_request_hostname == geo_hostname
+    assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
