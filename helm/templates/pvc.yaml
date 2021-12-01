@@ -1,0 +1,13 @@
+{{ if $.Values.enableOperatorPvc }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cwm-worker-operator
+spec:
+  storageClassName: {{ $.Values.storageClassName | quote }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5G
+{{ end }}

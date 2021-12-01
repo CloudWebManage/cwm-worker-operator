@@ -15,6 +15,10 @@ spec:
     metadata:
       labels:
         app: cwm-worker-operator-{{ . }}
+      {{ if eq . "web-ui" }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/web-ui-nginx-configmap.yaml") . | sha256sum }}
+      {{ end }}
     spec:
       {{- if $.Values.tolerations }}
       tolerations:
@@ -25,7 +29,14 @@ spec:
       serviceAccountName: cwm-worker-operator
       volumes:
       - name: data
-{{ toYaml $.Values.operator.persistentVolume | indent 8 }}
+        {{ if $.Values.enableOperatorPvc }}
+        claimName: cwm-worker-operator
+        {{ else }}
+        emptyDir: {}
+        {{ end }}
+      - name: config
+        configMap:
+          name: web-ui-nginx
       containers:
       - name: {{ . }}
         {{ if eq . "debug" }}
@@ -244,5 +255,15 @@ spec:
 {{ else }}
 {{ toYaml $.Values.operator.defaultResources | indent 10 }}
 {{ end }}
+      {{ if eq . "web-ui" }}
+      - name: nginx
+        # Pulled on Dec 1, 2021
+        image: nginx@sha256:097c3a0913d7e3a5b01b6c685a60c03632fc7a2b50bc8e35bcaa3691d788226e
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /etc/nginx/conf.d
+      {{ end }}
 ---
 {{ end }}

@@ -4,7 +4,7 @@ metadata:
   name: cwm-worker-operator-web-ui
 spec:
   ports:
-  - name: "8182"
-    port: 8182
+  - name: "80"
+    port: 80
   selector:
     app: cwm-worker-operator-web-ui

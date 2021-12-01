@@ -462,13 +462,13 @@ class DeploymentsManager:
                     if ret != 0:
                         log(nas_ip, 'wait_ready_ls', ret=ret, out=out)
                         logs.debug("Error running ls: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
-                        break
-                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- touch /mnt/nas/check_node_nas_health'.format(pod_name))
-                    if ret != 0:
-                        log(nas_ip, 'wait_ready_touch', ret=ret, out=out)
-                        logs.debug("Error creating file: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
-                        break
-                    nas_ip_statuses[nas_ip]['is_healthy'] = True
+                    else:
+                        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- touch /mnt/nas/check_node_nas_health'.format(pod_name))
+                        if ret != 0:
+                            log(nas_ip, 'wait_ready_touch', ret=ret, out=out)
+                            logs.debug("Error creating file: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
+                        else:
+                            nas_ip_statuses[nas_ip]['is_healthy'] = True
                 if not nas_ip_statuses[nas_ip]['is_healthy']:
                     ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o yaml'.format(pod_name))
                     log(nas_ip, 'wait_ready_failed', ret=ret, out=out)

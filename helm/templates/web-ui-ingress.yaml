@@ -15,7 +15,7 @@ spec:
       paths:
       - backend:
           serviceName: cwm-worker-operator-web-ui
-          servicePort: 8182
+          servicePort: 80
   tls:
   - hosts:
     - {{ $.Values.webUiIngress.domain }}

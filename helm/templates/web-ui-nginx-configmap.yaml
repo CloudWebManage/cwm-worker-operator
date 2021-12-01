@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-ui-nginx
+data:
+  default.conf: |
+    server {
+      listen 80;
+      location /data/ {
+        index null;
+        root   /;
+        autoindex on;
+      }
+      location / {
+        proxy_pass http://localhost:8182;
+      }
+    }

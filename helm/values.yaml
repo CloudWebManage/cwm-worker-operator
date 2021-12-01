@@ -65,8 +65,6 @@ operator:
   image: ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
-  persistentVolume:
-    emptyDir: {}
   # comma-separated list of minio versions to ensure cache exists for on startup
   CACHE_MINIO_VERSIONS: ""
   INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: "0.01"
@@ -193,4 +191,5 @@ webUiIngress:
 
 enableServiceMonitor: false
 enableRedisPvc: false
+enableOperatorPvc: false
 storageClassName: ""
