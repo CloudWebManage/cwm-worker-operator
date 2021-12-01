@@ -30,7 +30,8 @@ spec:
       volumes:
       - name: data
         {{ if $.Values.enableOperatorPvc }}
-        claimName: cwm-worker-operator
+        persistentVolumeClaim:
+          claimName: cwm-worker-operator
         {{ else }}
         emptyDir: {}
         {{ end }}
