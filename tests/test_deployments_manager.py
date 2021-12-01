@@ -232,7 +232,8 @@ def test_dns_healthchecks_records():
 
 def test_check_node_nas():
     deployments_manager = DeploymentsManager()
-    assert deployments_manager.check_node_nas('minikube') == {
-        '1.2.3.4': True,
-        '5.6.7.8': True
-    }
+    statuses = deployments_manager.check_node_nas('minikube')
+    assert set(statuses.keys()) == {'1.2.3.4', '5.6.7.8'}
+    assert statuses['1.2.3.4']['is_healthy'] is True
+    assert statuses['5.6.7.8']['is_healthy'] is True
+    json.dumps(statuses)

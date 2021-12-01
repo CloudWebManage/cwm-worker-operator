@@ -1,5 +1,4 @@
 import os
-import base64
 import json
 
 DEBUG = os.environ.get("DEBUG") == "yes" or os.environ.get("ENABLE_DEBUG") == "yes"
@@ -119,3 +118,7 @@ NAS_IPS = [i.strip() for i in os.environ['NAS_IPS'].split(',') if i.strip()] if 
     '1.2.3.4', '5.6.7.8'
 ]
 NAS_CHECKER_VOLUME_TEMPLATE_JSON = os.environ.get('NAS_CHECKER_VOLUME_TEMPLATE_JSON') or '{"emptyDir": {}}'
+
+LOCAL_STORAGE_PATH = os.environ.get('LOCAL_STORAGE_PATH')
+if not LOCAL_STORAGE_PATH:
+    LOCAL_STORAGE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.data'))

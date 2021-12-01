@@ -3,7 +3,7 @@ Checks health of NAS servers mounting from worker nodes
 
 It iterates over all cluster worker nodes and mounts each NAS server
 """
-from cwm_worker_operator import config
+from cwm_worker_operator import config, common
 from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.domains_config import DomainsConfig
 
@@ -14,10 +14,11 @@ def run_single_iteration(domains_config: DomainsConfig, deployments_manager, **_
     for node in deployments_manager.iterate_cluster_nodes():
         if node['is_worker']:
             all_worker_node_names.add(node['name'])
-            for nas_ip, is_healthy in deployments_manager.check_node_nas(node['name']).items():
+            for nas_ip, status in deployments_manager.check_node_nas(node['name']).items():
                 all_nas_ips.add(nas_ip)
-                domains_config.keys.node_nas_is_healthy.set('{}:{}'.format(node['name'], nas_ip), is_healthy)
+                domains_config.keys.node_nas_is_healthy.set('{}:{}'.format(node['name'], nas_ip), status['is_healthy'])
                 domains_config.keys.node_nas_last_check.set('{}:{}'.format(node['name'], nas_ip))
+                common.local_storage_json_set('nas_checker/status_details/{}/{}'.format(node['name'], nas_ip), status)
     for domains_config_key in [domains_config.keys.node_nas_is_healthy, domains_config.keys.node_nas_last_check]:
         for key in domains_config_key.iterate_prefix_key_suffixes():
             node_name, nas_ip = key.split(':')

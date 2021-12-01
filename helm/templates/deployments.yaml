@@ -23,6 +23,9 @@ spec:
       terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
       enableServiceLinks: false
       serviceAccountName: cwm-worker-operator
+      volumes:
+      - name: data
+{{ toYaml $.Values.operator.persistentVolume | indent 8 }}
       containers:
       - name: {{ . }}
         {{ if eq . "debug" }}
@@ -205,7 +208,12 @@ spec:
           value: {{ $.Values.operator.NAS_IPS | quote }}
         - name: NAS_CHECKER_VOLUME_TEMPLATE_JSON
           value: {{ $.Values.operator.NAS_CHECKER_VOLUME_TEMPLATE_JSON | quote }}
+        - name: LOCAL_STORAGE_PATH
+          value: "/data"
 {{ $.Values.operator.env | indent 8 }}
+        volumeMounts:
+        - mountPath: "/data"
+          name: "data"
         resources:
 {{ if and (eq . "initializer") $.Values.operator.initializerResources }}
 {{ toYaml $.Values.operator.initializerResources | indent 10 }}

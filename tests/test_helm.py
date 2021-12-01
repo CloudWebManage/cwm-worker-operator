@@ -8,7 +8,7 @@ def test_operator_config_values():
         values = yaml.safe_load(f)
     missing_keys = []
     for key in dir(config):
-        if key.startswith("_") or key in ["base64", "json", "os"]:
+        if key.startswith("_") or key in ["base64", "json", "os", "LOCAL_STORAGE_PATH"]:
             continue
         if key in ["CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG", "CWM_WORKER_EXTRA_OBJECTS", "MINIO_EXTRA_CONFIG"]:
             key = key + "_JSON"

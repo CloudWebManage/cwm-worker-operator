@@ -1,8 +1,12 @@
 import re
+import os
+import json
 import datetime
 from functools import lru_cache
 
 import pytz
+
+from . import config
 
 
 UPPERCASE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -79,3 +83,16 @@ def dicts_merge(*dicts):
             else:
                 res[k] = v
     return res
+
+
+def local_storage_set(filename: str, content: str):
+    fullpath = os.path.join(config.LOCAL_STORAGE_PATH, filename)
+    dirname = os.path.dirname(fullpath)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname, exist_ok=True)
+    with open(fullpath, 'w') as f:
+        f.write(content)
+
+
+def local_storage_json_set(key: str, value: dict):
+    local_storage_set('{}.json'.format(key), json.dumps(value))

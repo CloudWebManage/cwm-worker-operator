@@ -5,3 +5,4 @@ venv
 .cwm_worker_deployment_helm_cache
 .env
 .values.yaml
+.data
