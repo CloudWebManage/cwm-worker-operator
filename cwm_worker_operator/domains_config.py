@@ -744,12 +744,15 @@ class DomainsConfig:
                     _key = None
                 if _key:
                     value = r.get(_key)
-                    if value:
-                        value = value.decode()
+                    if value is not None:
+                        try:
+                            value = value.decode()
+                        except:
+                            pass
                     return {
                         'title': key_name,
                         'keys': ['{} = {}'.format(_key, value)] if not is_api else [{_key: value}],
-                        'total': 1 if value else 0,
+                        'total': 1 if value is not None else 0,
                         'pool': key.redis_pool_name
                     }
                 else:
