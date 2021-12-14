@@ -9,24 +9,43 @@ from cwm_worker_operator.domains_config import DomainsConfig
 
 
 def cleanup_hostname_error(domains_config: DomainsConfig, hostname, stats):
-    if domains_config.keys.hostname_error.get(hostname) in [
-        # we only consider for deletion errors which have a chance to be successful at a later time
-        domains_config.WORKER_ERROR_FAILED_TO_DEPLOY.encode(),
-        domains_config.WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT.encode()
-    ]:
-        last_deployment_flow_time = domains_config.keys.hostname_last_deployment_flow_time.get(hostname)
-        if (
+    last_deployment_flow_time = domains_config.keys.hostname_last_deployment_flow_time.get(hostname)
+    if (
+            domains_config.keys.hostname_error.get(hostname) in [
+                domains_config.WORKER_ERROR_FAILED_TO_DEPLOY.encode(),
+                domains_config.WORKER_ERROR_TIMEOUT_WAITING_FOR_DEPLOYMENT.encode()
+            ] and (
                 not last_deployment_flow_time
                 or (common.now() - last_deployment_flow_time).total_seconds() > config.REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS
-        ):
-            stats['hostname_error_deleted'] += 1
-            domains_config.keys.hostname_error.delete(hostname)
+            )
+    ):
+        # these errors are valid for retry - we only delete the hostname_error key
+        # for this we only consider errors which have a chance to be successful at a later time
+        # this will allow ingress to retry them when another request is made for this hostname
+        stats['hostname_error_failed_deploy_deleted'] += 1
+        domains_config.keys.hostname_error.delete(hostname)
+    else:
+        handle_hostname_error_any(domains_config, hostname, stats, last_deployment_flow_time)
 
+
+def handle_hostname_error_any(domains_config: DomainsConfig, hostname, stats, last_deployment_flow_time='-'):
+    if last_deployment_flow_time == '-':
+        last_deployment_flow_time = domains_config.keys.hostname_last_deployment_flow_time.get(hostname)
+    if (
+            not last_deployment_flow_time
+            or (common.now() - last_deployment_flow_time).total_seconds() > config.REDIS_CLEANER_DELETE_ANY_HOSTNAME_ERROR_MIN_SECONDS
+    ):
+        # here we handle any other error with a longer time since last deployment flow action
+        # for these cases we do a full deletion of all hostname keys
+        stats['hostname_error_any_deleted'] += 1
+        domains_config.del_worker_hostname_keys(hostname)
 
 def run_single_iteration(domains_config: DomainsConfig, **_):
     stats = defaultdict(int)
     for hostname in domains_config.keys.hostname_error.iterate_prefix_key_suffixes():
         cleanup_hostname_error(domains_config, hostname, stats)
+    for hostname in domains_config.keys.hostname_error_attempt_number.iterate_prefix_key_suffixes():
+        handle_hostname_error_any(domains_config, hostname, stats)
     if len(stats) > 0:
         logs.debug('', debug_verbosity=2, stats=dict(stats))
 
