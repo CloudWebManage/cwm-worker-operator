@@ -63,6 +63,7 @@ Commands:
                                   which are removed will instantly stop
                                   serving.
 
+  redis-cleaner                   Cleanup Redis keys
   send-agg-metrics                Send aggregated metrics to CWM api for
                                   debugging
 
@@ -425,6 +426,30 @@ Commands:
 
 ```
 Usage: cwm-worker-operator nas-checker start_daemon [OPTIONS]
+
+Options:
+  --once
+  --help  Show this message and exit.
+```
+
+#### cwm-worker-operator redis-cleaner
+
+```
+Usage: cwm-worker-operator redis-cleaner [OPTIONS] COMMAND [ARGS]...
+
+  Cleanup Redis keys
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  start_daemon
+```
+
+#### cwm-worker-operator redis-cleaner start_daemon
+
+```
+Usage: cwm-worker-operator redis-cleaner start_daemon [OPTIONS]
 
 Options:
   --once
