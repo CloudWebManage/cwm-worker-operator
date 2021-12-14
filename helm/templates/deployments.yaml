@@ -226,6 +226,8 @@ spec:
           value: {{ $.Values.operator.REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS | quote }}
         - name: REDIS_CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.operator.REDIS_CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: REDIS_CLEANER_DELETE_ANY_HOSTNAME_ERROR_MIN_SECONDS
+          value: {{ $.Values.operator.REDIS_CLEANER_DELETE_ANY_HOSTNAME_ERROR_MIN_SECONDS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         volumeMounts:
         - mountPath: "/data"

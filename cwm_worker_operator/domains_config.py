@@ -138,7 +138,7 @@ class DomainsConfigKeys:
         self.node_healthy = DomainsConfigKeyPrefix("node:healthy", 'ingress', domains_config, keys_summary_param='node')
 
         # internal_redis - keys used internally only by cwm-worker-operator
-        self.hostname_error_attempt_number = DomainsConfigKeyTemplate("hostname:error_attempt_number:{}", 'internal', domains_config, keys_summary_param='hostname')
+        self.hostname_error_attempt_number = DomainsConfigKeyPrefix("hostname:error_attempt_number", 'internal', domains_config, keys_summary_param='hostname')
         self.volume_config = DomainsConfigKeyPrefix("worker:volume:config", 'internal', domains_config, keys_summary_param='worker_id')
         self.volume_config_hostname_worker_id = DomainsConfigKeyPrefix("worker:volume:config:hostname_worker_id", 'internal', domains_config, keys_summary_param='hostname')
         self.worker_ready_for_deployment = DomainsConfigKeyPrefix("worker:opstatus:ready_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
