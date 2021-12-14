@@ -222,6 +222,10 @@ spec:
           value: {{ $.Values.operator.NAS_CHECKER_VOLUME_TEMPLATE_JSON | quote }}
         - name: LOCAL_STORAGE_PATH
           value: "/data"
+        - name: REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS
+          value: {{ $.Values.operator.REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS | quote }}
+        - name: REDIS_CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+          value: {{ $.Values.operator.REDIS_CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         volumeMounts:
         - mountPath: "/data"
