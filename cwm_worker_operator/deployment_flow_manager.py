@@ -3,6 +3,30 @@ from cwm_worker_operator import common
 from cwm_worker_operator.domains_config import DomainsConfig
 
 
+INITIALIZER_WORKER_READY_FOR_DEPLOYMENT = 'INITIALIZER_WORKER_READY_FOR_DEPLOYMENT'
+INITIALIZER_HOSTNAME_ERROR_MAX_ATTEMPTS = 'INITIALIZER_HOSTNAME_ERROR_MAX_ATTEMPTS'
+INITIALIZER_HOSTNAME_ERROR_RETRY = 'INITIALIZER_HOSTNAME_ERROR_RETRY'
+INITIALIZER_HOSTNAME_ERROR_NO_RETRY = 'INITIALIZER_HOSTNAME_ERROR_NO_RETRY'
+INITIALIZER_WORKER_FORCE_DELETE = 'INITIALIZER_WORKER_FORCE_DELETE'
+DEPLOYER_WORKER_ERROR = 'DEPLOYER_WORKER_ERROR'
+DEPLOYER_WAIT_RETRY_DEPLOYMENT = 'DEPLOYER_WAIT_RETRY_DEPLOYMENT'
+DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT = 'DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT'
+WAITER_WORKER_ERROR = 'WAITER_WORKER_ERROR'
+WAITER_WORKER_ERROR_COMPLETE = 'WAITER_WORKER_ERROR_COMPLETE'
+WAITER_WORKER_AVAILABLE = 'WAITER_WORKER_AVAILABLE'
+
+
+def set_last_action(deployment_flow_manager, action, worker_id=None, hostname=None):
+    if worker_id:
+        assert not hostname, 'cannot specify both worker_id and hostname'
+        deployment_flow_manager.domains_config.keys.worker_last_deployment_flow_action.set(worker_id, action)
+        deployment_flow_manager.domains_config.keys.worker_last_deployment_flow_time.set(worker_id)
+    elif hostname:
+        deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_action.set(hostname, action)
+        deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_time.set(hostname)
+    else:
+        raise Exception("must set either worker_id or hostname")
+
 class InitializerDeploymentFlowManager:
 
     def __init__(self, domains_config: DomainsConfig):
@@ -43,18 +67,24 @@ class InitializerDeploymentFlowManager:
 
     def set_worker_ready_for_deployment(self, worker_id):
         self.domains_config.set_worker_ready_for_deployment(worker_id)
+        set_last_action(self, INITIALIZER_WORKER_READY_FOR_DEPLOYMENT, worker_id=worker_id)
 
     def set_hostname_error(self, hostname, error_msg, allow_retry=False):
         if allow_retry:
             error_attempt_number = self.domains_config.increment_worker_error_attempt_number(hostname)
             if error_attempt_number >= config.WORKER_ERROR_MAX_ATTEMPTS:
                 self.domains_config.set_worker_error_by_hostname(hostname, error_msg)
+                set_last_action(self, INITIALIZER_HOSTNAME_ERROR_MAX_ATTEMPTS, hostname=hostname)
+            else:
+                set_last_action(self, INITIALIZER_HOSTNAME_ERROR_RETRY, hostname=hostname)
         else:
             self.domains_config.set_worker_error_by_hostname(hostname, error_msg)
+            set_last_action(self, INITIALIZER_HOSTNAME_ERROR_NO_RETRY, hostname=hostname)
 
     def set_worker_force_delete(self, worker_id):
         self.domains_config.del_worker_force_update(worker_id)
         self.domains_config.set_worker_force_delete(worker_id)
+        set_last_action(self, INITIALIZER_WORKER_FORCE_DELETE, worker_id=worker_id)
 
 
 class DeployerDeploymentFlowManager:
@@ -81,13 +111,16 @@ class DeployerDeploymentFlowManager:
 
     def set_worker_error(self, worker_id, error_msg):
         self.domains_config.set_worker_error(worker_id, error_msg)
+        set_last_action(self, DEPLOYER_WORKER_ERROR, worker_id=worker_id)
 
     def wait_retry_deployment(self, worker_id):
         self.domains_config.increment_worker_deployment_attempt_number(worker_id)
         self.domains_config.set_worker_waiting_for_deployment(worker_id, wait_for_error=True)
+        set_last_action(self, DEPLOYER_WAIT_RETRY_DEPLOYMENT, worker_id=worker_id)
 
     def set_worker_waiting_for_deployment(self, worker_id):
         self.domains_config.set_worker_waiting_for_deployment(worker_id)
+        set_last_action(self, DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT, worker_id=worker_id)
 
 
 class WaiterDeploymentFlowManager:
@@ -105,9 +138,12 @@ class WaiterDeploymentFlowManager:
 
     def set_worker_error(self, worker_id, error_msg):
         self.domains_config.set_worker_error(worker_id, error_msg)
+        set_last_action(self, WAITER_WORKER_ERROR, worker_id=worker_id)
 
     def set_worker_wait_for_error_complete(self, worker_id):
         self.domains_config.keys.worker_waiting_for_deployment_complete.delete(worker_id)
+        set_last_action(self, WAITER_WORKER_ERROR_COMPLETE, worker_id=worker_id)
 
     def set_worker_available(self, worker_id, internal_hostname):
         self.domains_config.set_worker_available(worker_id, internal_hostname)
+        set_last_action(self, WAITER_WORKER_AVAILABLE, worker_id=worker_id)

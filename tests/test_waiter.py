@@ -1,7 +1,7 @@
 import pytz
 import datetime
 
-from cwm_worker_operator import waiter, config, common
+from cwm_worker_operator import waiter, config, common, deployment_flow_manager
 
 
 def assert_domain_waiter_metrics(waiter_metrics, observation):
@@ -17,8 +17,12 @@ def test_invalid_volume_config(domains_config, waiter_metrics, deployments_manag
     domains_config.keys.volume_config.set(worker_id, '{}')
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
         volume_config_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.WAITER_WORKER_ERROR
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
     assert len(deployments_manager.calls) == 0
@@ -51,9 +55,13 @@ def test_deployment_not_ready_timeout(domains_config, waiter_metrics, deployment
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
         hostname_error_key: 'TIMEOUT_WAITING_FOR_DEPLOYMENT',
-        volume_config_key: ''
+        volume_config_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.WAITER_WORKER_ERROR
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',timeout']
     assert deployments_manager.calls == [('is_ready', [namespace_name, 'minio', False])]
@@ -71,13 +79,16 @@ def test_deployment_ready(domains_config, waiter_metrics, deployments_manager):
     deployments_manager.hostname_verify_worker_access[internal_hostname] = True
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     hostname_available_key = domains_config.keys.hostname_available._(hostname)
     hostname_ingress_hostname_key = domains_config.keys.hostname_ingress_hostname._(hostname)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
         hostname_available_key: '',
         hostname_ingress_hostname_key: '"{}"'.format(internal_hostname),
         volume_config_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.WAITER_WORKER_AVAILABLE
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',success']
     print(deployments_manager.calls)
@@ -96,12 +107,14 @@ def test_wait_for_error(domains_config, waiter_metrics, deployments_manager):
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
     ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
     # 1st iteration - no action because not enough time passed since start_time
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key]) == {
         waiting_for_deployment_key: 'error',
         volume_config_key: '',
-        ready_for_deployment_key: ''
+        ready_for_deployment_key: '',
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache']
     assert len(deployments_manager.calls) == 0
@@ -109,9 +122,11 @@ def test_wait_for_error(domains_config, waiter_metrics, deployments_manager):
     domains_config.keys.worker_ready_for_deployment.set(worker_id, (common.now() - datetime.timedelta(minutes=5)).strftime("%Y%m%dT%H%M%S.%f"))
     waiter_metrics.observations = []
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key, last_deployment_flow_time_key]) == {
         volume_config_key: '',
-        ready_for_deployment_key: ''
+        ready_for_deployment_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.WAITER_WORKER_ERROR_COMPLETE
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache']
     assert len(deployments_manager.calls) == 0
@@ -131,13 +146,16 @@ def test_minimal_check(domains_config, waiter_metrics, deployments_manager):
     deployments_manager.namespace_deployment_type_hostname['{}-minio'.format(namespace_name)] = internal_hostname
     waiter.run_single_iteration(domains_config, waiter_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     hostname_available_key = domains_config.keys.hostname_available._(hostname)
     hostname_ingress_hostname_key = domains_config.keys.hostname_ingress_hostname._(hostname)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
         hostname_available_key: '',
         hostname_ingress_hostname_key: '"{}"'.format(internal_hostname),
         volume_config_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.WAITER_WORKER_AVAILABLE
     }
     assert [','.join(o['labels']) for o in waiter_metrics.observations] == [',success_cache', ',success']
     assert len(deployments_manager.calls) == 2
