@@ -62,6 +62,7 @@ operator:
     - nodes-checker
     - clear-cacher
     - nas-checker
+    - redis-cleaner
   image: ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -149,6 +150,8 @@ operator:
   NAS_IPS: "1.2.3.4,5.6.7.8"
   # __NAS_IP__ in the template json will be replaced for each nas ip in NAS_IPS
   NAS_CHECKER_VOLUME_TEMPLATE_JSON: '{"emptyDir": {}}'
+  REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS: 120
+  REDIS_CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: 5
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}

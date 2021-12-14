@@ -45,6 +45,7 @@ for daemon in [
     {'name': 'nodes-checker'},
     {'name': 'clear-cacher'},
     {'name': 'nas-checker'},
+    {'name': 'redis-cleaner'},
 ]:
     try:
         daemon_module = importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_')))
