@@ -4,6 +4,7 @@ from cwm_worker_operator import config
 
 from .common import get_volume_config_ssl_keys
 from .test_domains_config import CERTIFICATE_KEY, CERTIFICATE_PEM, INTERMEDIATE_CERTIFICATES
+from cwm_worker_operator import deployment_flow_manager
 
 
 def assert_domain_deployer_metrics(deployer_metrics, observation):
@@ -19,11 +20,15 @@ def assert_deployment_success(worker_id, hostname, namespace_name, domains_confi
     hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
     ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key]) == {
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key, last_deployment_flow_time_key]) == {
         ready_for_deployment_key: '',
         waiting_for_deployment_key: '',
         volume_config_key: '',
-        hostname_initialize_key: ''
+        hostname_initialize_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',success']
     assert len(deployments_manager.calls) == 2
@@ -59,8 +64,12 @@ def test_invalid_volume_config(domains_config, deployer_metrics, deployments_man
     domains_config.keys.volume_config.set(worker_id, '{}')
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
     volume_config_key = domains_config.keys.volume_config._(worker_id)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
-        volume_config_key: ''
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
+        volume_config_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_ERROR,
+        last_deployment_flow_time_key: ''
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
     assert len(deployments_manager.calls) == 0
@@ -76,16 +85,20 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
     deployment_error_attempt_key = domains_config.keys.worker_deployment_error_attempt._(worker_id)
     ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
     # first attempt - will retry
     deployments_manager.deploy_raise_exception = True
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key, last_deployment_flow_time_key]) == {
         # hostname_error_key: 'FAILED_TO_DEPLOY',
         deployment_error_attempt_key: '1',
         ready_for_deployment_key: '',
         waiting_for_deployment_key: 'error',
         volume_config_key: '',
-        hostname_initialize_key: ''
+        hostname_initialize_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WAIT_RETRY_DEPLOYMENT,
+        last_deployment_flow_time_key: ''
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed']
     assert len(deployments_manager.calls) == 2
@@ -103,9 +116,11 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
     domains_config.keys.worker_waiting_for_deployment_complete.delete(worker_id)
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
     assert len(deployments_manager.calls) == 2
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
         hostname_error_key: 'FAILED_TO_DEPLOY',
-        volume_config_key: ''
+        volume_config_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_ERROR
     }
 
 

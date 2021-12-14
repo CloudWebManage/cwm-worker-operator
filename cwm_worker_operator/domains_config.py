@@ -154,6 +154,11 @@ class DomainsConfigKeys:
         self.updater_last_cwm_api_update = DomainsConfigKeyStatic("updater_last_cwm_api_update", 'internal', domains_config)
         self.node_nas_is_healthy = DomainsConfigKeyPrefixBoolean("node:nas:is_healthy", 'internal', domains_config, keys_summary_param='node')
         self.node_nas_last_check = DomainsConfigKeyPrefixDateTime("node:nas:last_check", 'internal', domains_config, keys_summary_param='node')
+        self.worker_last_deployment_flow_action = DomainsConfigKeyPrefix("worker:last_deployment_flow:action", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_last_deployment_flow_time = DomainsConfigKeyPrefixDateTime("worker:last_deployment_flow:time", 'internal', domains_config, keys_summary_param='worker_id')
+        self.hostname_last_deployment_flow_action = DomainsConfigKeyPrefix("hostname:last_deployment_flow:action", 'internal', domains_config, keys_summary_param='hostname')
+        self.hostname_last_deployment_flow_time = DomainsConfigKeyPrefixDateTime("hostname:last_deployment_flow:time", 'internal', domains_config, keys_summary_param='hostname')
+
 
         # metrics_redis - keys shared with deployments to get metrics
         self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config, keys_summary_param='namespace_name')
@@ -596,7 +601,9 @@ class DomainsConfig:
             num_availale_hostnames += 1
         return num_availale_hostnames > 0
 
-    def del_worker_hostname_keys(self, hostname, with_error=True, with_available=True, with_ingress=True):
+    def del_worker_hostname_keys(self, hostname,
+                                 with_error=True, with_available=True, with_ingress=True,
+                                 with_deployment_flow=True):
         self.keys.hostname_initialize.delete(hostname)
         self.keys.volume_config_hostname_worker_id.delete(hostname)
         if with_available:
@@ -606,11 +613,19 @@ class DomainsConfig:
         if with_error:
             self.keys.hostname_error.delete(hostname)
             self.keys.hostname_error_attempt_number.delete(hostname)
+        if with_deployment_flow:
+            self.keys.hostname_last_deployment_flow_action.delete(hostname)
+            self.keys.hostname_last_deployment_flow_time.delete(hostname)
 
-    def del_worker_keys(self, worker_id, with_error=True, with_volume_config=True, with_available=True, with_ingress=True, with_metrics=False):
+    def del_worker_keys(self, worker_id,
+                        with_error=True, with_volume_config=True, with_available=True,
+                        with_ingress=True, with_metrics=False, with_deployment_flow=True
+                        ):
         try:
             for hostname in self.iterate_worker_hostnames(worker_id):
-                self.del_worker_hostname_keys(hostname, with_error=with_error, with_available=with_available, with_ingress=with_ingress)
+                self.del_worker_hostname_keys(hostname,
+                                              with_error=with_error, with_available=with_available,
+                                              with_ingress=with_ingress, with_deployment_flow=with_deployment_flow)
         except:
             print("Failed to delete worker hostname keys")
             traceback.print_exc()
@@ -632,7 +647,9 @@ class DomainsConfig:
                     r.delete(*keys)
         if with_volume_config:
             self.keys.volume_config.delete(worker_id)
-
+        if with_deployment_flow:
+            self.keys.worker_last_deployment_flow_action.delete(worker_id)
+            self.keys.worker_last_deployment_flow_time.delete(worker_id)
 
     def set_worker_force_update(self, worker_id):
         self.keys.worker_force_update.set(worker_id, '')

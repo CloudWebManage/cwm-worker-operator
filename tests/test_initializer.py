@@ -4,6 +4,7 @@ import datetime
 from cwm_worker_operator import initializer
 from cwm_worker_operator import config
 from cwm_worker_operator import common
+from cwm_worker_operator import deployment_flow_manager
 
 
 def assert_volume_config(domains_config, worker_id, expected_data, msg):
@@ -21,6 +22,8 @@ def test_initialize_invalid_volume_config(domains_config, initializer_metrics):
     hostname_error_attempt_number_key = domains_config.keys.hostname_error_attempt_number._(hostname)
     hostname_initialize_key = domains_config.keys.hostname_initialize._(hostname)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
+    last_deployment_flow_action_key = domains_config.keys.hostname_last_deployment_flow_action._(hostname)
+    last_deployment_flow_time_key = domains_config.keys.hostname_last_deployment_flow_time._(hostname)
     expected_metrics_observations = []
     for i in range(1, config.WORKER_ERROR_MAX_ATTEMPTS+1):
         initializer.run_single_iteration(domains_config, initializer_metrics)
@@ -28,14 +31,18 @@ def test_initialize_invalid_volume_config(domains_config, initializer_metrics):
             hostname_error_attempt_number_key: str(i)
         }
         if i < config.WORKER_ERROR_MAX_ATTEMPTS:
-            assert domains_config._get_all_redis_pools_values() == {
+            assert domains_config._get_all_redis_pools_values(blank_keys=[last_deployment_flow_time_key]) == {
                 **common_expected_key_values,
-                hostname_initialize_key: ""
+                hostname_initialize_key: "",
+                last_deployment_flow_action_key: deployment_flow_manager.INITIALIZER_HOSTNAME_ERROR_RETRY,
+                last_deployment_flow_time_key: ''
             }, i
         else:
-            assert domains_config._get_all_redis_pools_values() == {
+            assert domains_config._get_all_redis_pools_values(blank_keys=[last_deployment_flow_time_key]) == {
                 **common_expected_key_values,
                 hostname_error_key: "FAILED_TO_GET_VOLUME_CONFIG",
+                last_deployment_flow_time_key: '',
+                last_deployment_flow_action_key: deployment_flow_manager.INITIALIZER_HOSTNAME_ERROR_MAX_ATTEMPTS
             }, i
         # "error" observations is from domains_config.cwm_api_get_volume_config
         # "failed_to_get_volume_config" is from initializer
@@ -48,14 +55,18 @@ def test_initialize_invalid_volume_zone(domains_config, initializer_metrics):
     domains_config.keys.hostname_initialize.set(hostname, '')
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
+    last_deployment_flow_action_key = domains_config.keys.hostname_last_deployment_flow_action._(hostname)
+    last_deployment_flow_time_key = domains_config.keys.hostname_last_deployment_flow_time._(hostname)
     # set mock volume config in api with invalid zone
     domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
         'instanceId': worker_id, 'zone': 'INVALID', 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
     }
     initializer.run_single_iteration(domains_config, initializer_metrics)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
         volume_config_key: '',
-        hostname_error_key: 'INVALID_VOLUME_ZONE'
+        hostname_error_key: 'INVALID_VOLUME_ZONE',
+        last_deployment_flow_action_key: deployment_flow_manager.INITIALIZER_HOSTNAME_ERROR_NO_RETRY,
+        last_deployment_flow_time_key: ''
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': 'INVALID',
@@ -79,6 +90,10 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
     hostname_initialize_key_2 = domains_config.keys.hostname_initialize._(hostname_2)
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     worker_ready_for_deployment_key_2 = domains_config.keys.worker_ready_for_deployment._(worker_id_2)
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_action_key_2 = domains_config.keys.worker_last_deployment_flow_action._(worker_id_2)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    last_deployment_flow_time_key_2 = domains_config.keys.worker_last_deployment_flow_time._(worker_id_2)
     # set mock volume config in api with valid zone
     domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
         'instanceId': worker_id, 'zone': config.CWM_ZONE, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
@@ -89,7 +104,8 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
     initializer.run_single_iteration(domains_config, initializer_metrics)
     assert domains_config._get_all_redis_pools_values(blank_keys=[
         volume_config_key, worker_ready_for_deployment_key,
-        volume_config_key_2, worker_ready_for_deployment_key_2
+        volume_config_key_2, worker_ready_for_deployment_key_2,
+        last_deployment_flow_time_key, last_deployment_flow_time_key_2,
     ]) == {
         hostname_initialize_key: '',
         worker_ready_for_deployment_key: "",
@@ -98,7 +114,11 @@ def test_initialize_valid_domain(domains_config, initializer_metrics):
         worker_ready_for_deployment_key_2: "",
         volume_config_key_2: "",
         volume_config_hostname_worker_id_key: worker_id,
-        volume_config_hostname_worker_id_key_2: worker_id_2
+        volume_config_hostname_worker_id_key_2: worker_id_2,
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_time_key_2: '',
+        last_deployment_flow_action_key: deployment_flow_manager.INITIALIZER_WORKER_READY_FOR_DEPLOYMENT,
+        last_deployment_flow_action_key_2: deployment_flow_manager.INITIALIZER_WORKER_READY_FOR_DEPLOYMENT,
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': config.CWM_ZONE,
@@ -120,6 +140,8 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
     worker_force_update_key = domains_config.keys.worker_force_update._(worker_id)
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
     # set forced update for the worker
     domains_config.keys.worker_force_update.set(worker_id, '')
     # set valid mock volume config in api
@@ -127,10 +149,12 @@ def test_force_update_valid_domain(domains_config, initializer_metrics):
         'instanceId': worker_id, 'zone': config.CWM_ZONE, 'minio_extra_configs': {'hostnames': [{'hostname': hostname}]}
     }
     initializer.run_single_iteration(domains_config, initializer_metrics)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key, last_deployment_flow_time_key]) == {
         worker_ready_for_deployment_key: '',
         volume_config_key: '',
-        worker_force_update_key: ''
+        worker_force_update_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.INITIALIZER_WORKER_READY_FOR_DEPLOYMENT,
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': config.CWM_ZONE,
@@ -146,12 +170,16 @@ def test_force_update_invalid_domain(domains_config, initializer_metrics):
     volume_config_key = domains_config.keys.volume_config._(worker_id)
     force_delete_domain_key = domains_config.keys.worker_force_delete._(worker_id)
     worker_ready_for_deployment_key = domains_config.keys.worker_ready_for_deployment._(worker_id)
+    last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
+    last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
     # set forced update for the worker
     domains_config.keys.worker_force_update.set(worker_id, '')
     initializer.run_single_iteration(domains_config, initializer_metrics)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, worker_ready_for_deployment_key, last_deployment_flow_time_key]) == {
         force_delete_domain_key: '',
-        volume_config_key: ''
+        volume_config_key: '',
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.INITIALIZER_WORKER_FORCE_DELETE
     }
     volume_config = json.loads(domains_config.keys.volume_config.get(worker_id))
     assert set(volume_config.keys()) == {'__error', '__last_update', '__request_hostname'}
@@ -197,16 +225,20 @@ def test_initialize_invalid_hostname(domains_config, initializer_metrics):
     volume_config_hostname_worker_id_key = domains_config.keys.volume_config_hostname_worker_id._(hostname)
     hostname_error_key = domains_config.keys.hostname_error._(hostname)
     volume_config_hostname_error_key = domains_config.keys.hostname_error._(volume_config_hostname)
+    last_deployment_flow_action_key = domains_config.keys.hostname_last_deployment_flow_action._(hostname)
+    last_deployment_flow_time_key = domains_config.keys.hostname_last_deployment_flow_time._(hostname)
     # set mock volume config in api with hostname which does not match the worker hostname
     domains_config._cwm_api_volume_configs['hostname:{}'.format(hostname)] = {
         'instanceId': worker_id, 'zone': 'EU', 'minio_extra_configs': {'hostnames': [{'hostname': volume_config_hostname}]}
     }
     initializer.run_single_iteration(domains_config, initializer_metrics)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
         volume_config_key: "",
         hostname_error_key: 'INVALID_HOSTNAME',
         volume_config_hostname_error_key: 'INVALID_HOSTNAME',
-        volume_config_hostname_worker_id_key: worker_id
+        volume_config_hostname_worker_id_key: worker_id,
+        last_deployment_flow_time_key: '',
+        last_deployment_flow_action_key: deployment_flow_manager.INITIALIZER_HOSTNAME_ERROR_NO_RETRY
     }
     assert_volume_config(domains_config, worker_id, {
         'zone': 'EU',
