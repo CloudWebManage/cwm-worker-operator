@@ -27,11 +27,11 @@ def test_single_iteration(domains_config, deployments_manager):
     assert (common.now() - domains_config.keys.node_nas_last_check.get('minikube:5.6.7.8')).total_seconds() < 10
     assert not domains_config.keys.node_nas_is_healthy.exists('invalid:0.0.0.0')
     assert not domains_config.keys.node_nas_is_healthy.exists('minikube:1.1.1.1')
-    assert glob('{}/**'.format(minikube_status_path), recursive=True) == [
+    assert sorted(glob('{}/**'.format(minikube_status_path), recursive=True)) == [
         os.path.join(minikube_status_path, ''),
-        os.path.join(minikube_status_path, '1.2.3.4.json'),
         os.path.join(minikube_status_path, '1.2.3.4-last-errors'),
         os.path.join(minikube_status_path, '1.2.3.4-last-errors', '{}.json'.format(now.strftime('%Y-%m-%dT%H-%M-%S'))),
+        os.path.join(minikube_status_path, '1.2.3.4.json'),
         os.path.join(minikube_status_path, '5.6.7.8.json'),
     ]
     nas_checker.run_single_iteration(domains_config, deployments_manager,
@@ -39,7 +39,7 @@ def test_single_iteration(domains_config, deployments_manager):
     nas_checker.run_single_iteration(domains_config, deployments_manager,
                                      now=now + datetime.timedelta(minutes=2),
                                      max_last_errors=2)
-    assert glob(os.path.join(minikube_status_path, '1.2.3.4-last-errors', '*')) == [
-        os.path.join(minikube_status_path, '1.2.3.4-last-errors', '{}.json'.format((now + datetime.timedelta(minutes=2)).strftime('%Y-%m-%dT%H-%M-%S'))),
+    assert sorted(glob(os.path.join(minikube_status_path, '1.2.3.4-last-errors', '*'))) == [
         os.path.join(minikube_status_path, '1.2.3.4-last-errors', '{}.json'.format((now + datetime.timedelta(minutes=1)).strftime('%Y-%m-%dT%H-%M-%S'))),
+        os.path.join(minikube_status_path, '1.2.3.4-last-errors', '{}.json'.format((now + datetime.timedelta(minutes=2)).strftime('%Y-%m-%dT%H-%M-%S'))),
     ]
