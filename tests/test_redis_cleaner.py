@@ -22,14 +22,17 @@ def test(domains_config):
 
 def test_last_deployment_flow(domains_config):
     hostname = 'www.example.com'
+    worker_id = 'example1'
     domains_config.keys.hostname_error.set(hostname, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
     domains_config.keys.hostname_last_deployment_flow_time.set(hostname)
+    domains_config.keys.hostname_last_deployment_flow_worker_id.set(hostname, worker_id)
     redis_cleaner.run_single_iteration(domains_config)
     assert domains_config._get_all_redis_pools_values(blank_keys=[
         domains_config.keys.hostname_last_deployment_flow_time._(hostname)
     ]) == {
         domains_config.keys.hostname_error._(hostname): domains_config.WORKER_ERROR_FAILED_TO_DEPLOY,
-        domains_config.keys.hostname_last_deployment_flow_time._(hostname): ''
+        domains_config.keys.hostname_last_deployment_flow_time._(hostname): '',
+        domains_config.keys.hostname_last_deployment_flow_worker_id._(hostname): worker_id
     }
     domains_config.keys.hostname_last_deployment_flow_time.set(
         hostname,
@@ -39,9 +42,12 @@ def test_last_deployment_flow(domains_config):
     )
     redis_cleaner.run_single_iteration(domains_config)
     assert domains_config._get_all_redis_pools_values(blank_keys=[
-        domains_config.keys.hostname_last_deployment_flow_time._(hostname)
+        domains_config.keys.hostname_last_deployment_flow_time._(hostname),
+        domains_config.keys.volume_config._(worker_id)
     ]) == {
-        domains_config.keys.hostname_last_deployment_flow_time._(hostname): ''
+        domains_config.keys.hostname_last_deployment_flow_time._(hostname): '',
+        domains_config.keys.volume_config._(worker_id): '',
+        domains_config.keys.hostname_last_deployment_flow_worker_id._(hostname): worker_id
     }
 
 

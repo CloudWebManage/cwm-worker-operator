@@ -17,15 +17,20 @@ WAITER_WORKER_AVAILABLE = 'WAITER_WORKER_AVAILABLE'
 
 
 def set_last_action(deployment_flow_manager, action, worker_id=None, hostname=None):
+    assert worker_id or hostname, 'must specify either worker_id or hostname (or both)'
     if worker_id:
-        assert not hostname, 'cannot specify both worker_id and hostname'
         deployment_flow_manager.domains_config.keys.worker_last_deployment_flow_action.set(worker_id, action)
         deployment_flow_manager.domains_config.keys.worker_last_deployment_flow_time.set(worker_id)
-    elif hostname:
+        for worker_hostname in deployment_flow_manager.domains_config.iterate_worker_hostnames(worker_id):
+            deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_action.set(worker_hostname, action)
+            deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_time.set(worker_hostname)
+            deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_worker_id.set(worker_hostname, worker_id)
+    if hostname:
         deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_action.set(hostname, action)
         deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_time.set(hostname)
-    else:
-        raise Exception("must set either worker_id or hostname")
+        if worker_id:
+            deployment_flow_manager.domains_config.keys.hostname_last_deployment_flow_worker_id.set(hostname, worker_id)
+
 
 class InitializerDeploymentFlowManager:
 
@@ -69,17 +74,17 @@ class InitializerDeploymentFlowManager:
         self.domains_config.set_worker_ready_for_deployment(worker_id)
         set_last_action(self, INITIALIZER_WORKER_READY_FOR_DEPLOYMENT, worker_id=worker_id)
 
-    def set_hostname_error(self, hostname, error_msg, allow_retry=False):
+    def set_hostname_error(self, hostname, error_msg, allow_retry=False, worker_id=None):
         if allow_retry:
             error_attempt_number = self.domains_config.increment_worker_error_attempt_number(hostname)
             if error_attempt_number >= config.WORKER_ERROR_MAX_ATTEMPTS:
                 self.domains_config.set_worker_error_by_hostname(hostname, error_msg)
-                set_last_action(self, INITIALIZER_HOSTNAME_ERROR_MAX_ATTEMPTS, hostname=hostname)
+                set_last_action(self, INITIALIZER_HOSTNAME_ERROR_MAX_ATTEMPTS, hostname=hostname, worker_id=worker_id)
             else:
-                set_last_action(self, INITIALIZER_HOSTNAME_ERROR_RETRY, hostname=hostname)
+                set_last_action(self, INITIALIZER_HOSTNAME_ERROR_RETRY, hostname=hostname, worker_id=worker_id)
         else:
             self.domains_config.set_worker_error_by_hostname(hostname, error_msg)
-            set_last_action(self, INITIALIZER_HOSTNAME_ERROR_NO_RETRY, hostname=hostname)
+            set_last_action(self, INITIALIZER_HOSTNAME_ERROR_NO_RETRY, hostname=hostname, worker_id=worker_id)
 
     def set_worker_force_delete(self, worker_id):
         self.domains_config.del_worker_force_update(worker_id)

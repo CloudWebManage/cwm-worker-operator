@@ -25,7 +25,7 @@ def initialize_worker(domains_config, initializer_metrics, flow_manager, worker_
             if config.DEBUG and config.DEBUG_VERBOSITY > 5:
                 print("ERROR! Invalid volume zone (worker_id={} volume_zone={} CWM_ZONE={})".format(worker_id, volume_zone, config.CWM_ZONE), flush=True)
             if hostname:
-                flow_manager.set_hostname_error(hostname, domains_config.WORKER_ERROR_INVALID_VOLUME_ZONE)
+                flow_manager.set_hostname_error(hostname, domains_config.WORKER_ERROR_INVALID_VOLUME_ZONE, worker_id=worker_id)
             else:
                 flow_manager.set_worker_force_delete(worker_id)
             initializer_metrics.invalid_volume_zone(worker_id, start_time)
@@ -34,7 +34,7 @@ def initialize_worker(domains_config, initializer_metrics, flow_manager, worker_
         if hostname and not common.is_hostnames_match_in_list(hostname, volume_config.hostnames):
             initializer_metrics.invalid_hostname(worker_id, start_time)
             logs.debug_info("Invalid hostname", **log_kwargs)
-            flow_manager.set_hostname_error(hostname, domains_config.WORKER_ERROR_INVALID_HOSTNAME)
+            flow_manager.set_hostname_error(hostname, domains_config.WORKER_ERROR_INVALID_HOSTNAME, worker_id=worker_id)
             return
         initializer_metrics.initialized(worker_id, start_time)
         flow_manager.set_worker_ready_for_deployment(worker_id)

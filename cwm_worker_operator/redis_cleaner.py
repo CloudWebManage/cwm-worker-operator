@@ -19,13 +19,15 @@ def cleanup_hostname_error(domains_config: DomainsConfig, hostname, stats):
                 or (common.now() - last_deployment_flow_time).total_seconds() > config.REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS
             )
     ):
-        # these errors are valid for retry - we only delete the hostname_error key
-        # for this we only consider errors which have a chance to be successful at a later time
-        # this will allow ingress to retry them when another request is made for this hostname
-        stats['hostname_error_failed_deploy_deleted'] += 1
-        domains_config.keys.hostname_error.delete(hostname)
-    else:
-        handle_hostname_error_any(domains_config, hostname, stats, last_deployment_flow_time)
+        worker_id = domains_config.keys.hostname_last_deployment_flow_worker_id.get(hostname)
+        if worker_id and not domains_config.is_worker_available(worker_id.decode()):
+            # none of the worker hostname are available
+            # we can safely delete all worker keys to force a retry on next reuqest
+            domains_config.del_worker_keys(worker_id, with_deployment_flow=False)
+            domains_config.del_worker_hostname_keys(hostname, with_deployment_flow=False)
+            stats['hostname_error_failed_deploy_deleted'] += 1
+            return
+    handle_hostname_error_any(domains_config, hostname, stats, last_deployment_flow_time)
 
 
 def handle_hostname_error_any(domains_config: DomainsConfig, hostname, stats, last_deployment_flow_time='-'):
@@ -39,6 +41,7 @@ def handle_hostname_error_any(domains_config: DomainsConfig, hostname, stats, la
         # for these cases we do a full deletion of all hostname keys
         stats['hostname_error_any_deleted'] += 1
         domains_config.del_worker_hostname_keys(hostname)
+
 
 def run_single_iteration(domains_config: DomainsConfig, **_):
     stats = defaultdict(int)

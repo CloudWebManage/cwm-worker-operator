@@ -22,13 +22,39 @@ def assert_deployment_success(worker_id, hostname, namespace_name, domains_confi
     waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
     last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
     last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key, last_deployment_flow_time_key]) == {
+    hostname_last_deployment_flow_action_key = domains_config.keys.hostname_last_deployment_flow_action._(hostname)
+    hostname_last_deployment_flow_time_key = domains_config.keys.hostname_last_deployment_flow_time._(hostname)
+    hostname_last_deployment_flow_worker_id_key = domains_config.keys.hostname_last_deployment_flow_worker_id._(hostname)
+    additional_hostnames_blank_keys = []
+    additional_hostnames_redis_pool_values = {}
+    for additional_hostname in expected_additional_hostnames:
+        additional_hostnames_blank_keys.append(
+            domains_config.keys.hostname_last_deployment_flow_time._(additional_hostname)
+        )
+        additional_hostnames_redis_pool_values[
+            domains_config.keys.hostname_last_deployment_flow_time._(additional_hostname)
+        ] = ''
+        additional_hostnames_redis_pool_values[
+            domains_config.keys.hostname_last_deployment_flow_action._(additional_hostname)
+        ] = deployment_flow_manager.DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT
+        additional_hostnames_redis_pool_values[
+            domains_config.keys.hostname_last_deployment_flow_worker_id._(additional_hostname)
+        ] = worker_id
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        volume_config_key, ready_for_deployment_key,
+        last_deployment_flow_time_key, hostname_last_deployment_flow_time_key,
+        *additional_hostnames_blank_keys
+    ]) == {
         ready_for_deployment_key: '',
         waiting_for_deployment_key: '',
         volume_config_key: '',
         hostname_initialize_key: '',
         last_deployment_flow_time_key: '',
-        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT
+        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT,
+        hostname_last_deployment_flow_worker_id_key: worker_id,
+        hostname_last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_WAITING_FOR_DEPLOYMENT,
+        hostname_last_deployment_flow_time_key: '',
+        **additional_hostnames_redis_pool_values
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',success']
     assert len(deployments_manager.calls) == 2
@@ -87,10 +113,16 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
     waiting_for_deployment_key = domains_config.keys.worker_waiting_for_deployment_complete._(worker_id)
     last_deployment_flow_action_key = domains_config.keys.worker_last_deployment_flow_action._(worker_id)
     last_deployment_flow_time_key = domains_config.keys.worker_last_deployment_flow_time._(worker_id)
+    hostname_last_deployment_flow_action_key = domains_config.keys.hostname_last_deployment_flow_action._(hostname)
+    hostname_last_deployment_flow_time_key = domains_config.keys.hostname_last_deployment_flow_time._(hostname)
+    hostname_last_deployment_flow_worker_id_key = domains_config.keys.hostname_last_deployment_flow_worker_id._(hostname)
     # first attempt - will retry
     deployments_manager.deploy_raise_exception = True
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, ready_for_deployment_key, last_deployment_flow_time_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        volume_config_key, ready_for_deployment_key,
+        last_deployment_flow_time_key, hostname_last_deployment_flow_time_key
+    ]) == {
         # hostname_error_key: 'FAILED_TO_DEPLOY',
         deployment_error_attempt_key: '1',
         ready_for_deployment_key: '',
@@ -98,7 +130,10 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
         volume_config_key: '',
         hostname_initialize_key: '',
         last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WAIT_RETRY_DEPLOYMENT,
-        last_deployment_flow_time_key: ''
+        last_deployment_flow_time_key: '',
+        hostname_last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WAIT_RETRY_DEPLOYMENT,
+        hostname_last_deployment_flow_time_key: '',
+        hostname_last_deployment_flow_worker_id_key: worker_id
     }
     assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed']
     assert len(deployments_manager.calls) == 2
@@ -116,11 +151,17 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
     domains_config.keys.worker_waiting_for_deployment_complete.delete(worker_id)
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
     assert len(deployments_manager.calls) == 2
-    assert domains_config._get_all_redis_pools_values(blank_keys=[volume_config_key, last_deployment_flow_time_key]) == {
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        volume_config_key,
+        last_deployment_flow_time_key, hostname_last_deployment_flow_time_key
+    ]) == {
         hostname_error_key: 'FAILED_TO_DEPLOY',
         volume_config_key: '',
         last_deployment_flow_time_key: '',
-        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_ERROR
+        last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_ERROR,
+        hostname_last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_ERROR,
+        hostname_last_deployment_flow_time_key: '',
+        hostname_last_deployment_flow_worker_id_key: worker_id
     }
 
 
