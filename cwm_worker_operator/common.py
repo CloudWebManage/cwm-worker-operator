@@ -2,6 +2,7 @@ import re
 import os
 import json
 import datetime
+from glob import glob
 from functools import lru_cache
 
 import pytz
@@ -96,3 +97,13 @@ def local_storage_set(filename: str, content: str):
 
 def local_storage_json_set(key: str, value: dict):
     local_storage_set('{}.json'.format(key), json.dumps(value))
+
+
+def local_storage_json_last_items_append(key: str, value: dict, max_items=20, now_=None):
+    if not now_:
+        now_ = now()
+    filekey = now_.strftime('%Y-%m-%dT%H-%M-%S')
+    local_storage_json_set(os.path.join(key, filekey), value)
+    items = sorted(glob(os.path.join(config.LOCAL_STORAGE_PATH, key, '*')), reverse=True)
+    if len(items) > max_items:
+        os.unlink(items[-1])
