@@ -60,7 +60,7 @@ def test_worker_keys(domains_config):
     ## worker domain waiting for initialization
 
     dc.keys.hostname_initialize.set(hostname, '')
-    assert dc.get_hostnames_waiting_for_initlization() == [hostname]
+    assert dc.get_hostnames_waiting_for_initialization() == [hostname]
 
     ## worker domain initialized (ready for deployment)
 

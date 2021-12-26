@@ -36,6 +36,7 @@ class DomainsConfigKey:
         with self.get_redis() as r:
             r.delete(self._(*args))
 
+
 class DomainsConfigKeyPrefix(DomainsConfigKey):
 
     def __init__(self, key_prefix, redis_pool_name, domains_config, **extra_kwargs):
@@ -270,7 +271,6 @@ class VolumeConfig:
         if domains_config and request_hostname and self.id is not None:
             domains_config.keys.volume_config_hostname_worker_id.set(request_hostname, self.id)
 
-
     def __str__(self):
         res = {}
         for key in dir(self):
@@ -433,7 +433,7 @@ class DomainsConfig:
     def get_worker_ids_waiting_for_deployment_complete(self):
         return list(self.keys.worker_waiting_for_deployment_complete.iterate_prefix_key_suffixes())
 
-    def get_hostnames_waiting_for_initlization(self):
+    def get_hostnames_waiting_for_initialization(self):
         return list(self.keys.hostname_initialize.iterate_prefix_key_suffixes())
 
     def _cwm_api_volume_config_api_call(self, query_param, query_value):
@@ -572,7 +572,7 @@ class DomainsConfig:
             yield hostname
             all_yielded_hostnames.add(hostname.lower())
         for hostnames_iterator in [
-            self.get_hostnames_waiting_for_initlization,
+            self.get_hostnames_waiting_for_initialization,
             self.keys.hostname_error.iterate_prefix_key_suffixes,
             self.keys.hostname_available.iterate_prefix_key_suffixes
         ]:

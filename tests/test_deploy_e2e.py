@@ -122,14 +122,14 @@ def _assert_after_waiter(worker_id, test_config, dc, debug=False):
         if (
             dc.keys.hostname_available.get(test_config['hostname']) == b''
             and json.loads(dc.keys.hostname_ingress_hostname.get(test_config['hostname']).decode()) == {proto: "minio-nginx.{}.svc.cluster.local".format(common.get_namespace_name_from_worker_id(worker_id)) for proto in ['http', 'https']}
-            and test_config['hostname'] not in dc.get_hostnames_waiting_for_initlization()
+            and test_config['hostname'] not in dc.get_hostnames_waiting_for_initialization()
         ):
             return True
         else:
             if debug:
                 print("hostname_available={}".format(dc.keys.hostname_available.get(test_config['hostname'])))
                 print("hostname_ingress_hostname={}".format(dc.keys.hostname_ingress_hostname.get(test_config['hostname'])))
-                print("hostnames_waiting_for_initlization={}".format(list(dc.get_hostnames_waiting_for_initlization())))
+                print("hostnames_waiting_for_initialization={}".format(list(dc.get_hostnames_waiting_for_initialization())))
             return False
     elif test_config.get('after_waiter') == 'error':
         if bool(dc.keys.hostname_error.get(test_config['hostname'])):
@@ -139,7 +139,7 @@ def _assert_after_waiter(worker_id, test_config, dc, debug=False):
                 print("hostname_error={}".format(dc.keys.hostname_error.get(test_config['hostname'])))
             return False
     elif test_config.get('after_waiter') is not None:
-        raise Exception('unkonwn after waiter assertion: {}'.format(test_config.get('after_waiter')))
+        raise Exception('unknown after waiter assertion: {}'.format(test_config.get('after_waiter')))
     else:
         return True
 
