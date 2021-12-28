@@ -637,6 +637,7 @@ class DomainsConfig:
         self.keys.worker_force_update.delete(worker_id)
         self.keys.worker_force_delete.delete(worker_id)
         self.keys.worker_last_clear_cache.delete(worker_id)
+        self.keys.worker_health.delete(worker_id)
         if with_metrics:
             self.keys.worker_aggregated_metrics.delete(worker_id)
             self.keys.worker_aggregated_metrics_last_sent_update.delete(worker_id)
