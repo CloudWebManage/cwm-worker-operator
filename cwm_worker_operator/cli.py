@@ -1,6 +1,5 @@
 import sys
 import importlib
-
 import click
 
 
@@ -46,6 +45,7 @@ for daemon in [
     {'name': 'clear-cacher'},
     {'name': 'nas-checker'},
     {'name': 'redis-cleaner'},
+    {'name': 'workers-checker'},
 ]:
     try:
         daemon_module = importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_')))

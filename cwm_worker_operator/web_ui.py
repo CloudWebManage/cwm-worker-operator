@@ -1,5 +1,5 @@
 """
-A web interfacte for debugging
+A web interface for debugging
 """
 import json
 import traceback

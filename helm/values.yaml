@@ -63,6 +63,7 @@ operator:
     - clear-cacher
     - nas-checker
     - redis-cleaner
+    - workers-checker
   image: ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator
   tag: ""
   imagePullPolicy: IfNotPresent
@@ -153,6 +154,7 @@ operator:
   REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS: 120
   REDIS_CLEANER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: 5
   REDIS_CLEANER_DELETE_ANY_HOSTNAME_ERROR_MIN_SECONDS: 86400
+  WORKERS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS: 5
   env: ""
 #  initializerResources: {}
 #  deployerResources: {}
