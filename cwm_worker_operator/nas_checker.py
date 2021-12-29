@@ -11,19 +11,17 @@ from cwm_worker_operator.domains_config import DomainsConfig
 def run_single_iteration(domains_config: DomainsConfig, deployments_manager, now=None, max_last_errors=20, **_):
     if not now:
         now = common.now()
-    all_worker_node_names = set()
+    all_worker_node_names = set([node['name'] for node in deployments_manager.iterate_cluster_worker_nodes()])
     all_nas_ips = set()
-    for node in deployments_manager.iterate_cluster_nodes():
-        if node['is_worker']:
-            all_worker_node_names.add(node['name'])
-            for nas_ip, status in deployments_manager.check_node_nas(node['name']).items():
-                all_nas_ips.add(nas_ip)
-                domains_config.keys.node_nas_is_healthy.set('{}:{}'.format(node['name'], nas_ip), status['is_healthy'])
-                domains_config.keys.node_nas_last_check.set('{}:{}'.format(node['name'], nas_ip))
-                common.local_storage_json_set('nas_checker/status_details/{}/{}'.format(node['name'], nas_ip), status)
-                if not status['is_healthy']:
-                    common.local_storage_json_last_items_append('nas_checker/status_details/{}/{}-last-errors'.format(node['name'], nas_ip), status,
-                                                                now_=now, max_items=max_last_errors)
+    for node_name, nas_ip_statuses in deployments_manager.check_nodes_nas(all_worker_node_names).items():
+        for nas_ip, status in nas_ip_statuses.items():
+            all_nas_ips.add(nas_ip)
+            domains_config.keys.node_nas_is_healthy.set('{}:{}'.format(node_name, nas_ip), status['is_healthy'])
+            domains_config.keys.node_nas_last_check.set('{}:{}'.format(node_name, nas_ip))
+            common.local_storage_json_set('nas_checker/status_details/{}/{}'.format(node_name, nas_ip), status)
+            if not status['is_healthy']:
+                common.local_storage_json_last_items_append('nas_checker/status_details/{}/{}-last-errors'.format(node_name, nas_ip), status,
+                                                            now_=now, max_items=max_last_errors)
     for domains_config_key in [domains_config.keys.node_nas_is_healthy, domains_config.keys.node_nas_last_check]:
         for key in domains_config_key.iterate_prefix_key_suffixes():
             node_name, nas_ip = key.split(':')

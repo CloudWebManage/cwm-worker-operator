@@ -213,6 +213,9 @@ class DeploymentsManager:
     def get_kube_metrics(self, namespace_name):
         return cwm_worker_deployment.namespace.get_kube_metrics(namespace_name)
 
+    def iterate_cluster_worker_nodes(self):
+        return (node for node in self.iterate_cluster_nodes() if node['is_worker'])
+
     def iterate_cluster_nodes(self):
         ret, out = subprocess.getstatusoutput('kubectl get nodes -o custom-columns=name:metadata.name')
         assert ret == 0, out
@@ -391,95 +394,114 @@ class DeploymentsManager:
     def pod_exec(self, namespace_name, pod_name, *args):
         return subprocess.check_output(['kubectl', '-n', namespace_name, 'exec', pod_name, '--', *args])
 
-    def check_node_nas(self, node_name):
-        logs.debug('starting check_node_nas', debug_verbosity=8, node_name=node_name)
-        nas_ip_statuses = {nas_ip: {'is_healthy': False, 'log': []} for nas_ip in config.NAS_IPS}
+    def check_nodes_nas(self, node_names):
+        logs.debug('starting check_nodes_nas', debug_verbosity=8, node_names=node_names)
+        logs.debug('deleting existing pods', debug_verbosity=8)
+        ret, out = subprocess.getstatusoutput(
+            'kubectl delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'
+        )
+        if ret != 0:
+            logs.debug_info('failed to delete pods, continuing anyway', ret=ret, out=out)
+        nodes_nas_ip_statuses = {
+            node_name: {
+                nas_ip: {'is_healthy': False, 'log': []} for nas_ip in config.NAS_IPS
+            } for node_name in node_names
+        }
 
-        def log(nas_ip, step, **data):
-            nas_ip_statuses[nas_ip]['log'].append({'step': step, 'dt': common.now().strftime('%Y-%m-%d %H:%M:%S'), **data})
+        def log(node_name, nas_ip, step, **data):
+            nodes_nas_ip_statuses[node_name][nas_ip]['log'].append({'step': step, 'dt': common.now().strftime('%Y-%m-%d %H:%M:%S'), **data})
 
-        pod_names = {'check-node-nas-{}'.format(i): nas_ip for i, nas_ip in enumerate(config.NAS_IPS)}
-        for pod_name, nas_ip in pod_names.items():
-            log(nas_ip, 'start', pod_name=pod_name)
-        for pod_name, nas_ip in pod_names.items():
-            log(nas_ip, 'start check_existing_pod')
-            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {}'.format(pod_name))
-            log(nas_ip, 'end check_existing_pod', out=out, ret=ret)
-            if ret == 0:
-                logs.debug('deleting existing pod', debug_verbosity=8, node_name=node_name, pod_name=pod_name)
-                log(nas_ip, 'start delete existing pod')
-                ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default delete pod {} --wait --timeout=60s'.format(pod_name))
-                log(nas_ip, 'end delete existing pod', out=out, ret=ret)
-        logs.debug('creating pods', debug_verbosity=8, node_name=node_name)
-        for pod_name, nas_ip in pod_names.items():
-            log(nas_ip, 'start kubectl_create')
-            try:
-                kubectl_create({
-                    "apiVersion": "v1",
-                    "kind": "Pod",
-                    "metadata": {
-                        "name": pod_name,
-                        "namespace": 'default'
-                    },
-                    "spec": {
-                        'tolerations': [
-                            {"key": "cwmc-role", "operator": "Exists", "effect": "NoSchedule"}
-                        ],
-                        "nodeSelector": {
-                            "kubernetes.io/hostname": node_name
+        nodes_pod_names = {
+            node_name: {
+                'check-node-nas-{}-{}'.format(node_i, pod_i): nas_ip for pod_i, nas_ip in enumerate(config.NAS_IPS)
+            } for node_i, node_name in enumerate(node_names)
+        }
+        for node_name in node_names:
+            for pod_name, nas_ip in nodes_pod_names[node_name].items():
+                log(node_name, nas_ip, 'start', pod_name=pod_name)
+        logs.debug('creating pods', debug_verbosity=8)
+        for node_name in node_names:
+            for pod_name, nas_ip in nodes_pod_names[node_name].items():
+                log(node_name, nas_ip, 'start kubectl_create')
+                try:
+                    kubectl_create({
+                        "apiVersion": "v1",
+                        "kind": "Pod",
+                        "metadata": {
+                            "name": pod_name,
+                            "namespace": 'default',
+                            'labels': {
+                                'app': 'cwm-worker-operator-check-node-nas'
+                            }
                         },
-                        "containers": [
-                            {
-                                "name": "naschecker",
-                                "image": ALPINE_IMAGE,
-                                "command": ["sh", "-c", "while true; do sleep 86400; done"],
-                                "volumeMounts": [
-                                    {
-                                        "name": "nas",
-                                        "mountPath": "/mnt/nas"
-                                    }
-                                ]
-                            }
-                        ],
-                        "volumes": [
-                            {
-                                "name": "nas",
-                                **json.loads(config.NAS_CHECKER_VOLUME_TEMPLATE_JSON.replace('__NAS_IP__', nas_ip))
-                            }
-                        ]
-                    }
-                })
-                nas_ip_statuses[nas_ip]['kubectl_create_success'] = True
-                log(nas_ip, 'end kubectl_create', success=True)
-            except:
-                nas_ip_statuses[nas_ip]['kubectl_create_success'] = False
-                log(nas_ip, 'end kubectl_create', success=False, error=traceback.format_exc())
-        logs.debug('waiting for pod mounts to be ready', debug_verbosity=8, node_name=node_name)
+                        "spec": {
+                            'tolerations': [
+                                {"key": "cwmc-role", "operator": "Exists", "effect": "NoSchedule"}
+                            ],
+                            "nodeSelector": {
+                                "kubernetes.io/hostname": node_name
+                            },
+                            "containers": [
+                                {
+                                    "name": "naschecker",
+                                    "image": ALPINE_IMAGE,
+                                    "command": ["sh", "-c", "while true; do sleep 86400; done"],
+                                    "volumeMounts": [
+                                        {
+                                            "name": "nas",
+                                            "mountPath": "/mnt/nas"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "volumes": [
+                                {
+                                    "name": "nas",
+                                    **json.loads(config.NAS_CHECKER_VOLUME_TEMPLATE_JSON.replace('__NAS_IP__', nas_ip))
+                                }
+                            ]
+                        }
+                    })
+                    nodes_nas_ip_statuses[node_name][nas_ip]['kubectl_create_success'] = True
+                    log(node_name, nas_ip, 'end kubectl_create', success=True)
+                except:
+                    nodes_nas_ip_statuses[node_name][nas_ip]['kubectl_create_success'] = False
+                    log(node_name, nas_ip, 'end kubectl_create', success=False, error=traceback.format_exc())
+        logs.debug('waiting for pod mounts to be ready', debug_verbosity=8)
         start_time = common.now()
         while True:
             time.sleep(5)
-            for pod_name, nas_ip in pod_names.items():
-                if not nas_ip_statuses[nas_ip]['is_healthy']:
-                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- ls /mnt/nas'.format(pod_name))
-                    if ret != 0:
-                        log(nas_ip, 'wait_ready_ls', ret=ret, out=out)
-                        logs.debug("Error running ls: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
-                    else:
-                        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- touch /mnt/nas/check_node_nas_health'.format(pod_name))
+            for node_name in node_names:
+                for pod_name, nas_ip in nodes_pod_names[node_name].items():
+                    if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
+                        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- ls /mnt/nas'.format(pod_name))
                         if ret != 0:
-                            log(nas_ip, 'wait_ready_touch', ret=ret, out=out)
-                            logs.debug("Error creating file: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
+                            log(node_name, nas_ip, 'wait_ready_ls', ret=ret, out=out)
+                            logs.debug("Error running ls: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
                         else:
-                            nas_ip_statuses[nas_ip]['is_healthy'] = True
-                if not nas_ip_statuses[nas_ip]['is_healthy']:
-                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o yaml'.format(pod_name))
-                    log(nas_ip, 'wait_ready_failed', ret=ret, out=out)
-            if all([nas_ip_statuses[nas_ip]['is_healthy'] for nas_ip in config.NAS_IPS]):
+                            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- touch /mnt/nas/check_node_nas_health'.format(pod_name))
+                            if ret != 0:
+                                log(node_name, nas_ip, 'wait_ready_touch', ret=ret, out=out)
+                                logs.debug("Error creating file: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
+                            else:
+                                nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy'] = True
+                    if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
+                        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o yaml'.format(pod_name))
+                        log(node_name, nas_ip, 'wait_ready_failed', ret=ret, out=out)
+            num_not_healthy = 0
+            for node_name in node_names:
+                for pod_name, nas_ip in nodes_pod_names[node_name].items():
+                    if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
+                        num_not_healthy += 1
+            logs.debug('some node pods are not healthy yet', debug_verbosity=8, num_not_healthy=num_not_healthy)
+            if num_not_healthy == 0:
                 break
             elif (common.now() - start_time).total_seconds() > 60:
                 break
-        logs.debug('deleting pods', debug_verbosity=8, node_name=node_name)
-        for pod_name, nas_ip in pod_names.items():
-            ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default delete pod {} --wait --timeout 60s'.format(pod_name))
-            log(nas_ip, 'delete_pod', ret=ret, out=out)
-        return nas_ip_statuses
+        logs.debug('deleting pods', debug_verbosity=8)
+        ret, out = subprocess.getstatusoutput(
+            'kubectl delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'
+        )
+        if ret != 0:
+            logs.debug_info('failed to delete pods, continuing anyway', ret=ret, out=out)
+        return nodes_nas_ip_statuses

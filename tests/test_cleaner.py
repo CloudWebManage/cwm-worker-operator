@@ -1,4 +1,5 @@
 from cwm_worker_operator import cleaner
+from cwm_worker_operator.deployments_manager import ALPINE_IMAGE
 
 
 def test_cleaner(domains_config, deployments_manager):
@@ -34,7 +35,7 @@ def test_cleaner(domains_config, deployments_manager):
                     {"key": "node.kubernetes.io/unschedulable", "operator": "Exists", "effect": "NoSchedule"},
                 ],
                 'containers': [{
-                    'name': 'nodecleanup', 'image': 'alpine',
+                    'name': 'nodecleanup', 'image': ALPINE_IMAGE,
                     'command': ['sh', '-c', 'while true; do sleep 86400; done'],
                     'volumeMounts': [{'name': 'cache', 'mountPath': '/cache'}]
                 }],
@@ -70,7 +71,7 @@ def test_cleaner(domains_config, deployments_manager):
                     {"key": "node.kubernetes.io/unschedulable", "operator": "Exists", "effect": "NoSchedule"},
                 ],
                 'containers': [{
-                    'name': 'nodecleanup', 'image': 'alpine',
+                    'name': 'nodecleanup', 'image': ALPINE_IMAGE,
                     'command': ['sh', '-c', 'while true; do sleep 86400; done'],
                     'volumeMounts': [{'name': 'cache', 'mountPath': '/cache'}]
                 }],
@@ -104,7 +105,7 @@ def test_cleaner(domains_config, deployments_manager):
                     {"key": "node.kubernetes.io/unschedulable", "operator": "Exists", "effect": "NoSchedule"},
                 ],
                 'containers': [{
-                    'name': 'nodecleanup', 'image': 'alpine',
+                    'name': 'nodecleanup', 'image': ALPINE_IMAGE,
                     'command': ['sh', '-c', 'while true; do sleep 86400; done'],
                     'volumeMounts': [{'name': 'cache', 'mountPath': '/cache'}]
                 }],
@@ -141,7 +142,7 @@ def test_cleaner(domains_config, deployments_manager):
                     {"key": "node.kubernetes.io/unschedulable", "operator": "Exists", "effect": "NoSchedule"},
                 ],
                 'containers': [{
-                    'name': 'nodecleanup', 'image': 'alpine',
+                    'name': 'nodecleanup', 'image': ALPINE_IMAGE,
                     'command': ['sh', '-c', 'while true; do sleep 86400; done'],
                     'volumeMounts': [{'name': 'cache', 'mountPath': '/cache'}]
                 }],

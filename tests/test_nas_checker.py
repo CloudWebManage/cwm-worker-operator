@@ -15,9 +15,11 @@ def test_single_iteration(domains_config, deployments_manager):
         {'name': 'not_worker', 'is_worker': False},
         {'name': 'minikube', 'is_worker': True},
     ]
-    deployments_manager.check_node_nas_responses['minikube'] = {
-        '1.2.3.4': {'is_healthy': False, 'foo': 'bar'},
-        '5.6.7.8': {'is_healthy': True, 'baz': 'bax'}
+    deployments_manager.check_nodes_nas_response = {
+        'minikube': {
+            '1.2.3.4': {'is_healthy': False, 'foo': 'bar'},
+            '5.6.7.8': {'is_healthy': True, 'baz': 'bax'}
+        }
     }
     now = common.now()
     nas_checker.run_single_iteration(domains_config, deployments_manager, now=now)
