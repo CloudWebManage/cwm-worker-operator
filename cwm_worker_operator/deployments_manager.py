@@ -28,6 +28,8 @@ urllib3.disable_warnings()
 
 
 NODE_CLEANER_CORDON_LABEL = 'cwmc-cleaner-cordon'
+# Pulled Dec 29, 2021
+ALPINE_IMAGE = "alpine:3.15.0@sha256:21a3deaa0d32a8057914f36584b5288d2e5ecc984380bc0118285c70fa8c9300"
 
 
 def kubectl_create(obj):
@@ -73,7 +75,7 @@ class NodeCleanupPod:
                 "containers": [
                     {
                         "name": "nodecleanup",
-                        "image": "alpine",
+                        "image": ALPINE_IMAGE,
                         "command": ["sh", "-c", "while true; do sleep 86400; done"],
                         "volumeMounts": [
                             {"name": "cache", "mountPath": "/cache"}
@@ -429,7 +431,7 @@ class DeploymentsManager:
                         "containers": [
                             {
                                 "name": "naschecker",
-                                "image": "alpine",
+                                "image": ALPINE_IMAGE,
                                 "command": ["sh", "-c", "while true; do sleep 86400; done"],
                                 "volumeMounts": [
                                     {
