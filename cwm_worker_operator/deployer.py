@@ -4,6 +4,7 @@ Deploys workers
 import sys
 import json
 import traceback
+import subprocess
 import urllib.parse
 
 from cwm_worker_operator import config, common
@@ -13,6 +14,7 @@ from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import domains_config as domains_config_module
 from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.deployment_flow_manager import DeployerDeploymentFlowManager
+from cwm_worker_operator.multiprocessor import Multiprocessor
 
 
 def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False,
@@ -25,6 +27,8 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         deployments_manager = DeploymentsManager()
     if flow_manager is None:
         flow_manager = DeployerDeploymentFlowManager(domains_config)
+    if extra_minio_extra_configs and not isinstance(extra_minio_extra_configs, dict):
+        extra_minio_extra_configs = json.loads(extra_minio_extra_configs)
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
     log_kwargs = {"worker_id": worker_id, "start_time": start_time}
     logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
@@ -84,6 +88,7 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
         deployer_metrics.exception(worker_id, start_time)
+    return True
 
 
 def get_deployment_config(debug, domains_config, extra_minio_extra_configs, namespace_name, volume_config):
@@ -217,12 +222,30 @@ def get_deployment_config(debug, domains_config, extra_minio_extra_configs, name
     return deployment_config, extra_objects
 
 
-def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
-    deployer_metrics = metrics
+class DeployerMultiprocessor(Multiprocessor):
+
+    def _run_async(self, worker_id, extra_minio_extra_configs, domains_config, metrics, deployments_manager, flow_manager):
+        cmd = ['cwm-worker-operator', 'deployer', 'deploy_worker', '--worker-id', worker_id]
+        if extra_minio_extra_configs:
+            cmd += ['--extra-minio-extra-configs', json.dumps(extra_minio_extra_configs)]
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    def _run_sync(self, worker_id, extra_minio_extra_configs, domains_config, metrics, deployments_manager, flow_manager):
+        deploy_worker(domains_config, metrics, deployments_manager, worker_id,
+                      extra_minio_extra_configs=extra_minio_extra_configs,
+                      flow_manager=flow_manager)
+
+    def _get_process_key(self, worker_id, *args, **kwargs):
+        return worker_id
+
+
+def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, is_async=True, **_):
+    multiprocessor = DeployerMultiprocessor(config.DEPLOYER_MAX_PARALLEL_DEPLOY_PROCESSES if is_async else 1)
     flow_manager = DeployerDeploymentFlowManager(domains_config)
     for worker_id in flow_manager.iterate_worker_ids_ready_for_deployment():
-        deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id,
-                      extra_minio_extra_configs=extra_minio_extra_configs, flow_manager=flow_manager)
+        multiprocessor.process(worker_id, extra_minio_extra_configs, domains_config, metrics, deployments_manager,
+                               flow_manager)
+    multiprocessor.finalize()
 
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):

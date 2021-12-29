@@ -142,6 +142,8 @@ spec:
           value: {{ $.Values.operator.DEPLOYER_MAX_ATTEMPT_NUMBERS | quote }}
         - name: DEPLOYER_WAIT_DEPLOYMENT_ERROR_MAX_SECONDS
           value: {{ $.Values.operator.DEPLOYER_WAIT_DEPLOYMENT_ERROR_MAX_SECONDS | quote }}
+        - name: DEPLOYER_MAX_PARALLEL_DEPLOY_PROCESSES
+          value: {{ $.Values.operator.DEPLOYER_MAX_PARALLEL_DEPLOY_PROCESSES | quote }}
         - name: DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.operator.DELETER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: FORCE_UPDATE_MAX_HOURS_TTL
