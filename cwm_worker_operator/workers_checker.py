@@ -14,7 +14,7 @@ PODS = [ 'minio-server', 'minio-nginx', 'minio-logger', 'minio-external-scaler' 
 
 
 def get_running_pod_count(namespace, pod):
-    cmd = f'kubectl get pods -n {namespace} -l app={pod} --field-selector status.phase=Running --no-headers | wc -l'
+    cmd = f'kubectl get pods -n {namespace} -l app={pod} --field-selector status.phase=Running --no-headers 2>/dev/null | wc -l'
     ret, out = subprocess.getstatusoutput(cmd)
     assert ret == 0, out
     return int(out)
@@ -23,10 +23,10 @@ def get_running_pod_count(namespace, pod):
 def get_pods(namespace):
     pods_with_count = {}
     for pod in PODS:
-        running_pods_count = get_running_pod_count(namespace, pod)
+        running_pod_count = get_running_pod_count(namespace, pod)
         pods_with_count[pod] = {
-            'status': 'Available' if running_pods_count > 0 else 'Not Found',
-            'running': running_pods_count
+            'status': 'Available' if running_pod_count > 0 else 'Not Found',
+            'running': running_pod_count
         }
     return pods_with_count
 
