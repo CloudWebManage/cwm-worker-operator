@@ -47,10 +47,11 @@ jobs:
         uci helm install --version "${HELM_VERSION}" --with-sudo &&\
         uci github actions docker-login &&\
         python -m venv venv &&\
-        venv/bin/pip install --upgrade pip &&\
-        venv/bin/pip install -r requirements.txt &&\
-        venv/bin/pip install -r tests/requirements.txt &&\
-        venv/bin/pip install -e . &&\
+        . venv/bin/activate &&\
+        pip install --upgrade pip &&\
+        pip install -r requirements.txt &&\
+        pip install -r tests/requirements.txt &&\
+        pip install -e . &&\
         uci util wait-for --timeout-seconds 240 --timeout-message "waited too long for minikube to start" "minikube status 2>&1 >/dev/null" &&\
         if [ "${SKIP_TESTS}" == "no" ]; then
           sudo apt-get install -y redis-tools &&\
@@ -67,7 +68,7 @@ jobs:
           export CACHE_MINIO_VERSIONS=0.0.0-20200829T091900,0.0.0-20200910T100633 &&\
           export WAITER_VERIFY_WORKER_ACCESS=no &&\
           echo running tests &&\
-          venv/bin/pytest
+          pytest
         fi &&\
         uci docker build-cache \
           --cache-from ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest \
