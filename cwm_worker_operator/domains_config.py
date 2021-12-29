@@ -36,6 +36,7 @@ class DomainsConfigKey:
         with self.get_redis() as r:
             r.delete(self._(*args))
 
+
 class DomainsConfigKeyPrefix(DomainsConfigKey):
 
     def __init__(self, key_prefix, redis_pool_name, domains_config, **extra_kwargs):
@@ -149,6 +150,7 @@ class DomainsConfigKeys:
         self.worker_aggregated_metrics = DomainsConfigKeyPrefix("worker:aggregated-metrics", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_aggregated_metrics_last_sent_update = DomainsConfigKeyPrefix("worker:aggregated-metrics-last-sent-update", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_total_used_bytes = DomainsConfigKeyPrefix("worker:total-used-bytes", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_health = DomainsConfigKeyPrefix("worker:health", 'internal', domains_config, keys_summary_param='worker_id')
         self.alerts = DomainsConfigKeyStatic("alerts", 'internal', domains_config)
         self.worker_last_clear_cache = DomainsConfigKeyPrefix("worker:last_clear_cache", 'internal', domains_config, keys_summary_param='worker_id')
         self.updater_last_cwm_api_update = DomainsConfigKeyStatic("updater_last_cwm_api_update", 'internal', domains_config)
@@ -269,7 +271,6 @@ class VolumeConfig:
             domains_config.keys.volume_config.set(request_worker_id, json.dumps(request_data))
         if domains_config and request_hostname and self.id is not None:
             domains_config.keys.volume_config_hostname_worker_id.set(request_hostname, self.id)
-
 
     def __str__(self):
         res = {}
@@ -433,7 +434,7 @@ class DomainsConfig:
     def get_worker_ids_waiting_for_deployment_complete(self):
         return list(self.keys.worker_waiting_for_deployment_complete.iterate_prefix_key_suffixes())
 
-    def get_hostnames_waiting_for_initlization(self):
+    def get_hostnames_waiting_for_initialization(self):
         return list(self.keys.hostname_initialize.iterate_prefix_key_suffixes())
 
     def _cwm_api_volume_config_api_call(self, query_param, query_value):
@@ -572,7 +573,7 @@ class DomainsConfig:
             yield hostname
             all_yielded_hostnames.add(hostname.lower())
         for hostnames_iterator in [
-            self.get_hostnames_waiting_for_initlization,
+            self.get_hostnames_waiting_for_initialization,
             self.keys.hostname_error.iterate_prefix_key_suffixes,
             self.keys.hostname_available.iterate_prefix_key_suffixes
         ]:
@@ -636,6 +637,7 @@ class DomainsConfig:
         self.keys.worker_force_update.delete(worker_id)
         self.keys.worker_force_delete.delete(worker_id)
         self.keys.worker_last_clear_cache.delete(worker_id)
+        self.keys.worker_health.delete(worker_id)
         if with_metrics:
             self.keys.worker_aggregated_metrics.delete(worker_id)
             self.keys.worker_aggregated_metrics_last_sent_update.delete(worker_id)

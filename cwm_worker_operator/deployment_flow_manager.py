@@ -52,7 +52,7 @@ class InitializerDeploymentFlowManager:
             yield volume_config, worker_id
 
     def iterate_volume_config_hostnames_waiting_for_initialization(self, metrics):
-        for hostname in self.domains_config.get_hostnames_waiting_for_initlization():
+        for hostname in self.domains_config.get_hostnames_waiting_for_initialization():
             if hostname in self.hostnames_forced_update:
                 # hostname was already handled in the forced updates
                 continue
