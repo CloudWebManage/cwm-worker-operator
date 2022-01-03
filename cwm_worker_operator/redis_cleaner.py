@@ -22,7 +22,7 @@ def cleanup_hostname_error(domains_config: DomainsConfig, hostname, stats):
         worker_id = domains_config.keys.hostname_last_deployment_flow_worker_id.get(hostname)
         if worker_id and not domains_config.is_worker_available(worker_id.decode()):
             # none of the worker hostname are available
-            # we can safely delete all worker keys to force a retry on next reuqest
+            # we can safely delete all worker keys to force a retry on next request
             domains_config.del_worker_keys(worker_id, with_deployment_flow=False)
             domains_config.del_worker_hostname_keys(hostname, with_deployment_flow=False)
             stats['hostname_error_failed_deploy_deleted'] += 1

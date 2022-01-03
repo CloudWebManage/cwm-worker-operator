@@ -71,7 +71,8 @@ Commands:
                                   aggregated metrics to CWM
 
   waiter                          Waits for deployed workers to be available
-  web-ui                          A web interfacte for debugging
+  web-ui                          A web interface for debugging
+  workers-checker                 Check workers and update status in Redis
 ```
 
 #### cwm-worker-operator initializer
@@ -255,7 +256,7 @@ Options:
 ```
 Usage: cwm-worker-operator web-ui [OPTIONS] COMMAND [ARGS]...
 
-  A web interfacte for debugging
+  A web interface for debugging
 
 Options:
   --help  Show this message and exit.
@@ -450,6 +451,30 @@ Commands:
 
 ```
 Usage: cwm-worker-operator redis-cleaner start_daemon [OPTIONS]
+
+Options:
+  --once
+  --help  Show this message and exit.
+```
+
+#### cwm-worker-operator workers-checker
+
+```
+Usage: cwm-worker-operator workers-checker [OPTIONS] COMMAND [ARGS]...
+
+  Check workers and update status in Redis
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  start_daemon
+```
+
+#### cwm-worker-operator workers-checker start_daemon
+
+```
+Usage: cwm-worker-operator workers-checker start_daemon [OPTIONS]
 
 Options:
   --once
