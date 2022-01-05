@@ -151,6 +151,9 @@ class DeploymentsManager:
     def deploy_extra_objects(self, deployment_config, extra_objects):
         cwm_worker_deployment.deployment.deploy_extra_objects(deployment_config, extra_objects)
 
+    def deploy_preprocess_specs(self, specs):
+        return cwm_worker_deployment.deployment.deploy_preprocess_specs(specs)
+
     def deploy(self, deployment_config, **kwargs):
         return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
 

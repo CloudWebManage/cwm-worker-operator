@@ -61,6 +61,7 @@ class MockDeploymentsManager(DeploymentsManager):
         self.dns_healthcheck_counter = 0
         self.minio_nginx_pods_on_node = []
         self.check_nodes_nas_response = {}
+        self.deploy_preprocess_specs_results = {}
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -70,6 +71,10 @@ class MockDeploymentsManager(DeploymentsManager):
 
     def deploy_extra_objects(self, deployment_config, extra_objects):
         self.calls.append(('deploy_extra_objects', [deployment_config, extra_objects]))
+
+    def deploy_preprocess_specs(self, specs):
+        self.calls.append(('deploy_preprocess_specs', [specs]))
+        return {k: self.deploy_preprocess_specs_results.get(k, 'preprocess_result') for k in specs.keys()}
 
     def deploy(self, deployment_config, **kwargs):
         self.calls.append(('deploy', [deployment_config, kwargs]))

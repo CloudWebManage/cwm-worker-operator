@@ -22,9 +22,10 @@ for daemon in [
     {'name': 'deployer', 'extra_commands': {
         'deploy_worker': {'callback_method': 'deploy_worker', 'params': [
             click.Option(['--worker-id']),
+            click.Option(['--extra-minio-extra-configs']),
             click.Option(['--debug'], is_flag=True),
             click.Option(['--dry-run'], is_flag=True),
-        ], 'help': 'Manually deploy a worker for debugging'}
+        ], 'help': 'Deploy a single worker, used by deployer to run async operations'}
     }},
     {'name': 'waiter'},
     {'name': 'deleter', 'extra_commands': {

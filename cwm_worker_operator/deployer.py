@@ -4,6 +4,7 @@ Deploys workers
 import sys
 import json
 import traceback
+import subprocess
 import urllib.parse
 
 from cwm_worker_operator import config, common
@@ -13,77 +14,121 @@ from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import domains_config as domains_config_module
 from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.deployment_flow_manager import DeployerDeploymentFlowManager
+from cwm_worker_operator.multiprocessor import Multiprocessor
 
 
-def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False,
-                  extra_minio_extra_configs=None, dry_run=None, flow_manager=None):
+def initialize_deploy_worker_args(domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs):
     if domains_config is None:
         domains_config = domains_config_module.DomainsConfig()
-    if deployer_metrics is None:
-        deployer_metrics = metrics.DeployerMetrics()
+    # due to the parallel processing we can't send metrics
+    # if deployer_metrics is None:
+    #     deployer_metrics = metrics.DeployerMetrics()
+    deployer_metrics = None
     if deployments_manager is None:
         deployments_manager = DeploymentsManager()
     if flow_manager is None:
         flow_manager = DeployerDeploymentFlowManager(domains_config)
+    if extra_minio_extra_configs and not isinstance(extra_minio_extra_configs, dict):
+        extra_minio_extra_configs = json.loads(extra_minio_extra_configs)
+    return domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs
+
+
+def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False,
+                  extra_minio_extra_configs=None, dry_run=None, flow_manager=None,
+                  preprocess_result=None):
+    domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs = initialize_deploy_worker_args(
+        domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs)
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
     log_kwargs = {"worker_id": worker_id, "start_time": start_time}
-    logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
     try:
-        volume_config, namespace_name = domains_config.get_volume_config_namespace_from_worker_id(deployer_metrics, worker_id)
-        if not namespace_name:
-            deployer_metrics.failed_to_get_volume_config(worker_id, start_time)
-            logs.debug_info("Failed to get volume config", **log_kwargs)
-            flow_manager.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
-            return
-        if not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
-            if not dry_run or not debug:
-                logs.debug_info("flow_manager says that worker_hostnames are not valid for deployment, sorry", **log_kwargs)
-                return
-        logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
-        deployment_config, extra_objects = get_deployment_config(debug, domains_config, extra_minio_extra_configs,
-                                                                 namespace_name, volume_config)
-        logs.debug("initializing deployment", debug_verbosity=9, **log_kwargs)
-        deployments_manager.init(deployment_config)
-        logs.debug("initialized deployment", debug_verbosity=9, **log_kwargs)
-        if config.DEPLOYER_USE_EXTERNAL_SERVICE:
-            deployments_manager.deploy_external_service(deployment_config)
-            logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
-        if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
-            deployments_manager.deploy_extra_objects(deployment_config, extra_objects)
-            logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
-        if debug or config.DEPLOYER_WITH_HELM_DRY_RUN or dry_run:
-            print(deployments_manager.deploy(deployment_config, dry_run=True, with_init=False))
-            logs.debug("deployed dry run", debug_verbosity=4, **log_kwargs)
-        if dry_run:
-            print('dry_run: not deploying')
-        else:
-            try:
-                deploy_output = deployments_manager.deploy(deployment_config, with_init=False)
-            except Exception:
-                if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
-                    traceback.print_exc(file=sys.stdout)
-                    print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
-                attempt_number = domains_config.get_worker_deployment_attempt_number(worker_id)
-                if attempt_number >= config.DEPLOYER_MAX_ATTEMPT_NUMBERS:
-                    flow_manager.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
-                    print("{} failed attempts, giving up".format(attempt_number))
-                else:
-                    flow_manager.wait_retry_deployment(worker_id)
-                    print("Will retry ({} / {} attempts)".format(attempt_number+1, config.DEPLOYER_MAX_ATTEMPT_NUMBERS))
-                deployer_metrics.deploy_failed(worker_id, start_time)
-                logs.debug_info("failed to deploy", **log_kwargs)
-                return
-            logs.debug("deployed", debug_verbosity=4, **log_kwargs)
-            if config.DEBUG and config.DEBUG_VERBOSITY >= 9:
-                print(deploy_output, flush=True)
-            deployer_metrics.deploy_success(worker_id, start_time)
-            flow_manager.set_worker_waiting_for_deployment(worker_id)
-            logs.debug_info("success", **log_kwargs)
+        if preprocess_result is None:
+            preprocess_result = deploy_worker_preprocess(
+                worker_id, domains_config, deployer_metrics, flow_manager, dry_run, debug, extra_minio_extra_configs,
+                deployments_manager
+            )
+        namespace_name, deployment_config, extra_objects, deploy_preprocess_result = preprocess_result
+        if deployment_config:
+            logs.debug("initializing deployment", debug_verbosity=9, **log_kwargs)
+            deployments_manager.init(deployment_config)
+            logs.debug("initialized deployment", debug_verbosity=9, **log_kwargs)
+            if config.DEPLOYER_USE_EXTERNAL_SERVICE:
+                deployments_manager.deploy_external_service(deployment_config)
+                logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
+            if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
+                deployments_manager.deploy_extra_objects(deployment_config, extra_objects)
+                logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
+            if debug or config.DEPLOYER_WITH_HELM_DRY_RUN or dry_run:
+                print(deployments_manager.deploy(
+                    deployment_config, dry_run=True, with_init=False,
+                    preprocess_result=deploy_preprocess_result
+                ))
+                logs.debug("deployed dry run", debug_verbosity=4, **log_kwargs)
+            if dry_run:
+                print('dry_run: not deploying')
+            else:
+                try:
+                    deploy_output = deployments_manager.deploy(
+                        deployment_config, with_init=False, preprocess_result=deploy_preprocess_result
+                    )
+                except Exception:
+                    if debug or (config.DEBUG and config.DEBUG_VERBOSITY >= 3):
+                        traceback.print_exc(file=sys.stdout)
+                        print("ERROR! Failed to deploy (namespace={})".format(namespace_name), flush=True)
+                    attempt_number = domains_config.get_worker_deployment_attempt_number(worker_id)
+                    if attempt_number >= config.DEPLOYER_MAX_ATTEMPT_NUMBERS:
+                        flow_manager.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_DEPLOY)
+                        print("{} failed attempts, giving up".format(attempt_number))
+                    else:
+                        flow_manager.wait_retry_deployment(worker_id)
+                        print("Will retry ({} / {} attempts)".format(attempt_number+1, config.DEPLOYER_MAX_ATTEMPT_NUMBERS))
+                    # deployer_metrics.deploy_failed(worker_id, start_time)
+                    logs.debug_info("failed to deploy", **log_kwargs)
+                    return True
+                logs.debug("deployed", debug_verbosity=4, **log_kwargs)
+                if config.DEBUG and config.DEBUG_VERBOSITY >= 9:
+                    print(deploy_output, flush=True)
+                # deployer_metrics.deploy_success(worker_id, start_time)
+                flow_manager.set_worker_waiting_for_deployment(worker_id)
+                logs.debug_info("success", **log_kwargs)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), **log_kwargs)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        deployer_metrics.exception(worker_id, start_time)
+        # deployer_metrics.exception(worker_id, start_time)
+    return True
+
+
+def deploy_worker_preprocess(worker_id: str, domains_config: domains_config_module.DomainsConfig,
+                             deployer_metrics, flow_manager: DeployerDeploymentFlowManager,
+                             dry_run: bool, debug: bool, extra_minio_extra_configs,
+                             deployments_manager: DeploymentsManager):
+    domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs = initialize_deploy_worker_args(
+        domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs)
+    start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
+    log_kwargs = {"worker_id": worker_id, "start_time": start_time}
+    logs.debug("Start deploy_worker", debug_verbosity=4, **log_kwargs)
+    try:
+        volume_config, namespace_name = domains_config.get_volume_config_namespace_from_worker_id(
+            deployer_metrics, worker_id)
+        if not namespace_name:
+            # deployer_metrics.failed_to_get_volume_config(worker_id, start_time)
+            logs.debug_info("Failed to get volume config", **log_kwargs)
+            flow_manager.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
+            return None, None, None, None
+        if not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
+            if not dry_run or not debug:
+                logs.debug_info("flow_manager says that worker_hostnames are not valid for deployment, sorry", **log_kwargs)
+                return namespace_name, None, None, None
+        logs.debug("Got volume config", debug_verbosity=4, **log_kwargs)
+        deployment_config, extra_objects = get_deployment_config(debug, domains_config, extra_minio_extra_configs, namespace_name, volume_config)
+        deploy_preprocess_result = deployments_manager.deploy_preprocess_specs({0: deployment_config})[0]
+        return namespace_name, deployment_config, extra_objects, deploy_preprocess_result
+    except Exception as e:
+        logs.debug_info("exception: {}".format(e), **log_kwargs)
+        if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
+            traceback.print_exc()
+        # deployer_metrics.exception(worker_id, start_time)
+        return None, None, None, None
 
 
 def get_deployment_config(debug, domains_config, extra_minio_extra_configs, namespace_name, volume_config):
@@ -217,12 +262,36 @@ def get_deployment_config(debug, domains_config, extra_minio_extra_configs, name
     return deployment_config, extra_objects
 
 
-def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, **_):
-    deployer_metrics = metrics
+class DeployerMultiprocessor(Multiprocessor):
+
+    def _run_async(self, worker_id, extra_minio_extra_configs, domains_config, metrics, deployments_manager,
+                   flow_manager, preprocess_result):
+        cmd = ['cwm-worker-operator', 'deployer', 'deploy_worker', '--worker-id', worker_id]
+        if extra_minio_extra_configs:
+            cmd += ['--extra-minio-extra-configs', json.dumps(extra_minio_extra_configs)]
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    def _run_sync(self, worker_id, extra_minio_extra_configs, domains_config, metrics, deployments_manager,
+                  flow_manager, preprocess_result):
+        deploy_worker(domains_config, metrics, deployments_manager, worker_id,
+                      extra_minio_extra_configs=extra_minio_extra_configs,
+                      flow_manager=flow_manager, preprocess_result=preprocess_result)
+
+    def _get_process_key(self, worker_id, *args, **kwargs):
+        return worker_id
+
+
+def run_single_iteration(domains_config: domains_config_module.DomainsConfig, metrics, deployments_manager, extra_minio_extra_configs=None, is_async=True, **_):
+    multiprocessor = DeployerMultiprocessor(config.DEPLOYER_MAX_PARALLEL_DEPLOY_PROCESSES if is_async else 1)
     flow_manager = DeployerDeploymentFlowManager(domains_config)
+    preprocess_results = {}
     for worker_id in flow_manager.iterate_worker_ids_ready_for_deployment():
-        deploy_worker(domains_config, deployer_metrics, deployments_manager, worker_id,
-                      extra_minio_extra_configs=extra_minio_extra_configs, flow_manager=flow_manager)
+        preprocess_results[worker_id] = deploy_worker_preprocess(
+            worker_id, domains_config, metrics, flow_manager, False, False, extra_minio_extra_configs, deployments_manager)
+    for worker_id, preprocess_result in preprocess_results.items():
+        multiprocessor.process(worker_id, extra_minio_extra_configs, domains_config, metrics, deployments_manager,
+                               flow_manager, preprocess_result)
+    multiprocessor.finalize()
 
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):
