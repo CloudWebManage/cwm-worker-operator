@@ -111,7 +111,7 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  deploy_worker  Manually deploy a worker for debugging
+  deploy_worker  Deploy a single worker, used by deployer to run async...
   start_daemon
 ```
 
@@ -130,13 +130,14 @@ Options:
 ```
 Usage: cwm-worker-operator deployer deploy_worker [OPTIONS]
 
-  Manually deploy a worker for debugging
+  Deploy a single worker, used by deployer to run async operations
 
 Options:
   --worker-id TEXT
+  --extra-minio-extra-configs TEXT
   --debug
   --dry-run
-  --help            Show this message and exit.
+  --help                          Show this message and exit.
 ```
 
 #### cwm-worker-operator waiter
