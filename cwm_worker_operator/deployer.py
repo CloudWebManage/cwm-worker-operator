@@ -40,14 +40,14 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs)
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
     log_kwargs = {"worker_id": worker_id, "start_time": start_time}
-    if preprocess_result is None:
-        preprocess_result = deploy_worker_preprocess(
-            worker_id, domains_config, deployer_metrics, flow_manager, dry_run, debug, extra_minio_extra_configs,
-            deployments_manager
-        )
-    namespace_name, deployment_config, extra_objects, deploy_preprocess_result = preprocess_result
-    if deployment_config:
-        try:
+    try:
+        if preprocess_result is None:
+            preprocess_result = deploy_worker_preprocess(
+                worker_id, domains_config, deployer_metrics, flow_manager, dry_run, debug, extra_minio_extra_configs,
+                deployments_manager
+            )
+        namespace_name, deployment_config, extra_objects, deploy_preprocess_result = preprocess_result
+        if deployment_config:
             logs.debug("initializing deployment", debug_verbosity=9, **log_kwargs)
             deployments_manager.init(deployment_config)
             logs.debug("initialized deployment", debug_verbosity=9, **log_kwargs)
@@ -83,18 +83,18 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
                         print("Will retry ({} / {} attempts)".format(attempt_number+1, config.DEPLOYER_MAX_ATTEMPT_NUMBERS))
                     # deployer_metrics.deploy_failed(worker_id, start_time)
                     logs.debug_info("failed to deploy", **log_kwargs)
-                    return
+                    return True
                 logs.debug("deployed", debug_verbosity=4, **log_kwargs)
                 if config.DEBUG and config.DEBUG_VERBOSITY >= 9:
                     print(deploy_output, flush=True)
                 # deployer_metrics.deploy_success(worker_id, start_time)
                 flow_manager.set_worker_waiting_for_deployment(worker_id)
                 logs.debug_info("success", **log_kwargs)
-        except Exception as e:
-            logs.debug_info("exception: {}".format(e), **log_kwargs)
-            if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
-                traceback.print_exc()
-            # deployer_metrics.exception(worker_id, start_time)
+    except Exception as e:
+        logs.debug_info("exception: {}".format(e), **log_kwargs)
+        if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
+            traceback.print_exc()
+        # deployer_metrics.exception(worker_id, start_time)
     return True
 
 
