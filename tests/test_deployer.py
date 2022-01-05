@@ -58,9 +58,10 @@ def assert_deployment_success(worker_id, hostname, namespace_name, domains_confi
         hostname_last_deployment_flow_time_key: '',
         **additional_hostnames_redis_pool_values
     }
-    assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',success']
-    assert len(deployments_manager.calls) == 2
-    init_call, deploy_call = deployments_manager.calls
+    # assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',success']
+    assert len(deployments_manager.calls) == 3
+    deploy_preprocess_call, init_call, deploy_call = deployments_manager.calls
+    assert deploy_preprocess_call[0] == 'deploy_preprocess_specs'
     assert init_call[0] == 'init'
     assert deploy_call[0] == 'deploy'
     init_params = init_call[1]
@@ -99,7 +100,7 @@ def test_invalid_volume_config(domains_config, deployer_metrics, deployments_man
         last_deployment_flow_action_key: deployment_flow_manager.DEPLOYER_WORKER_ERROR,
         last_deployment_flow_time_key: ''
     }
-    assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
+    # assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed_to_get_volume_config']
     assert len(deployments_manager.calls) == 0
 
 
@@ -137,12 +138,13 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
         hostname_last_deployment_flow_time_key: '',
         hostname_last_deployment_flow_worker_id_key: worker_id
     }
-    assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed']
-    assert len(deployments_manager.calls) == 2
-    assert deployments_manager.calls[0][0] == 'init'
-    assert deployments_manager.calls[0][1][0]['cwm-worker-deployment']['namespace'] == namespace_name
-    assert deployments_manager.calls[1][0] == 'deploy'
+    # assert [','.join(o['labels']) for o in deployer_metrics.observations] == [',success_cache', ',failed']
+    assert len(deployments_manager.calls) == 3
+    assert deployments_manager.calls[0][0] == 'deploy_preprocess_specs'
+    assert deployments_manager.calls[1][0] == 'init'
     assert deployments_manager.calls[1][1][0]['cwm-worker-deployment']['namespace'] == namespace_name
+    assert deployments_manager.calls[2][0] == 'deploy'
+    assert deployments_manager.calls[2][1][0]['cwm-worker-deployment']['namespace'] == namespace_name
     # now it's handled by the waiter, so another call to deployer won't do anything
     deployments_manager.calls = []
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager, is_async=False)
@@ -152,7 +154,7 @@ def test_deployment_failed(domains_config, deployer_metrics, deployments_manager
     domains_config.keys.worker_deployment_error_attempt.set(worker_id, config.DEPLOYER_MAX_ATTEMPT_NUMBERS)
     domains_config.keys.worker_waiting_for_deployment_complete.delete(worker_id)
     deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager, is_async=False)
-    assert len(deployments_manager.calls) == 2
+    assert len(deployments_manager.calls) == 3
     assert domains_config._get_all_redis_pools_values(blank_keys=[
         volume_config_key,
         last_deployment_flow_time_key, hostname_last_deployment_flow_time_key
@@ -277,7 +279,7 @@ def test_deployment_ssl_chain(domains_config, deployer_metrics, deployments_mana
     assert hostnames[0]['chain'] == "\n".join(INTERMEDIATE_CERTIFICATES)
 
 
-def test_deployer_async(domains_config, deployer_metrics, deployments_manager):
+def test_deployer_async(domains_config):
     workers = {}
     for i in range(1, 4):
         worker_id = 'worker{}'.format(i)
@@ -294,7 +296,7 @@ def test_deployer_async(domains_config, deployer_metrics, deployments_manager):
     ret, out = subprocess.getstatusoutput('kubectl delete ns {} --wait --timeout 60s'.format(' '.join(namespace_names)))
     if ret != 0:
         print(out)
-    deployer.run_single_iteration(domains_config, deployer_metrics, deployments_manager)
+    deployer.run_single_iteration(domains_config, None, None)
     ret, out = subprocess.getstatusoutput('kubectl get ns {}'.format(' '.join(namespace_names)))
     assert ret == 0, out
     ret, out = subprocess.getstatusoutput('kubectl delete ns {} --wait --timeout 60s'.format(' '.join(namespace_names)))
