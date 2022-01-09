@@ -207,8 +207,6 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
         instance_update = instances_updates.get(worker_id)
         multiprocessor.process(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
                                worker_id, instance_update, start_time, cwm_api_manager)
-        # worker_id, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision, instances_updates)
-        # send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager)
     multiprocessor.finalize()
 
 
