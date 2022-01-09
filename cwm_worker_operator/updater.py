@@ -194,7 +194,8 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
     multiprocessor = UpdaterMultiprocessor(config.UPDATER_MAX_PARALLEL_DEPLOY_PROCESSES if is_async else 1)
     updater_metrics = metrics
     instances_updates = get_instances_updates(domains_config, cwm_api_manager)
-    for release in deployments_manager.iterate_all_releases():
+    all_releases = {release["namespace"]: release for release in deployments_manager.iterate_all_releases()}
+    for release in all_releases.values():
         namespace_name = release["namespace"]
         datestr, timestr, *_ = release["updated"].split(" ")
         last_updated = common.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S")

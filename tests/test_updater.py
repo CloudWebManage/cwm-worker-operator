@@ -106,14 +106,15 @@ def test_updater_daemon(domains_config, deployments_manager, updater_metrics, cw
             "app_version": "",
             "revision": 3
         },
+        # TODO: this namespace already appears before, need to figure out what was meant by this test
         # deployment still pending after less then half hour in revision <=2 is left as-is (we give a half-hour in pending before retrying)
-        {
-            "namespace": namespace_name_pending_old_revision2,
-            "updated": updated_less_then_half_hour_ago,
-            "status": "pending",
-            "app_version": "",
-            "revision": 2
-        },
+        # {
+        #     "namespace": namespace_name_pending_old_revision2,
+        #     "updated": updated_less_then_half_hour_ago,
+        #     "status": "pending",
+        #     "app_version": "",
+        #     "revision": 2
+        # },
         # deployed worker updated more then hour ago with no action for last 30 minutes is marked for deletion
         {
             "namespace": namespace_name_deployed_no_action,
