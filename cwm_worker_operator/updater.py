@@ -3,6 +3,7 @@ Initiates updates for workers, also sends aggregated metrics to CWM
 """
 import datetime
 import traceback
+import subprocess
 
 from cwm_worker_operator import config
 from cwm_worker_operator import metrics
@@ -12,6 +13,21 @@ from cwm_worker_operator.cwm_api_manager import CwmApiManager
 from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.domains_config import DomainsConfig
+from cwm_worker_operator.multiprocessor import Multiprocessor
+
+
+DATETIME_FORMAT = '%Y%m%dT%H%M%S%z'
+
+
+def get_datetime_object(val):
+    if isinstance(val, datetime.datetime):
+        return val
+    else:
+        return datetime.datetime.strptime(val, DATETIME_FORMAT)
+
+
+def get_datetime_string(dt: datetime.datetime):
+    return dt.strftime(DATETIME_FORMAT)
 
 
 def check_worker_force_delete_from_metrics(namespace_name, domains_config):
@@ -22,21 +38,21 @@ def check_worker_force_delete_from_metrics(namespace_name, domains_config):
         return True
 
 
-def check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision, instances_updates):
-    start_time = common.now()
-    worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+def check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+                         instance_update, worker_id, start_time):
     try:
-        instance_update = instances_updates.get(worker_id)
         if instance_update == 'delete':
             msg = "domain force delete (from cwm updates api)"
             logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time)
             domains_config.set_worker_force_delete(worker_id, allow_cancel=False)
-            updater_metrics.force_delete(worker_id, start_time)
+            if updater_metrics:
+                updater_metrics.force_delete(worker_id, start_time)
         elif instance_update == 'update':
             msg = "domain force update (from cwm updates api)"
             logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time)
             domains_config.set_worker_force_update(worker_id)
-            updater_metrics.not_deployed_force_update(worker_id, start_time)
+            if updater_metrics:
+                updater_metrics.not_deployed_force_update(worker_id, start_time)
         else:
             hours_since_last_update = (common.now() - last_updated).total_seconds() / 60 / 60
             volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
@@ -51,7 +67,8 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
                     else:
                         logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
                         domains_config.set_worker_force_update(worker_id)
-                        updater_metrics.not_deployed_force_update(worker_id, start_time)
+                        if updater_metrics:
+                            updater_metrics.not_deployed_force_update(worker_id, start_time)
             else:
                 if hours_since_last_update >= config.FORCE_DELETE_GRACE_PERIOD_HOURS and check_worker_force_delete_from_metrics(namespace_name, domains_config):
                     msg = "domain force delete (after grace period + based on metrics)"
@@ -60,7 +77,8 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
                     else:
                         logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
                         domains_config.set_worker_force_delete(worker_id, allow_cancel=True)
-                        updater_metrics.force_delete(worker_id, start_time)
+                        if updater_metrics:
+                            updater_metrics.force_delete(worker_id, start_time)
                 elif hours_since_last_update >= config.FORCE_UPDATE_MAX_HOURS_TTL:
                     msg = "domain force update (after FORCE_UPDATE_MAX_HOURS_TTL)"
                     if disable_force_update:
@@ -68,12 +86,14 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
                     else:
                         logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time, hours_since_last_update=hours_since_last_update)
                         domains_config.set_worker_force_update(worker_id)
-                        updater_metrics.force_update(worker_id, start_time)
+                        if updater_metrics:
+                            updater_metrics.force_update(worker_id, start_time)
     except Exception as e:
         logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        updater_metrics.exception(worker_id, start_time)
+        if updater_metrics:
+            updater_metrics.exception(worker_id, start_time)
     return worker_id, start_time
 
 
@@ -101,7 +121,8 @@ def send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm
         logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
         if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
             traceback.print_exc()
-        updater_metrics.exception(worker_id, start_time)
+        if updater_metrics:
+            updater_metrics.exception(worker_id, start_time)
 
 
 def get_instances_updates(domains_config: DomainsConfig, cwm_api_manager: CwmApiManager):
@@ -125,7 +146,52 @@ def get_instances_updates(domains_config: DomainsConfig, cwm_api_manager: CwmApi
     return instances_updates
 
 
-def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_manager, **_):
+def update(namespace_name, last_updated, status, revision,
+           worker_id, instance_update, start_time,
+           cwm_api_manager=None, domains_config=None, updater_metrics=None):
+    if not domains_config:
+        domains_config = DomainsConfig()
+    if not cwm_api_manager:
+        cwm_api_manager = CwmApiManager()
+    last_updated = get_datetime_object(last_updated)
+    start_time = get_datetime_object(start_time)
+    check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+                         instance_update, worker_id, start_time)
+    send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager)
+    return True
+
+
+class UpdaterMultiprocessor(Multiprocessor):
+
+    def _run_async(self, domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+                   worker_id, instance_update, start_time, cwm_api_manager):
+        cmd = [
+            'cwm-worker-operator', 'updater', 'update',
+            '--namespace-name', namespace_name,
+            '--last-updated', get_datetime_string(last_updated) if last_updated else '',
+            '--status', str(status) if status else '',
+            '--revision', str(revision) if revision else '',
+            '--worker-id', worker_id,
+            '--instance-update', instance_update if instance_update else '',
+            '--start-time', get_datetime_string(start_time) if start_time else ''
+        ]
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    def _run_sync(self, domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+                  worker_id, instance_update, start_time, cwm_api_manager):
+        update(
+            namespace_name, last_updated, status, revision,
+            worker_id, instance_update, start_time,
+            cwm_api_manager=cwm_api_manager, domains_config=domains_config, updater_metrics=updater_metrics
+        )
+
+    def _get_process_key(self, domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+                         worker_id, instance_update, start_time, cwm_api_manager):
+        return worker_id
+
+
+def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_manager, is_async=False, **_):
+    multiprocessor = UpdaterMultiprocessor(config.UPDATER_MAX_PARALLEL_DEPLOY_PROCESSES if is_async else 1)
     updater_metrics = metrics
     instances_updates = get_instances_updates(domains_config, cwm_api_manager)
     for release in deployments_manager.iterate_all_releases():
@@ -135,8 +201,14 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
         status = release["status"]
         # app_version = release["app_version"]
         revision = int(release["revision"])
-        worker_id, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision, instances_updates)
-        send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager)
+        start_time = common.now()
+        worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+        instance_update = instances_updates.get(worker_id)
+        multiprocessor.process(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+                               worker_id, instance_update, start_time, cwm_api_manager)
+        # worker_id, start_time = check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision, instances_updates)
+        # send_agg_metrics(domains_config, updater_metrics, worker_id, start_time, cwm_api_manager)
+    multiprocessor.finalize()
 
 
 def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains_config=None, deployments_manager=None, cwm_api_manager=None):
@@ -150,7 +222,7 @@ def start_daemon(once=False, with_prometheus=True, updater_metrics=None, domains
         metrics=updater_metrics,
         run_single_iteration_callback=run_single_iteration,
         prometheus_metrics_port=config.PROMETHEUS_METRICS_PORT_UPDATER,
-        run_single_iteration_extra_kwargs={'cwm_api_manager': cwm_api_manager},
+        run_single_iteration_extra_kwargs={'cwm_api_manager': cwm_api_manager, 'is_async': True},
         deployments_manager=deployments_manager
     ).start(
         once=once,

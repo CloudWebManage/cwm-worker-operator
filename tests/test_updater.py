@@ -275,3 +275,35 @@ def test_cwm_updates(domains_config, deployments_manager, updater_metrics, cwm_a
     assert cwm_api_manager.mock_calls_log[0][1] == datetime.datetime(2021, 9, 10, 10, 0, 1, tzinfo=pytz.UTC)
     assert not domains_config.keys.worker_force_update.exists(update_worker_id)
     assert not domains_config.keys.worker_force_delete.exists(delete_worker_id)
+
+
+def test_async(domains_config, deployments_manager, cwm_api_manager):
+    updated = (now() - datetime.timedelta(hours=25)).strftime("%Y-%m-%d %H:%M:%S")
+    last_action = now() - datetime.timedelta(minutes=25)
+    deployments_manager.all_releases = []
+    blank_keys = []
+    expected_keys = {}
+    for i in range(3):
+        worker_id = 'test{}'.format(i)
+        namespace_name = 'cwm-worker-{}'.format(worker_id)
+        deployments_manager.all_releases.append({
+            "namespace": namespace_name,
+            "updated": updated,
+            "status": "deployed",
+            "app_version": "",
+            "revision": 1
+        })
+        domains_config.keys.deployment_last_action.set(namespace_name, last_action.strftime("%Y%m%dT%H%M%S"))
+        blank_keys.append(domains_config.keys.deployment_last_action._(namespace_name))
+        expected_keys[domains_config.keys.deployment_last_action._(namespace_name)] = ''
+        old_update_t1 = datetime.datetime(2021, 3, 2, 3, 1, 15, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
+        old_update_t2 = datetime.datetime(2021, 3, 2, 3, 1, 33, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
+        old_update_t3 = datetime.datetime(2021, 3, 2, 3, 4, 5, tzinfo=pytz.UTC).strftime('%Y%m%d%H%M%S')
+        domains_config.keys.worker_aggregated_metrics.set(worker_id, json.dumps({'lu': "20210302030405", 'm': [{'t': old_update_t1, 'num_requests_in': '1000', 'num_requests_out': '7000', }, {'t': old_update_t2, 'bytes_in': '5120', 'bytes_out': '45000', 'num_requests_out': '6930', }, {'t': old_update_t3, 'bytes_in': '5180', 'bytes_out': '42200', 'num_requests_in': '1280', 'num_requests_out': '7680', 'num_requests_misc': '513'},]}))
+        blank_keys.append(domains_config.keys.worker_aggregated_metrics._(worker_id))
+        expected_keys[domains_config.keys.worker_aggregated_metrics._(worker_id)] = ''
+        expected_keys[domains_config.keys.worker_force_update._(worker_id)] = ''
+        blank_keys.append(domains_config.keys.volume_config._(worker_id))
+        expected_keys[domains_config.keys.volume_config._(worker_id)] = ''
+    updater.run_single_iteration(domains_config, None, deployments_manager, cwm_api_manager, is_async=True)
+    assert domains_config._get_all_redis_pools_values(blank_keys=blank_keys) == expected_keys
