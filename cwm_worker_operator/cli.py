@@ -36,7 +36,17 @@ for daemon in [
             click.Option(['--with-metrics'], is_flag=True)
         ], 'help': 'Manually delete a worker for debugging'}
     }},
-    {'name': 'updater'},
+    {'name': 'updater', 'extra_commands': {
+        'update': {'callback_method': 'update', 'params': [
+            click.Option(['--namespace-name']),
+            click.Option(['--last-updated']),
+            click.Option(['--status']),
+            click.Option(['--revision']),
+            click.Option(['--worker-id']),
+            click.Option(['--instance-update']),
+            click.Option(['--start-time']),
+        ], 'help': 'Update a single worker, used by updater to run async operations'}
+    }},
     {'name': 'metrics-updater'},
     {'name': 'web-ui', 'with_once': False},
     {'name': 'disk-usage-updater'},

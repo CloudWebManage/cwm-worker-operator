@@ -208,6 +208,8 @@ spec:
           value: {{ $.Values.operator.CLEAR_CACHER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS
           value: {{ $.Values.operator.UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS | quote }}
+        - name: UPDATER_MAX_PARALLEL_DEPLOY_PROCESSES
+          value: {{ $.Values.operator.UPDATER_MAX_PARALLEL_DEPLOY_PROCESSES | quote }}
         - name: DHPARAM_KEY
           value: {{ $.Values.operator.DHPARAM_KEY | quote }}
         - name: VOLUME_CONFIG_OVERRIDE_URL
