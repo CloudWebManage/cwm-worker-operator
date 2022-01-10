@@ -151,6 +151,9 @@ Options:
   --help  Show this message and exit.
 
 Commands:
+  check_deployment_complete  Wait for a single worker, used by waiter to
+                             run...
+
   start_daemon
 ```
 
@@ -162,6 +165,19 @@ Usage: cwm-worker-operator waiter start_daemon [OPTIONS]
 Options:
   --once
   --help  Show this message and exit.
+```
+
+#### cwm-worker-operator waiter check_deployment_complete
+
+```
+Usage: cwm-worker-operator waiter check_deployment_complete 
+           [OPTIONS]
+
+  Wait for a single worker, used by waiter to run async operations
+
+Options:
+  --worker-id TEXT
+  --help            Show this message and exit.
 ```
 
 #### cwm-worker-operator deleter
