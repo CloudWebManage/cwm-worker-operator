@@ -216,6 +216,7 @@ Options:
 
 Commands:
   start_daemon
+  update        Update a single worker, used by updater to run async...
 ```
 
 #### cwm-worker-operator updater start_daemon
@@ -226,6 +227,24 @@ Usage: cwm-worker-operator updater start_daemon [OPTIONS]
 Options:
   --once
   --help  Show this message and exit.
+```
+
+#### cwm-worker-operator updater update
+
+```
+Usage: cwm-worker-operator updater update [OPTIONS]
+
+  Update a single worker, used by updater to run async operations
+
+Options:
+  --namespace-name TEXT
+  --last-updated TEXT
+  --status TEXT
+  --revision TEXT
+  --worker-id TEXT
+  --instance-update TEXT
+  --start-time TEXT
+  --help                  Show this message and exit.
 ```
 
 #### cwm-worker-operator metrics-updater
