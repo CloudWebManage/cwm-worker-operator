@@ -27,7 +27,11 @@ for daemon in [
             click.Option(['--dry-run'], is_flag=True),
         ], 'help': 'Deploy a single worker, used by deployer to run async operations'}
     }},
-    {'name': 'waiter'},
+    {'name': 'waiter', 'extra_commands': {
+        'check_deployment_complete': {'callback_method': 'check_deployment_complete', 'params': [
+            click.Option(['--worker-id']),
+        ], 'help': 'Wait for a single worker, used by waiter to run async operations'}
+    }},
     {'name': 'deleter', 'extra_commands': {
         'delete': {'callback_method': 'delete', 'params': [
             click.Option(['--worker-id']),
