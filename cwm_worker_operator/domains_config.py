@@ -393,7 +393,7 @@ class DomainsConfig:
         )
 
     def init_redis(self, type, host, port, pool_max_connections, pool_timeout, db):
-        print("{}: host={} port={}".format(type, host, port))
+        # print("{}: host={} port={}".format(type, host, port))
         redis_pool = redis.BlockingConnectionPool(
             max_connections=pool_max_connections, timeout=pool_timeout,
             host=host, port=port, db=db
