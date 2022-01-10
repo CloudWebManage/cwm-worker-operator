@@ -152,6 +152,8 @@ spec:
           value: {{ $.Values.operator.UPDATER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: WAITER_VERIFY_WORKER_ACCESS
           value: {{ if $.Values.operator.WAITER_VERIFY_WORKER_ACCESS }}"yes"{{ else }}"no"{{ end }}
+        - name: WAITER_MAX_PARALLEL_DEPLOY_PROCESSES
+          value: {{ $.Values.operator.WAITER_MAX_PARALLEL_DEPLOY_PROCESSES | quote }}
         - name: WORKER_ERROR_MAX_ATTEMPTS
           value: {{ $.Values.operator.WORKER_ERROR_MAX_ATTEMPTS | quote }}
         - name: FORCE_DELETE_GRACE_PERIOD_HOURS

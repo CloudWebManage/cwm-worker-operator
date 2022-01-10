@@ -49,6 +49,7 @@ DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS = float(os.environ.get("DEPLOYER_
 WORKER_ERROR_MAX_ATTEMPTS = int(os.environ.get("WORKER_ERROR_MAX_ATTEMPTS", "5"))
 
 WAITER_VERIFY_WORKER_ACCESS = (os.environ.get("WAITER_VERIFY_WORKER_ACCESS") or "yes") == "yes"
+WAITER_MAX_PARALLEL_DEPLOY_PROCESSES = int(os.environ.get('WAITER_MAX_PARALLEL_DEPLOY_PROCESSES') or '2')
 
 CACHE_MINIO_VERSIONS = [v.strip() for v in (os.environ.get("CACHE_MINIO_VERSIONS") or "").split(",") if v and v.strip()]
 CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG = json.loads(os.environ.get("CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON") or '{}')

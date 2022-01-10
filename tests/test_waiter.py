@@ -197,3 +197,32 @@ def test_minimal_check(domains_config, waiter_metrics, deployments_manager):
     assert len(deployments_manager.calls) == 2
     assert deployments_manager.calls[0] == ('is_ready', [namespace_name, 'minio', True])
     assert deployments_manager.calls[1] == ('get_hostname', [namespace_name, 'minio'])
+
+
+def test_async(domains_config):
+    invalid_volume_config_worker_id = 'invalid.volume.config'
+    domains_config.keys.worker_ready_for_deployment.set(invalid_volume_config_worker_id, '')
+    domains_config.keys.worker_waiting_for_deployment_complete.set(invalid_volume_config_worker_id, '')
+    domains_config.keys.volume_config.set(invalid_volume_config_worker_id, '{}')
+    deployment_not_ready_worker_id, deployment_not_ready_hostname, deployment_not_ready_namespace_name = domains_config._set_mock_volume_config('worker1', 'deployment-not-ready.example.com')
+    domains_config.keys.worker_ready_for_deployment.set(deployment_not_ready_worker_id, '')
+    domains_config.keys.worker_waiting_for_deployment_complete.set(deployment_not_ready_worker_id, '')
+    deployment_not_ready_worker_id_2, deployment_not_ready_hostname_2, deployment_not_ready_namespace_name_2 = domains_config._set_mock_volume_config('worker2', 'deployment-not-ready-2.example.com')
+    domains_config.keys.worker_ready_for_deployment.set(deployment_not_ready_worker_id_2, '')
+    domains_config.keys.worker_waiting_for_deployment_complete.set(deployment_not_ready_worker_id_2, '')
+    waiter.run_single_iteration(domains_config, None, None, is_async=True)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        domains_config.keys.worker_last_deployment_flow_time._(invalid_volume_config_worker_id),
+        domains_config.keys.volume_config._(deployment_not_ready_worker_id),
+        domains_config.keys.volume_config._(deployment_not_ready_worker_id_2)
+    ]) == {
+        domains_config.keys.worker_last_deployment_flow_action._(invalid_volume_config_worker_id): deployment_flow_manager.WAITER_WORKER_ERROR,
+        domains_config.keys.worker_last_deployment_flow_time._(invalid_volume_config_worker_id): '',
+        domains_config.keys.worker_ready_for_deployment._(deployment_not_ready_worker_id): '',
+        domains_config.keys.worker_ready_for_deployment._(deployment_not_ready_worker_id_2): '',
+        domains_config.keys.worker_waiting_for_deployment_complete._(deployment_not_ready_worker_id): '',
+        domains_config.keys.worker_waiting_for_deployment_complete._(deployment_not_ready_worker_id_2): '',
+        domains_config.keys.volume_config._(invalid_volume_config_worker_id): '{}',
+        domains_config.keys.volume_config._(deployment_not_ready_worker_id): '',
+        domains_config.keys.volume_config._(deployment_not_ready_worker_id_2): '',
+    }
