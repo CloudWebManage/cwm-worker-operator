@@ -10,7 +10,7 @@ def test_operator_config_values():
     for key in dir(config):
         if key.startswith("_") or key in ["base64", "json", "os", "LOCAL_STORAGE_PATH"]:
             continue
-        if key in ["CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG", "CWM_WORKER_EXTRA_OBJECTS", "MINIO_EXTRA_CONFIG"]:
+        if key in ["CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG", "CWM_WORKER_EXTRA_OBJECTS", "MINIO_EXTRA_CONFIG", "DELETER_DATA_DELETE_CONFIG"]:
             key = key + "_JSON"
         elif key == "DEBUG_VERBOSITY":
             key = "debugVerbosity"

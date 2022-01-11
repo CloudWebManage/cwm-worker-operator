@@ -299,9 +299,10 @@ def test_del_worker_keys(domains_config):
         'deploymentid:minio-metrics:{}:foo'.format(namespace_name),
         'worker:aggregated-metrics-last-sent-update:worker1',
         'worker:aggregated-metrics:worker1',
+        'worker:force_delete_data:worker1',
         'worker:total-used-bytes:worker1'
     }
-    domains_config.del_worker_keys(worker_id, with_metrics=True)
+    domains_config.del_worker_keys(worker_id, with_metrics=True, with_force_delete_data=True)
     assert domains_config._get_all_redis_pools_keys() == set()
 
 

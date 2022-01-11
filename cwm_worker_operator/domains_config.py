@@ -147,6 +147,7 @@ class DomainsConfigKeys:
         self.worker_waiting_for_deployment_complete = DomainsConfigKeyPrefix("worker:opstatus:waiting_for_deployment", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_force_update = DomainsConfigKeyPrefix("worker:force_update", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_force_delete = DomainsConfigKeyPrefix("worker:force_delete", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_force_delete_data = DomainsConfigKeyPrefix("worker:force_delete_data", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_aggregated_metrics = DomainsConfigKeyPrefix("worker:aggregated-metrics", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_aggregated_metrics_last_sent_update = DomainsConfigKeyPrefix("worker:aggregated-metrics-last-sent-update", 'internal', domains_config, keys_summary_param='worker_id')
         self.worker_total_used_bytes = DomainsConfigKeyPrefix("worker:total-used-bytes", 'internal', domains_config, keys_summary_param='worker_id')
@@ -621,7 +622,8 @@ class DomainsConfig:
 
     def del_worker_keys(self, worker_id,
                         with_error=True, with_volume_config=True, with_available=True,
-                        with_ingress=True, with_metrics=False, with_deployment_flow=True
+                        with_ingress=True, with_metrics=False, with_deployment_flow=True,
+                        with_force_delete_data=False
                         ):
         try:
             for hostname in self.iterate_worker_hostnames(worker_id):
@@ -653,6 +655,8 @@ class DomainsConfig:
         if with_deployment_flow:
             self.keys.worker_last_deployment_flow_action.delete(worker_id)
             self.keys.worker_last_deployment_flow_time.delete(worker_id)
+        if with_force_delete_data:
+            self.keys.worker_force_delete_data.delete(worker_id)
 
     def set_worker_force_update(self, worker_id):
         self.keys.worker_force_update.set(worker_id, '')

@@ -10,6 +10,7 @@ from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
+from cwm_worker_operator.updater import CONFIRM_FORCE_DELETE_DATA
 
 
 def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
@@ -32,11 +33,21 @@ def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None
     else:
         assert worker_id, 'must specify either worker_id or hostname'
     if worker_id:
-        domains_config.del_worker_keys(worker_id, with_metrics=with_metrics)
-        deployments_manager.delete(
-            common.get_namespace_name_from_worker_id(worker_id), "minio", timeout_string=deployment_timeout_string, delete_namespace=delete_namespace,
-            delete_helm=delete_helm
+        delete_data = domains_config.keys.worker_force_delete_data.get(worker_id) == CONFIRM_FORCE_DELETE_DATA.encode()
+        domains_config.del_worker_keys(
+            worker_id,
+            with_metrics=True if delete_data else with_metrics,
         )
+        deployments_manager.delete(
+            common.get_namespace_name_from_worker_id(worker_id), "minio",
+            timeout_string=deployment_timeout_string,
+            delete_namespace=delete_namespace,
+            delete_helm=delete_helm,
+            delete_data=delete_data,
+            delete_data_config=config.DELETER_DATA_DELETE_CONFIG if delete_data else None
+        )
+        if delete_data:
+            domains_config.keys.worker_force_delete_data.delete(worker_id)
     return True
 
 
