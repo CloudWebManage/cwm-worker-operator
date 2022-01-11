@@ -46,13 +46,17 @@ class Multiprocessor:
             process: subprocess.Popen
             for key, process in self.processes.items():
                 if process.returncode == 0:
-                    print(process.stdout.read().decode())
+                    out = process.stdout.read().decode().strip()
+                    if out:
+                        print(out)
                 else:
                     error_keys.add(key)
             if len(error_keys) > 0:
                 for key in error_keys:
                     print("------")
                     print("Error in process key {} ({})".format(key, self.processes[key].returncode))
-                    print(self.processes[key].stdout.read().decode())
+                    out = self.processes[key].stdout.read().decode().strip()
+                    if out:
+                        print(out)
                     print("------")
                 raise Exception("Encountered errors in the following process keys: {}".format(", ".join(error_keys)))
