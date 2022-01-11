@@ -11,7 +11,7 @@ def test_delete(domains_config, deployments_manager):
     assert deployments_manager.calls == [
         ('delete', [namespace_name, 'minio', {
             'delete_helm': True, 'delete_namespace': False,
-            'timeout_string': None, 'delete_data': False}])
+            'timeout_string': None, 'delete_data': False, 'delete_data_config': None}])
     ]
 
 
@@ -50,5 +50,5 @@ def test_delete_data(domains_config, deployments_manager):
     assert deployments_manager.calls == [
         ('delete', [namespace_name, 'minio', {
             'delete_helm': True, 'delete_namespace': False,
-            'timeout_string': None, 'delete_data': True}])
+            'timeout_string': None, 'delete_data': True, 'delete_data_config': {}}])
     ]
