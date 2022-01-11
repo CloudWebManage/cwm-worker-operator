@@ -262,9 +262,17 @@ def test_cwm_updates(domains_config, deployments_manager, updater_metrics, cwm_a
     assert cwm_api_manager.mock_calls_log[0][0] == 'get_cwm_updates'
     expected_from_timestamp = common.now() - datetime.timedelta(seconds=config.UPDATER_DEFAULT_LAST_UPDATE_DATETIME_SECONDS)
     assert (expected_from_timestamp - datetime.timedelta(seconds=2)) < cwm_api_manager.mock_calls_log[0][1] < (expected_from_timestamp + datetime.timedelta(seconds=2))
-    assert domains_config.keys.updater_last_cwm_api_update.get() == b'2021-09-10T10:00:00'
-    assert domains_config.keys.worker_force_update.get(update_worker_id) == b''
-    assert domains_config.keys.worker_force_delete.get(delete_worker_id) == b''
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        domains_config.keys.volume_config._(delete_worker_id),
+        domains_config.keys.volume_config._(update_worker_id),
+    ]) == {
+        domains_config.keys.updater_last_cwm_api_update._(): '2021-09-10T10:00:00',
+        domains_config.keys.worker_force_update._(update_worker_id): '',
+        domains_config.keys.worker_force_delete._(delete_worker_id): '',
+        domains_config.keys.worker_force_delete_data._(delete_worker_id): updater.CONFIRM_FORCE_DELETE_DATA,
+        domains_config.keys.volume_config._(delete_worker_id): '',
+        domains_config.keys.volume_config._(update_worker_id): '',
+    }
     # because updater_last_cwm_api_update is set it will not find additional updates
     domains_config.keys.worker_force_update.delete(update_worker_id)
     domains_config.keys.worker_force_delete.delete(delete_worker_id)
@@ -274,8 +282,16 @@ def test_cwm_updates(domains_config, deployments_manager, updater_metrics, cwm_a
     assert len(cwm_api_manager.mock_calls_log) == 1
     assert cwm_api_manager.mock_calls_log[0][0] == 'get_cwm_updates'
     assert cwm_api_manager.mock_calls_log[0][1] == datetime.datetime(2021, 9, 10, 10, 0, 1, tzinfo=pytz.UTC)
-    assert not domains_config.keys.worker_force_update.exists(update_worker_id)
-    assert not domains_config.keys.worker_force_delete.exists(delete_worker_id)
+    assert domains_config._get_all_redis_pools_values(blank_keys=[
+        domains_config.keys.updater_last_cwm_api_update._(),
+        domains_config.keys.volume_config._(delete_worker_id),
+        domains_config.keys.volume_config._(update_worker_id),
+    ]) == {
+        domains_config.keys.updater_last_cwm_api_update._(): '',
+        domains_config.keys.worker_force_delete_data._(delete_worker_id): updater.CONFIRM_FORCE_DELETE_DATA,
+        domains_config.keys.volume_config._(delete_worker_id): '',
+        domains_config.keys.volume_config._(update_worker_id): '',
+    }
 
 
 def test_async(domains_config, deployments_manager, cwm_api_manager):
