@@ -150,5 +150,5 @@ class MockDeploymentsManager(DeploymentsManager):
     def pod_exec(self, namespace_name, pod_name, *args):
         self.calls.append(('pod_exec', [namespace_name, pod_name, *args]))
 
-    def check_nodes_nas(self, node_names):
+    def check_nodes_nas(self, node_names, with_kubelet_logs=False):
         return self.check_nodes_nas_response

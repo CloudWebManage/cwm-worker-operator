@@ -122,6 +122,7 @@ NAS_IPS = [i.strip() for i in os.environ['NAS_IPS'].split(',') if i.strip()] if 
     '1.2.3.4', '5.6.7.8'
 ]
 NAS_CHECKER_VOLUME_TEMPLATE_JSON = os.environ.get('NAS_CHECKER_VOLUME_TEMPLATE_JSON') or '{"emptyDir": {}}'
+NAS_CHECKER_WITH_KUBELET_LOGS = os.environ.get('NAS_CHECKER_WITH_KUBELET_LOGS') == 'yes'
 
 LOCAL_STORAGE_PATH = os.environ.get('LOCAL_STORAGE_PATH')
 if not LOCAL_STORAGE_PATH:

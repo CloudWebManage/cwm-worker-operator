@@ -5,6 +5,7 @@ import time
 import boto3
 import urllib3
 import tempfile
+import datetime
 import traceback
 import subprocess
 from contextlib import contextmanager
@@ -38,6 +39,12 @@ def kubectl_create(obj):
             yaml.safe_dump(obj, f)
         ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default create -f {}'.format(os.path.join(tmpdir, "obj.yaml")))
         assert ret == 0, out
+
+
+def parse_datetime_from_kubelet_log_line(line):
+    # I0112 14:54:20.399101
+    datepart, timepart, *_ = line.split()
+    return datetime.datetime.strptime('{}{} {}+00:00'.format(datetime.datetime.now().year, datepart, timepart), '%YI%m%d %H:%M:%S.%f%z')
 
 
 class NodeCleanupPod:
@@ -397,7 +404,32 @@ class DeploymentsManager:
     def pod_exec(self, namespace_name, pod_name, *args):
         return subprocess.check_output(['kubectl', '-n', namespace_name, 'exec', pod_name, '--', *args])
 
-    def check_nodes_nas(self, node_names):
+    def check_nodes_nas_update_kubelet_logs(self, node_names, nodes_pod_names, nodes_nas_ip_statuses):
+        for node_name in node_names:
+            for pod_name, nas_ip in nodes_pod_names[node_name].items():
+                nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_seconds'] = None
+                try:
+                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- chroot /host docker logs --tail 2000 kubelet'.format(pod_name))
+                    kubelet_log_lines = out.splitlines() if ret == 0 else None
+                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o yaml'.format(pod_name))
+                    pod_uid = json.loads(out)['metadata']['uid'] if ret == 0 else None
+                    if kubelet_log_lines and pod_uid:
+                        start_mount_datetime, end_mount_datetime = None, None
+                        for line in reversed(kubelet_log_lines):
+                            if pod_uid in line:
+                                if 'operationExecutor.MountVolume started for volume "nas"' in line:
+                                    start_mount_datetime = parse_datetime_from_kubelet_log_line(line)
+                                elif 'MountVolume.SetUp succeeded for volume "nas"' in line:
+                                    end_mount_datetime = parse_datetime_from_kubelet_log_line(line)
+                        if (
+                            start_mount_datetime and end_mount_datetime and end_mount_datetime > start_mount_datetime
+                            and (common.now() - end_mount_datetime).total_seconds() < 120
+                        ):
+                            nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_seconds'] = (end_mount_datetime - start_mount_datetime).total_seconds()
+                except:
+                    traceback.print_exc()
+
+    def check_nodes_nas(self, node_names, with_kubelet_logs=False):
         logs.debug('starting check_nodes_nas', debug_verbosity=8, node_names=node_names)
         logs.debug('deleting existing pods', debug_verbosity=8)
         ret, out = subprocess.getstatusoutput(
@@ -453,7 +485,11 @@ class DeploymentsManager:
                                         {
                                             "name": "nas",
                                             "mountPath": "/mnt/nas"
-                                        }
+                                        },
+                                        *([{
+                                            "name": "hostfs",
+                                            "mountPath": "/host"
+                                        }] if with_kubelet_logs else [])
                                     ]
                                 }
                             ],
@@ -461,7 +497,11 @@ class DeploymentsManager:
                                 {
                                     "name": "nas",
                                     **json.loads(config.NAS_CHECKER_VOLUME_TEMPLATE_JSON.replace('__NAS_IP__', nas_ip))
-                                }
+                                },
+                                *([{
+                                    "name": "hostfs",
+                                    "hostPath": {"path": "/"}
+                                }] if with_kubelet_logs else [])
                             ]
                         }
                     })
@@ -501,6 +541,8 @@ class DeploymentsManager:
                 break
             elif (common.now() - start_time).total_seconds() > 60:
                 break
+        if with_kubelet_logs:
+            self.check_nodes_nas_update_kubelet_logs(node_names, nodes_pod_names, nodes_nas_ip_statuses)
         logs.debug('deleting pods', debug_verbosity=8)
         ret, out = subprocess.getstatusoutput(
             'kubectl delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'

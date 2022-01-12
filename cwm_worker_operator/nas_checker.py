@@ -13,7 +13,7 @@ def run_single_iteration(domains_config: DomainsConfig, deployments_manager, now
         now = common.now()
     all_worker_node_names = set([node['name'] for node in deployments_manager.iterate_cluster_worker_nodes()])
     all_nas_ips = set()
-    for node_name, nas_ip_statuses in deployments_manager.check_nodes_nas(all_worker_node_names).items():
+    for node_name, nas_ip_statuses in deployments_manager.check_nodes_nas(all_worker_node_names, config.NAS_CHECKER_WITH_KUBELET_LOGS).items():
         for nas_ip, status in nas_ip_statuses.items():
             all_nas_ips.add(nas_ip)
             domains_config.keys.node_nas_is_healthy.set('{}:{}'.format(node_name, nas_ip), status['is_healthy'])
