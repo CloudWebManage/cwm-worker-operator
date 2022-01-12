@@ -45,8 +45,8 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
         if instance_update == 'delete':
             msg = "domain force delete with data (from cwm updates api)"
             logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time)
-            domains_config.set_worker_force_delete(worker_id, allow_cancel=False)
             domains_config.keys.worker_force_delete_data.set(worker_id, CONFIRM_FORCE_DELETE_DATA)
+            domains_config.set_worker_force_delete(worker_id, allow_cancel=False)
             if updater_metrics:
                 updater_metrics.force_delete(worker_id, start_time)
         elif instance_update == 'update':

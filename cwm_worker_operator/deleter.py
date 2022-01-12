@@ -47,14 +47,17 @@ def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None
             with_metrics=True if delete_data else with_metrics,
         )
         namespace_name = common.get_namespace_name_from_worker_id(worker_id)
-        deployments_manager.delete(
-            namespace_name, "minio",
+        delete_kwargs = dict(
             timeout_string=deployment_timeout_string,
             delete_namespace=delete_namespace,
             delete_helm=delete_helm,
             delete_data=delete_data,
             delete_data_config=get_delete_data_config(namespace_name) if delete_data else None
         )
+        logs.debug_info('deleting instance',
+                        namespace_name=namespace_name, worker_id=worker_id,
+                        **delete_kwargs)
+        deployments_manager.delete(namespace_name, "minio", **delete_kwargs)
         if delete_data:
             domains_config.keys.worker_force_delete_data.delete(worker_id)
     return True
