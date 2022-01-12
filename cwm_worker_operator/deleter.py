@@ -1,6 +1,7 @@
 """
 Deletes worker deployments
 """
+import json
 import traceback
 
 from cwm_worker_operator import logs
@@ -11,6 +12,13 @@ from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.updater import CONFIRM_FORCE_DELETE_DATA
+
+
+def get_delete_data_config(namespace_name):
+    if config.DELETER_DATA_DELETE_CONFIG:
+        return json.loads(json.dumps(config.DELETER_DATA_DELETE_CONFIG).replace('__NAMESPACE_NAME__', namespace_name))
+    else:
+        return config.DELETER_DATA_DELETE_CONFIG
 
 
 def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
@@ -38,13 +46,14 @@ def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None
             worker_id,
             with_metrics=True if delete_data else with_metrics,
         )
+        namespace_name = common.get_namespace_name_from_worker_id(worker_id)
         deployments_manager.delete(
-            common.get_namespace_name_from_worker_id(worker_id), "minio",
+            namespace_name, "minio",
             timeout_string=deployment_timeout_string,
             delete_namespace=delete_namespace,
             delete_helm=delete_helm,
             delete_data=delete_data,
-            delete_data_config=config.DELETER_DATA_DELETE_CONFIG if delete_data else None
+            delete_data_config=get_delete_data_config(namespace_name) if delete_data else None
         )
         if delete_data:
             domains_config.keys.worker_force_delete_data.delete(worker_id)
