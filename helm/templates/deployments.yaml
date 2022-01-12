@@ -135,7 +135,7 @@ spec:
         - name: DELETER_DEFAULT_DELETE_HELM
           value: {{ if $.Values.operator.DELETER_DEFAULT_DELETE_HELM }}"yes"{{ else }}"no"{{ end }}
         - name: DELETER_DATA_DELETE_CONFIG_JSON
-          value: {{ $.Values.DELETER_DATA_DELETE_CONFIG_JSON | quote }}
+          value: {{ $.Values.operator.DELETER_DATA_DELETE_CONFIG_JSON | quote }}
         - name: DEPLOYER_USE_EXTERNAL_SERVICE
           value: {{ if $.Values.operator.DEPLOYER_USE_EXTERNAL_SERVICE }}"yes"{{ else }}"no"{{ end }}
         - name: DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS
