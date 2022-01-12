@@ -229,7 +229,7 @@ spec:
         - name: NAS_CHECKER_VOLUME_TEMPLATE_JSON
           value: {{ $.Values.operator.NAS_CHECKER_VOLUME_TEMPLATE_JSON | quote }}
         - name: NAS_CHECKER_WITH_KUBELET_LOGS
-          {{ if $.Values.operator.NAS_CHECKER_WITH_KUBELET_LOGS }}"yes"{{ else }}"no"{{ end }}
+          value: {{ if $.Values.operator.NAS_CHECKER_WITH_KUBELET_LOGS }}"yes"{{ else }}"no"{{ end }}
         - name: LOCAL_STORAGE_PATH
           value: "/data"
         - name: REDIS_CLEANER_DELETE_FAILED_TO_DEPLOY_HOSTNAME_ERROR_MIN_SECONDS
