@@ -411,7 +411,7 @@ class DeploymentsManager:
                 try:
                     ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- chroot /host docker logs --tail 2000 kubelet'.format(pod_name))
                     kubelet_log_lines = out.splitlines() if ret == 0 else None
-                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o yaml'.format(pod_name))
+                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o json'.format(pod_name))
                     pod_uid = json.loads(out)['metadata']['uid'] if ret == 0 else None
                     if kubelet_log_lines and pod_uid:
                         start_mount_datetime, end_mount_datetime = None, None
