@@ -33,11 +33,12 @@ NODE_CLEANER_CORDON_LABEL = 'cwmc-cleaner-cordon'
 ALPINE_IMAGE = "alpine:3.15.0@sha256:21a3deaa0d32a8057914f36584b5288d2e5ecc984380bc0118285c70fa8c9300"
 
 
-def kubectl_create(obj):
+def kubectl_create(obj, namespace_name='default'):
     with tempfile.TemporaryDirectory() as tmpdir:
         with open(os.path.join(tmpdir, "obj.yaml"), "w") as f:
             yaml.safe_dump(obj, f)
-        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default create -f {}'.format(os.path.join(tmpdir, "obj.yaml")))
+        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n {} create -f {}'.format(
+            namespace_name, os.path.join(tmpdir, "obj.yaml")))
         assert ret == 0, out
 
 
@@ -509,7 +510,7 @@ class DeploymentsManager:
                                 }] if with_kubelet_logs else [])
                             ]
                         }
-                    })
+                    }, namespace_name=config.NAS_CHECKER_NAMESPACE)
                     nodes_nas_ip_statuses[node_name][nas_ip]['kubectl_create_success'] = True
                     log(node_name, nas_ip, 'end kubectl_create', success=True)
                 except:
