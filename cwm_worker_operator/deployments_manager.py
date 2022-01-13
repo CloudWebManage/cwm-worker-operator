@@ -409,9 +409,13 @@ class DeploymentsManager:
             for pod_name, nas_ip in nodes_pod_names[node_name].items():
                 nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_seconds'] = None
                 try:
-                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- chroot /host docker logs --tail 2000 kubelet'.format(pod_name))
+                    ret, out = subprocess.getstatusoutput(
+                        'DEBUG= kubectl -n {} exec {} -- chroot /host docker logs --tail 2000 kubelet'.format(
+                            config.NAS_CHECKER_NAMESPACE, pod_name))
                     kubelet_log_lines = out.splitlines() if ret == 0 else None
-                    ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o json'.format(pod_name))
+                    ret, out = subprocess.getstatusoutput(
+                        'DEBUG= kubectl -n {} get pod {} -o json'.format(
+                            config.NAS_CHECKER_NAMESPACE, pod_name))
                     pod_uid = json.loads(out)['metadata']['uid'] if ret == 0 else None
                     if kubelet_log_lines and pod_uid:
                         start_mount_datetime, end_mount_datetime = None, None
@@ -433,7 +437,8 @@ class DeploymentsManager:
         logs.debug('starting check_nodes_nas', debug_verbosity=8, node_names=node_names)
         logs.debug('deleting existing pods', debug_verbosity=8)
         ret, out = subprocess.getstatusoutput(
-            'kubectl delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'
+            'kubectl -n {} delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'.format(
+                config.NAS_CHECKER_NAMESPACE)
         )
         if ret != 0:
             logs.debug_info('failed to delete pods, continuing anyway', ret=ret, out=out)
@@ -464,7 +469,7 @@ class DeploymentsManager:
                         "kind": "Pod",
                         "metadata": {
                             "name": pod_name,
-                            "namespace": 'default',
+                            "namespace": config.NAS_CHECKER_NAMESPACE,
                             'labels': {
                                 'app': 'cwm-worker-operator-check-node-nas'
                             }
@@ -517,7 +522,9 @@ class DeploymentsManager:
             for node_name in node_names:
                 for pod_name, nas_ip in nodes_pod_names[node_name].items():
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
-                        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default exec {} -- ls /mnt/nas'.format(pod_name))
+                        ret, out = subprocess.getstatusoutput(
+                            'DEBUG= kubectl -n {} exec {} -- ls /mnt/nas'.format(
+                                config.NAS_CHECKER_NAMESPACE, pod_name))
                         if ret != 0:
                             log(node_name, nas_ip, 'wait_ready_ls', ret=ret, out=out)
                             logs.debug("Error running ls: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
@@ -529,7 +536,9 @@ class DeploymentsManager:
                             else:
                                 nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy'] = True
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
-                        ret, out = subprocess.getstatusoutput('DEBUG= kubectl -n default get pod {} -o yaml'.format(pod_name))
+                        ret, out = subprocess.getstatusoutput(
+                            'DEBUG= kubectl -n {} get pod {} -o yaml'.format(
+                                config.NAS_CHECKER_NAMESPACE, pod_name))
                         log(node_name, nas_ip, 'wait_ready_failed', ret=ret, out=out)
             num_not_healthy = 0
             for node_name in node_names:
@@ -545,7 +554,8 @@ class DeploymentsManager:
             self.check_nodes_nas_update_kubelet_logs(node_names, nodes_pod_names, nodes_nas_ip_statuses)
         logs.debug('deleting pods', debug_verbosity=8)
         ret, out = subprocess.getstatusoutput(
-            'kubectl delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'
+            'kubectl -n {} delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'.format(
+                config.NAS_CHECKER_NAMESPACE)
         )
         if ret != 0:
             logs.debug_info('failed to delete pods, continuing anyway', ret=ret, out=out)
