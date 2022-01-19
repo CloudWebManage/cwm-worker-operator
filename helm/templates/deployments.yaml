@@ -126,6 +126,8 @@ spec:
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_METRICS_UPDATER | quote }}
         - name: PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_NAS_CHECKER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_NAS_CHECKER | quote }}
         {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_IDENTIFIER }}
         - name: PROMETHEUS_METRICS_WITH_IDENTIFIER
           value: "yes"

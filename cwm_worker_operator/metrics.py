@@ -141,3 +141,14 @@ class DiskUsageUpdaterMetrics(BaseMetrics):
 
     def disk_usage_update(self, worker_id, start_time):
         self._observe(self._disk_usage_updater_request, worker_id, start_time, "disk_usage_update")
+
+
+class NasCheckerMetrics:
+
+    def __init__(self):
+        self._mount_duration = Histogram('nas_checker_mount_duration',
+                                         'nas checker mount duration (seconds)',
+                                         ["node_name", "nas_ip"])
+
+    def observe_mount_duration(self, node_name, nas_ip, duration_seconds):
+        self._mount_duration.labels(node_name, nas_ip).observe(duration_seconds)
