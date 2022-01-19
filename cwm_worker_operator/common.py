@@ -91,8 +91,10 @@ def local_storage_set(filename: str, content: str):
     dirname = os.path.dirname(fullpath)
     if not os.path.exists(dirname):
         os.makedirs(dirname, exist_ok=True)
-    with open(fullpath, 'w') as f:
+    temp_fullpath = fullpath + '.temp'
+    with open(temp_fullpath, 'w') as f:
         f.write(content)
+    os.rename(temp_fullpath, fullpath)
 
 
 def local_storage_json_set(key: str, value: dict):
