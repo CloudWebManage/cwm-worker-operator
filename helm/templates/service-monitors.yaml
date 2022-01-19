@@ -1,5 +1,5 @@
 {{ if $.Values.enableServiceMonitor }}
-{{ range .Values.serviceMonitors }}
+{{ range $.Values.serviceMonitors }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -9,8 +9,8 @@ metadata:
     app: cwm-worker-operator-{{ . }}-monitor
 spec:
   ports:
-  - name: {{ .Values.serviceMonitorsPort | quote }}
-    port: {{ .Values.serviceMonitorsPort }}
+  - name: {{ $.Values.serviceMonitorsPort | quote }}
+    port: {{ $.Values.serviceMonitorsPort }}
   selector:
     app: cwm-worker-operator-{{ . }}
 ---
@@ -27,6 +27,6 @@ spec:
     matchLabels:
       app: cwm-worker-operator-{{ . }}-monitor
   endpoints:
-  - port: {{ .Values.serviceMonitorsPort | quote }}
+  - port: {{ $.Values.serviceMonitorsPort | quote }}
 {{ end }}
 {{ end }}
