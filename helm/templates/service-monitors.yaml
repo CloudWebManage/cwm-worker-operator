@@ -1,0 +1,32 @@
+{{ if $.Values.enableServiceMonitor }}
+{{ range .Values.serviceMonitors }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cwm-worker-operator-{{ . }}-monitor
+  namespace: default
+  labels:
+    app: cwm-worker-operator-{{ . }}-monitor
+spec:
+  ports:
+  - name: {{ .Values.serviceMonitorsPort | quote }}
+    port: {{ .Values.serviceMonitorsPort }}
+  selector:
+    app: cwm-worker-operator-{{ . }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cwm-worker-operator-{{ . }}-monitor
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - default
+  selector:
+    matchLabels:
+      app: cwm-worker-operator-{{ . }}-monitor
+  endpoints:
+  - port: {{ .Values.serviceMonitorsPort | quote }}
+{{ end }}
+{{ end }}

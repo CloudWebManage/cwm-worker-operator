@@ -75,14 +75,15 @@ operator:
   CWM_WORKER_DEPLOYMENT_EXTRA_CONFIG_JSON: "{}"
   MINIO_EXTRA_CONFIG_JSON: "{}"
   CWM_WORKER_EXTRA_OBJECTS_JSON: "[]"
+  # all must use the same port, which must be same as serviceMonitorsPort
   PROMETHEUS_METRICS_PORT_INITIALIZER: "8081"
-  PROMETHEUS_METRICS_PORT_DEPLOYER: "8082"
-  PROMETHEUS_METRICS_PORT_WAITER: "8083"
-  PROMETHEUS_METRICS_PORT_DELETER: "8084"
-  PROMETHEUS_METRICS_PORT_UPDATER: "8085"
-  PROMETHEUS_METRICS_PORT_METRICS_UPDATER: "8086"
-  PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER: "8087"
-  PROMETHEUS_METRICS_PORT_NAS_CHECKER: "8088"
+  PROMETHEUS_METRICS_PORT_DEPLOYER: "8081"
+  PROMETHEUS_METRICS_PORT_WAITER: "8081"
+  PROMETHEUS_METRICS_PORT_DELETER: "8081"
+  PROMETHEUS_METRICS_PORT_UPDATER: "8081"
+  PROMETHEUS_METRICS_PORT_METRICS_UPDATER: "8081"
+  PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER: "8081"
+  PROMETHEUS_METRICS_PORT_NAS_CHECKER: "8081"
   PROMETHEUS_METRICS_WITH_IDENTIFIER: false
   DELETER_DEFAULT_DELETE_NAMESPACE: false
   DELETER_DEFAULT_DELETE_HELM: true
@@ -202,7 +203,19 @@ webUiIngress:
   httpAuthSecretName: ""
   domain: ""
 
-enableServiceMonitor: false
 enableRedisPvc: false
 enableOperatorPvc: false
 storageClassName: ""
+
+enableServiceMonitor: false
+serviceMonitorsPort: 8081
+serviceMonitors:
+  - initializer
+  # deployer, waiter and updater don't send metrics at the moment because they use the multiprocessor
+  # - deployer
+  # - waiter
+  # - updater
+  - deleter
+  - metrics-updater
+  - disk-usage-updater
+  - nas-checker
