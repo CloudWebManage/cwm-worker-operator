@@ -3,4 +3,4 @@ requests==2.24.0
 kubernetes==11.0.0
 pytest==5.4.3
 click==7.1.2
--e "git+https://github.com/CloudWebManage/cwm-worker-deployment.git@7c553b179b835c64f89cf6ddceab173a8efe20cd#egg=cwm-worker-deployment"
+-e "git+https://github.com/CloudWebManage/cwm-worker-deployment.git@d6ae5006e88e6310c3e85f18b7df108b5eabeace#egg=cwm-worker-deployment"
