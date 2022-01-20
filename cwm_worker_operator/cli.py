@@ -60,7 +60,11 @@ for daemon in [
     {'name': 'clear-cacher'},
     {'name': 'nas-checker'},
     {'name': 'redis-cleaner'},
-    {'name': 'workers-checker'},
+    {'name': 'workers-checker', 'extra_commands': {
+        'process_namespace': {'callback_method': 'process_namespace', 'params': [
+            click.Option(['--namespace-name']),
+        ], 'help': 'Check and update a single namespace, used by workers-checker to run async operations'}
+    }},
 ]:
     try:
         daemon_module = importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_')))

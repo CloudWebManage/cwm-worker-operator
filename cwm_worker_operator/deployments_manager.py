@@ -168,6 +168,14 @@ class DeploymentsManager:
     def is_ready(self, namespace_name, deployment_type, minimal_check=False):
         return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, minimal_check=minimal_check)
 
+    def get_health(self, namespace_name, deployment_type):
+        return cwm_worker_deployment.deployment.get_health(namespace_name, deployment_type)
+
+    def get_worker_id_namespaces(self):
+        ret, out = subprocess.getstatusoutput("kubectl get ns | tail -n+2 | cut -d' ' -f1")
+        assert ret == 0, out
+        return [line.strip() for line in out.splitlines() if line.strip() and line.strip().startswith('cwm-worker-')]
+
     def get_hostname(self, namespace_name, deployment_type):
         return {
             protocol: cwm_worker_deployment.deployment.get_hostname(namespace_name, deployment_type, protocol)
