@@ -244,6 +244,8 @@ spec:
           value: {{ $.Values.operator.REDIS_CLEANER_DELETE_ANY_HOSTNAME_ERROR_MIN_SECONDS | quote }}
         - name: WORKERS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
           value: {{ $.Values.operator.WORKERS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+        - name: WORKERS_CHECKER_MAX_PARALLEL_DEPLOY_PROCESSES
+          value: {{ $.Values.operator.WORKERS_CHECKER_MAX_PARALLEL_DEPLOY_PROCESSES | quote }}
 {{ $.Values.operator.env | indent 8 }}
         volumeMounts:
         - mountPath: "/data"

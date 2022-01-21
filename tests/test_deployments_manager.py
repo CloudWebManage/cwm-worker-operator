@@ -239,3 +239,13 @@ def test_check_node_nas():
     assert statuses['1.2.3.4']['is_healthy'] is True
     assert statuses['5.6.7.8']['is_healthy'] is True
     json.dumps(statuses)
+
+
+def test_get_worker_id_namespace():
+    subprocess.call(['kubectl', 'delete', '--wait', 'ns', 'cwm-worker-test123'])
+    assert 'cwm-worker-test123' not in DeploymentsManager().get_worker_id_namespaces()
+    subprocess.check_call(['kubectl', 'create', 'ns', 'cwm-worker-test123'])
+    assert 'cwm-worker-test123' in DeploymentsManager().get_worker_id_namespaces()
+    subprocess.check_call(['kubectl', 'delete', '--wait', 'ns', 'cwm-worker-test123'])
+
+

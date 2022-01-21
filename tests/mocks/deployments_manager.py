@@ -62,6 +62,8 @@ class MockDeploymentsManager(DeploymentsManager):
         self.minio_nginx_pods_on_node = []
         self.check_nodes_nas_response = {}
         self.deploy_preprocess_specs_results = {}
+        self.namespace_deployment_type_get_health = {}
+        self.worker_id_namespaces = []
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -84,6 +86,14 @@ class MockDeploymentsManager(DeploymentsManager):
     def is_ready(self, namespace_name, deployment_type, minimal_check=False):
         self.calls.append(('is_ready', [namespace_name, deployment_type, minimal_check]))
         return self.namespace_deployment_type_is_ready.get('{}-{}{}'.format(namespace_name, deployment_type, '-minimal' if minimal_check else ''))
+
+    def get_health(self, namespace_name, deployment_type):
+        self.calls.append(('get_health', [namespace_name, deployment_type]))
+        return self.namespace_deployment_type_get_health.get('{}-{}'.format(namespace_name, deployment_type))
+
+    def get_worker_id_namespaces(self):
+        self.calls.append(('get_worker_id_namespaces', []))
+        return self.worker_id_namespaces
 
     def get_hostname(self, namespace_name, deployment_type):
         self.calls.append(('get_hostname', [namespace_name, deployment_type]))
