@@ -172,7 +172,7 @@ class DeploymentsManager:
         return cwm_worker_deployment.deployment.get_health(namespace_name, deployment_type)
 
     def get_worker_id_namespaces(self):
-        ret, out = subprocess.getstatusoutput("kubectl get ns | tail -n+2 | cut -d' ' -f1")
+        ret, out = subprocess.getstatusoutput("kubectl get ns --no-headers -o=custom-columns=NAME:.metadata.name")
         assert ret == 0, out
         return [line.strip() for line in out.splitlines() if line.strip() and line.strip().startswith('cwm-worker-')]
 
