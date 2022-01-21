@@ -72,7 +72,8 @@ Commands:
 
   waiter                          Waits for deployed workers to be available
   web-ui                          A web interface for debugging
-  workers-checker                 Check workers and update status in Redis
+  workers-checker                 Check workers and update status in Redis and
+                                  local storage
 ```
 
 #### cwm-worker-operator initializer
@@ -498,12 +499,13 @@ Options:
 ```
 Usage: cwm-worker-operator workers-checker [OPTIONS] COMMAND [ARGS]...
 
-  Check workers and update status in Redis
+  Check workers and update status in Redis and local storage
 
 Options:
   --help  Show this message and exit.
 
 Commands:
+  process_namespace  Check and update a single namespace, used by...
   start_daemon
 ```
 
@@ -515,6 +517,20 @@ Usage: cwm-worker-operator workers-checker start_daemon [OPTIONS]
 Options:
   --once
   --help  Show this message and exit.
+```
+
+#### cwm-worker-operator workers-checker process_namespace
+
+```
+Usage: cwm-worker-operator workers-checker process_namespace 
+           [OPTIONS]
+
+  Check and update a single namespace, used by workers-checker to run async
+  operations
+
+Options:
+  --namespace-name TEXT
+  --help                 Show this message and exit.
 ```
 
 #### cwm-worker-operator cwm-api-volume-config-api-call
