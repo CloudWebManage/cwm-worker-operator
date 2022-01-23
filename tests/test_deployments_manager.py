@@ -241,11 +241,14 @@ def test_check_node_nas():
     json.dumps(statuses)
 
 
-def test_get_worker_id_namespace():
+def test_get_all_namespaces():
     subprocess.call(['kubectl', 'delete', '--wait', 'ns', 'cwm-worker-test123'])
-    assert 'cwm-worker-test123' not in DeploymentsManager().get_worker_id_namespaces()
+    assert 'cwm-worker-test123' not in DeploymentsManager().get_all_namespaces()
     subprocess.check_call(['kubectl', 'create', 'ns', 'cwm-worker-test123'])
-    assert 'cwm-worker-test123' in DeploymentsManager().get_worker_id_namespaces()
+    all_namespaces = DeploymentsManager().get_all_namespaces()
+    assert 'cwm-worker-test123' in all_namespaces
+    assert 'default' in all_namespaces
+    assert 'kube-system' in all_namespaces
     subprocess.check_call(['kubectl', 'delete', '--wait', 'ns', 'cwm-worker-test123'])
 
 

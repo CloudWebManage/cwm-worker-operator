@@ -41,6 +41,10 @@ def assert_valid_namespace_name(namespace_name):
     assert 0 < len(namespace_name) <= 253 and re.match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$', namespace_name) is not None, 'invalid namespace_name: {}'.format(namespace_name)
 
 
+class InvalidWorkerIdException(Exception):
+    pass
+
+
 @lru_cache(maxsize=9999)
 def get_namespace_name_from_worker_id(worker_id):
     namespace_name = 'cwm-worker-'
@@ -50,7 +54,7 @@ def get_namespace_name_from_worker_id(worker_id):
         elif char in LOWERCASE_LETTERS_AND_NUMBERS:
             namespace_name += char
         else:
-            raise Exception("Invalid worker_id, '{}' is not allowed: {}".format(char, worker_id))
+            raise InvalidWorkerIdException("Invalid worker_id, '{}' is not allowed: {}".format(char, worker_id))
     return namespace_name
 
 

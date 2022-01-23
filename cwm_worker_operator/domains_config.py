@@ -454,6 +454,19 @@ class DomainsConfig:
         else:
             return cwm_api_manager.CwmApiManager().volume_config_api_call(query_param, query_value)
 
+    def is_valid_worker_id(self, worker_id):
+        try:
+            common.get_namespace_name_from_worker_id(worker_id)
+        except common.InvalidWorkerIdException:
+            return False
+        try:
+            volume_config = self.get_cwm_api_volume_config(force_update=True, worker_id=worker_id)
+        except:
+            return False
+        if not volume_config.id:
+            return False
+        return True
+
     def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None) -> VolumeConfig:
         if hostname:
             assert not worker_id

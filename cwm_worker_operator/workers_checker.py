@@ -13,63 +13,66 @@ from cwm_worker_operator.multiprocessor import Multiprocessor
 from cwm_worker_operator.common import local_storage_json_last_items_append
 
 
-def get_namespace_names(deployments_manager: DeploymentsManager, domains_config: DomainsConfig):
-    namespace_names = set()
+def get_worker_ids(deployments_manager: DeploymentsManager, domains_config: DomainsConfig):
+    worker_ids = set()
     for release in deployments_manager.iterate_all_releases():
-        namespace_names.add(release['namespace'])
+        worker_ids.add(common.get_worker_id_from_namespace_name(release['namespace']))
     for worker_id in domains_config.keys.worker_health.iterate_prefix_key_suffixes():
-        namespace_names.add(common.get_namespace_name_from_worker_id(worker_id))
-    for namespace_name in deployments_manager.get_worker_id_namespaces():
-        namespace_names.add(namespace_name)
-    return namespace_names
+        worker_ids.add(worker_id)
+    for namespace_name in deployments_manager.get_all_namespaces():
+        worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+        if worker_id != namespace_name:
+            worker_ids.add(worker_id)
+    return worker_ids
 
 
-def process_namespace(namespace_name,
-                      domains_config: DomainsConfig = None,
-                      deployments_manager: DeploymentsManager = None):
+def process_worker(worker_id,
+                   domains_config: DomainsConfig = None,
+                   deployments_manager: DeploymentsManager = None):
     if not domains_config:
         domains_config = DomainsConfig()
     if not deployments_manager:
         deployments_manager = DeploymentsManager()
-    worker_id = common.get_worker_id_from_namespace_name(namespace_name)
-    try:
-        health = deployments_manager.get_health(namespace_name, 'minio')
-    except:
-        exception = traceback.format_exc()
-        print("Failed to get health for worker_id {}".format(worker_id))
-        print(exception)
-        health = {
-            'exception': exception
-        }
-    if health:
-        domains_config.keys.worker_health.set(worker_id, json.dumps(health))
-        local_storage_json_last_items_append('workers_checker/health/{}'.format(worker_id),
-                                             health, max_items=100)
-    else:
-        domains_config.keys.worker_health.delete(worker_id)
+    if domains_config.is_valid_worker_id(worker_id):
+        namespace_name = common.get_namespace_name_from_worker_id(worker_id)
+        try:
+            health = deployments_manager.get_health(namespace_name, 'minio')
+        except:
+            exception = traceback.format_exc()
+            print("Failed to get health for worker_id {}".format(worker_id))
+            print(exception)
+            health = {
+                'exception': exception
+            }
+        if health:
+            domains_config.keys.worker_health.set(worker_id, json.dumps(health))
+            local_storage_json_last_items_append('workers_checker/health/{}'.format(worker_id),
+                                                 health, max_items=100)
+        else:
+            domains_config.keys.worker_health.delete(worker_id)
     return True
 
 
 class WorkersCheckerMultiprocessor(Multiprocessor):
 
-    def _run_async(self, domains_config, deployments_manager, namespace_name):
+    def _run_async(self, domains_config, deployments_manager, worker_id):
         cmd = [
-            'cwm-worker-operator', 'workers-checker', 'process_namespace',
-            '--namespace-name', namespace_name
+            'cwm-worker-operator', 'workers-checker', 'process_worker',
+            '--worker-id', worker_id
         ]
         return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-    def _run_sync(self, domains_config, deployments_manager, namespace_name):
-        process_namespace(namespace_name, domains_config, deployments_manager)
+    def _run_sync(self, domains_config, deployments_manager, worker_id):
+        process_worker(worker_id, domains_config, deployments_manager)
 
-    def _get_process_key(self, domains_config, deployments_manager, namespace_name):
-        return namespace_name
+    def _get_process_key(self, domains_config, deployments_manager, worker_id):
+        return worker_id
 
 
 def run_single_iteration(domains_config: DomainsConfig, deployments_manager: DeploymentsManager, is_async=False, **_):
     multiprocessor = WorkersCheckerMultiprocessor(config.WORKERS_CHECKER_MAX_PARALLEL_DEPLOY_PROCESSES if is_async else 1)
-    for namespace_name in get_namespace_names(deployments_manager, domains_config):
-        multiprocessor.process(domains_config, deployments_manager, namespace_name)
+    for worker_id in get_worker_ids(deployments_manager, domains_config):
+        multiprocessor.process(domains_config, deployments_manager, worker_id)
     multiprocessor.finalize()
 
 

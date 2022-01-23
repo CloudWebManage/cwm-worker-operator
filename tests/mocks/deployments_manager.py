@@ -63,7 +63,7 @@ class MockDeploymentsManager(DeploymentsManager):
         self.check_nodes_nas_response = {}
         self.deploy_preprocess_specs_results = {}
         self.namespace_deployment_type_get_health = {}
-        self.worker_id_namespaces = []
+        self.all_namespaces = []
 
     def init(self, deployment_config):
         self.calls.append(('init', [deployment_config]))
@@ -91,9 +91,9 @@ class MockDeploymentsManager(DeploymentsManager):
         self.calls.append(('get_health', [namespace_name, deployment_type]))
         return self.namespace_deployment_type_get_health.get('{}-{}'.format(namespace_name, deployment_type))
 
-    def get_worker_id_namespaces(self):
-        self.calls.append(('get_worker_id_namespaces', []))
-        return self.worker_id_namespaces
+    def get_all_namespaces(self):
+        self.calls.append(('get_all_namespaces', []))
+        return self.all_namespaces
 
     def get_hostname(self, namespace_name, deployment_type):
         self.calls.append(('get_hostname', [namespace_name, deployment_type]))
