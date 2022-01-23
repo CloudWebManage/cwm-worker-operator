@@ -505,7 +505,7 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  process_namespace  Check and update a single namespace, used by...
+  process_worker  Check and update a single worker, used by workers-checker...
   start_daemon
 ```
 
@@ -519,18 +519,17 @@ Options:
   --help  Show this message and exit.
 ```
 
-#### cwm-worker-operator workers-checker process_namespace
+#### cwm-worker-operator workers-checker process_worker
 
 ```
-Usage: cwm-worker-operator workers-checker process_namespace 
-           [OPTIONS]
+Usage: cwm-worker-operator workers-checker process_worker [OPTIONS]
 
-  Check and update a single namespace, used by workers-checker to run async
+  Check and update a single worker, used by workers-checker to run async
   operations
 
 Options:
-  --namespace-name TEXT
-  --help                 Show this message and exit.
+  --worker-id TEXT
+  --help            Show this message and exit.
 ```
 
 #### cwm-worker-operator cwm-api-volume-config-api-call
