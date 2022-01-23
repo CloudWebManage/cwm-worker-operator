@@ -22,7 +22,8 @@ def get_delete_data_config(namespace_name):
 
 
 def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None, delete_helm=None,
-           domains_config=None, deployments_manager=None, with_metrics=False, hostname=None):
+           domains_config=None, deployments_manager=None, with_metrics=False, hostname=None,
+           force_now=False):
     if domains_config is None:
         domains_config = DomainsConfig()
     if deployments_manager is None:
@@ -52,7 +53,8 @@ def delete(worker_id=None, deployment_timeout_string=None, delete_namespace=None
             delete_namespace=delete_namespace,
             delete_helm=delete_helm,
             delete_data=delete_data,
-            delete_data_config=get_delete_data_config(namespace_name) if delete_data else None
+            delete_data_config=get_delete_data_config(namespace_name) if delete_data else None,
+            force_now=force_now
         )
         logs.debug_info('deleting instance',
                         namespace_name=namespace_name, worker_id=worker_id,

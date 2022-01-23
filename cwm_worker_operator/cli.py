@@ -37,7 +37,8 @@ for daemon in [
             click.Option(['--worker-id']),
             click.Option(['--hostname']),
             click.Option(['--deployment-timeout-string']),
-            click.Option(['--with-metrics'], is_flag=True)
+            click.Option(['--with-metrics'], is_flag=True),
+            click.Option(['--force-now'], is_flag=True),
         ], 'help': 'Manually delete a worker for debugging'}
     }},
     {'name': 'updater', 'extra_commands': {

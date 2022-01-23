@@ -250,5 +250,3 @@ def test_get_all_namespaces():
     assert 'default' in all_namespaces
     assert 'kube-system' in all_namespaces
     subprocess.check_call(['kubectl', 'delete', '--wait', 'ns', 'cwm-worker-test123'])
-
-
