@@ -218,6 +218,7 @@ Options:
   --hostname TEXT
   --deployment-timeout-string TEXT
   --with-metrics
+  --force-now
   --help                          Show this message and exit.
 ```
 
