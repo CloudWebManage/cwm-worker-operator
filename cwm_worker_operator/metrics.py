@@ -1,4 +1,4 @@
-from prometheus_client import Histogram
+from prometheus_client import Histogram, Counter, REGISTRY
 
 from cwm_worker_operator import config
 from cwm_worker_operator import common
@@ -152,3 +152,14 @@ class NasCheckerMetrics:
 
     def observe_mount_duration(self, node_name, nas_ip, duration_seconds):
         self._mount_duration.labels(node_name, nas_ip).observe(duration_seconds)
+
+
+class WorkersCheckerMetrics:
+
+    def __init__(self, registry=REGISTRY):
+        self._states = Counter('workers_checker_states',
+                               'workers checker states',
+                               ["worker_id", "state"], registry=registry)
+
+    def observe_state(self, worker_id, state):
+        self._states.labels(worker_id, state).inc()

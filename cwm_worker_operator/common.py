@@ -113,3 +113,14 @@ def local_storage_json_last_items_append(key: str, value: dict, max_items=20, no
     items = sorted(glob(os.path.join(config.LOCAL_STORAGE_PATH, key, '*')), reverse=True)
     if len(items) > max_items:
         os.unlink(items[-1])
+
+
+def local_storage_json_last_items_iterator(key: str, max_items=None):
+    for i, filename in enumerate(sorted(glob(os.path.join(config.LOCAL_STORAGE_PATH, key, '*.json')), reverse=True)):
+        if max_items and i >= max_items:
+            break
+        with open(filename) as f:
+            yield {
+                'datetime': strptime(filename.replace(os.path.join(config.LOCAL_STORAGE_PATH, key) + '/', '').replace('.json', ''), '%Y-%m-%dT%H-%M-%S'),
+                'item': json.load(f)
+            }

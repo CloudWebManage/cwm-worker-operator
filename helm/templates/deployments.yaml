@@ -128,6 +128,8 @@ spec:
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_DISK_USAGE_UPDATER | quote }}
         - name: PROMETHEUS_METRICS_PORT_NAS_CHECKER
           value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_NAS_CHECKER | quote }}
+        - name: PROMETHEUS_METRICS_PORT_WORKERS_CHECKER
+          value: {{ $.Values.operator.PROMETHEUS_METRICS_PORT_WORKERS_CHECKER | quote }}
         {{ if $.Values.operator.PROMETHEUS_METRICS_WITH_IDENTIFIER }}
         - name: PROMETHEUS_METRICS_WITH_IDENTIFIER
           value: "yes"
@@ -246,6 +248,10 @@ spec:
           value: {{ $.Values.operator.WORKERS_CHECKER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
         - name: WORKERS_CHECKER_MAX_PARALLEL_DEPLOY_PROCESSES
           value: {{ $.Values.operator.WORKERS_CHECKER_MAX_PARALLEL_DEPLOY_PROCESSES | quote }}
+        - name: WORKERS_CHECKER_ALERT_POD_PENDING_SECONDS
+          value: {{ $.Values.operator.WORKERS_CHECKER_ALERT_POD_PENDING_SECONDS | quote }}
+        - name: WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS
+          value: {{ $.Values.operator.WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         volumeMounts:
         - mountPath: "/data"
