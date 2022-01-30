@@ -49,6 +49,7 @@ class Multiprocessor:
                 self._async_processes_completed.add(key)
                 if process.returncode == 0:
                     out = process.stdout.read().decode().strip()
+                    res = None
                     if out:
                         if JSON_RESPONSE_START in out and JSON_RESPONSE_END in out:
                             new_out = ''
@@ -61,8 +62,7 @@ class Multiprocessor:
                                 print(new_out)
                         else:
                             print(out)
-                            res = None
-                        self._handle_process_response(key, res)
+                    self._handle_process_response(key, res)
                 else:
                     self._async_processes_errored.add(key)
                     print("Error in process key {} ({})".format(key, self.processes[key].returncode))
