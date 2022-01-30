@@ -417,15 +417,20 @@ class DeploymentsManager:
         for node_name in node_names:
             for pod_name, nas_ip in nodes_pod_names[node_name].items():
                 nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_seconds'] = None
+                mount_duration_errors = []
                 try:
                     ret, out = subprocess.getstatusoutput(
                         'DEBUG= kubectl -n {} exec {} -- chroot /host docker logs --tail 2000 kubelet'.format(
                             config.NAS_CHECKER_NAMESPACE, pod_name))
                     kubelet_log_lines = out.splitlines() if ret == 0 else None
+                    if not kubelet_log_lines:
+                        mount_duration_errors.append("failed to get kubelet log lines")
                     ret, out = subprocess.getstatusoutput(
                         'DEBUG= kubectl -n {} get pod {} -o json'.format(
                             config.NAS_CHECKER_NAMESPACE, pod_name))
                     pod_uid = json.loads(out)['metadata']['uid'] if ret == 0 else None
+                    if not pod_uid:
+                        mount_duration_errors.append("failed to get pod uid")
                     if kubelet_log_lines and pod_uid:
                         start_mount_datetime, end_mount_datetime = None, None
                         for line in reversed(kubelet_log_lines):
@@ -434,13 +439,25 @@ class DeploymentsManager:
                                     start_mount_datetime = parse_datetime_from_kubelet_log_line(line)
                                 elif 'MountVolume.SetUp succeeded for volume "nas"' in line:
                                     end_mount_datetime = parse_datetime_from_kubelet_log_line(line)
-                        if (
-                            start_mount_datetime and end_mount_datetime and end_mount_datetime > start_mount_datetime
-                            and (common.now() - end_mount_datetime).total_seconds() < 120
-                        ):
+                        if not start_mount_datetime:
+                            mount_duration_errors.append("failed to find start mount log line")
+                        elif not end_mount_datetime:
+                            mount_duration_errors.append("failed to find end mount log line")
+                        elif end_mount_datetime <= start_mount_datetime:
+                            mount_duration_errors.append("end mount datetime is smaller or equal to start mount datetime")
+                        elif (common.now() - end_mount_datetime).total_seconds() < 120:
+                            mount_duration_errors.append("end mount datetime is more then 120 seconds ago")
+                        else:
                             nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_seconds'] = (end_mount_datetime - start_mount_datetime).total_seconds()
                 except:
-                    traceback.print_exc()
+                    exc = traceback.format_exc()
+                    print(exc)
+                    mount_duration_errors.append(exc)
+                if len(mount_duration_errors) > 0:
+                    nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy'] = False
+                    nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_errors'] = ', '.join(mount_duration_errors)
+                else:
+                    nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_errors'] = ''
 
     def check_nodes_nas(self, node_names, with_kubelet_logs=False):
         logs.debug('starting check_nodes_nas', debug_verbosity=8, node_names=node_names)
