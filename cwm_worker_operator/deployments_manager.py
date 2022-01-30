@@ -445,7 +445,7 @@ class DeploymentsManager:
                             mount_duration_errors.append("failed to find end mount log line")
                         elif end_mount_datetime <= start_mount_datetime:
                             mount_duration_errors.append("end mount datetime is smaller or equal to start mount datetime")
-                        elif (common.now() - end_mount_datetime).total_seconds() < 120:
+                        elif (common.now() - end_mount_datetime).total_seconds() > 120:
                             mount_duration_errors.append("end mount datetime is more then 120 seconds ago")
                         else:
                             nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_seconds'] = (end_mount_datetime - start_mount_datetime).total_seconds()
