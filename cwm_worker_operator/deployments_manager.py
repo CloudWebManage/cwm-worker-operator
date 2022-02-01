@@ -222,7 +222,7 @@ class DeploymentsManager:
             try:
                 res = requests.post('http://kube-prometheus-kube-prome-prometheus.monitoring:9090/api/v1/query', {
                     'query': prom_query_template.replace('NAMESPACE_NAME', namespace_name)
-                }).json()
+                }, timeout=15).json()
                 if res.get('status') == 'success' and len(res.get('data', {}).get('result', [])) == 1:
                     metrics[metric] = str(res['data']['result'][0]['value'][1])
             except:

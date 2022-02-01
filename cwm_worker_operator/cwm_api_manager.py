@@ -20,7 +20,7 @@ class CwmApiManager:
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET
         }
-        res = requests.post(url, headers=headers, json=data)
+        res = requests.post(url, headers=headers, json=data, timeout=15)
         if res.status_code != 200:
             raise Exception("Failed to send agg metrics to CWM: {} {}".format(res.status_code, res.text))
 
@@ -77,7 +77,7 @@ class CwmApiManager:
             res = requests.get(
                 '{}/{}.json'.format(config.VOLUME_CONFIG_OVERRIDE_URL, worker_id),
                 auth=(config.VOLUME_CONFIG_OVERRIDE_USERNAME, config.VOLUME_CONFIG_OVERRIDE_PASSWORD),
-                timeout=5
+                timeout=15
             )
             if res.status_code == 404:
                 return {}
@@ -100,7 +100,7 @@ class CwmApiManager:
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET
         }
-        volume_config = json.loads(requests.get(url, headers=headers).text, strict=False)
+        volume_config = json.loads(requests.get(url, headers=headers).text, strict=False, timeout=15)
         return common.dicts_merge(volume_config, self.get_override_volume_config(volume_config))
 
     def get_cwm_updates(self, from_datetime: datetime.datetime):
@@ -112,7 +112,7 @@ class CwmApiManager:
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET
         }
-        for update in json.loads(requests.get(url, headers=headers).text, strict=False):
+        for update in json.loads(requests.get(url, headers=headers).text, strict=False, timeout=15):
             yield {
                 'worker_id': update['id'],
                 'update_time': common.strptime(update['time'], '%Y-%m-%d %H:%M:%S')

@@ -34,7 +34,7 @@ def send_alert(alert_msg):
     if config.ALERTER_SLACK_WEBHOOK_URL:
         if config.ALERTER_MESSAGE_PREFIX:
             alert_msg = "{} {}".format(config.ALERTER_MESSAGE_PREFIX, alert_msg)
-        res = requests.post(config.ALERTER_SLACK_WEBHOOK_URL, json={"text": alert_msg})
+        res = requests.post(config.ALERTER_SLACK_WEBHOOK_URL, json={"text": alert_msg}, timeout=15)
         res.raise_for_status()
     else:
         logs.debug_info("No slack webhook url!", alert_msg=alert_msg)
