@@ -543,6 +543,10 @@ class DeploymentsManager:
                     log(node_name, nas_ip, 'end kubectl_create', success=False, error=traceback.format_exc())
         logs.debug('waiting for pod mounts to be ready', debug_verbosity=8)
         start_time = common.now()
+        timeout_seconds_per_node_pod = 3
+        timeout_seconds = 0
+        for node_name in node_names:
+            timeout_seconds += len(nodes_pod_names[node_name]) * timeout_seconds_per_node_pod
         while True:
             time.sleep(5)
             for node_name in node_names:
@@ -554,6 +558,9 @@ class DeploymentsManager:
                         if ret != 0:
                             log(node_name, nas_ip, 'wait_ready_ls', ret=ret, out=out)
                             logs.debug("Error running ls: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
+                        elif (common.now() - start_time).total_seconds() > timeout_seconds:
+                            log(node_name, nas_ip, 'wait_ready_ls', timeout=True)
+                            logs.debug("Timed out waiting for ls", debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
                         else:
                             ret, out = subprocess.getstatusoutput(
                                 'DEBUG= kubectl -n {} exec {} -- touch /mnt/nas/check_node_nas_health'.format(
@@ -561,13 +568,20 @@ class DeploymentsManager:
                             if ret != 0:
                                 log(node_name, nas_ip, 'wait_ready_touch', ret=ret, out=out)
                                 logs.debug("Error creating file: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
+                            elif (common.now() - start_time).total_seconds() > timeout_seconds:
+                                log(node_name, nas_ip, 'wait_ready_touch', timeout=True)
+                                logs.debug("Timed out waiting for touch", debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
                             else:
                                 nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy'] = True
+                    if (common.now() - start_time).total_seconds() > timeout_seconds:
+                        break
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
                         ret, out = subprocess.getstatusoutput(
                             'DEBUG= kubectl -n {} get pod {} -o yaml'.format(
                                 config.NAS_CHECKER_NAMESPACE, pod_name))
                         log(node_name, nas_ip, 'wait_ready_failed', ret=ret, out=out)
+                if (common.now() - start_time).total_seconds() > timeout_seconds:
+                    break
             num_not_healthy = 0
             for node_name in node_names:
                 for pod_name, nas_ip in nodes_pod_names[node_name].items():
@@ -576,7 +590,7 @@ class DeploymentsManager:
             logs.debug('some node pods are not healthy yet', debug_verbosity=8, num_not_healthy=num_not_healthy)
             if num_not_healthy == 0:
                 break
-            elif (common.now() - start_time).total_seconds() > 60:
+            elif (common.now() - start_time).total_seconds() > timeout_seconds:
                 break
         if with_kubelet_logs:
             self.check_nodes_nas_update_kubelet_logs(node_names, nodes_pod_names, nodes_nas_ip_statuses)
