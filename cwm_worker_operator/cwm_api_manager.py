@@ -100,7 +100,7 @@ class CwmApiManager:
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET
         }
-        volume_config = json.loads(requests.get(url, headers=headers).text, strict=False, timeout=15)
+        volume_config = json.loads(requests.get(url, headers=headers, timeout=15).text, strict=False)
         return common.dicts_merge(volume_config, self.get_override_volume_config(volume_config))
 
     def get_cwm_updates(self, from_datetime: datetime.datetime):
@@ -112,7 +112,7 @@ class CwmApiManager:
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET
         }
-        for update in json.loads(requests.get(url, headers=headers).text, strict=False, timeout=15):
+        for update in json.loads(requests.get(url, headers=headers, timeout=15).text, strict=False):
             yield {
                 'worker_id': update['id'],
                 'update_time': common.strptime(update['time'], '%Y-%m-%d %H:%M:%S')
