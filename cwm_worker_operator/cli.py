@@ -62,7 +62,7 @@ for daemon in [
     {'name': 'nas-checker'},
     {'name': 'redis-cleaner'},
     {'name': 'workers-checker', 'extra_commands': {
-        'process_worker': {'callback_method': 'process_worker', 'params': [
+        'process_worker': {'callback_method': 'process_worker_cli', 'params': [
             click.Option(['--worker-id']),
         ], 'help': 'Check and update a single worker, used by workers-checker to run async operations'}
     }},

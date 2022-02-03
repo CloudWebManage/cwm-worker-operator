@@ -36,7 +36,19 @@ class MockDomainsConfig(domains_config.DomainsConfig):
         for r in self._iterate_redis_pools():
             for key in r.keys("*"):
                 assert key not in all_values, 'duplicate key between redis pools: {}'.format(key)
-                all_values[key.decode()] = "" if blank_keys and key.decode() in blank_keys else r.get(key).decode()
+                if blank_keys and key.decode() in blank_keys:
+                    all_values[key.decode()] = ""
+                elif key == b'alerts':
+                    values = []
+                    while True:
+                        value = r.lpop(key)
+                        if value is None:
+                            break
+                        else:
+                            values.append(value.decode())
+                    all_values[key.decode()] = ' | '.join(values)
+                else:
+                    all_values[key.decode()] = r.get(key).decode()
         return all_values
 
     def _set_mock_volume_config(self, worker_id='worker1', hostname='example002.com', **kwargs):
