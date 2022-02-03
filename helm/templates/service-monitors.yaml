@@ -28,5 +28,6 @@ spec:
       app: cwm-worker-operator-{{ . }}-monitor
   endpoints:
   - port: {{ $.Values.serviceMonitorsPort | quote }}
+---
 {{ end }}
 {{ end }}
