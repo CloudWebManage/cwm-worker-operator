@@ -319,5 +319,5 @@ def start_daemon(once=False, domains_config=None, deployments_manager=None):
         metrics_class=WorkersCheckerMetrics,
     ).start(
         once=once,
-        with_prometheus=False
+        with_prometheus=True
     )
