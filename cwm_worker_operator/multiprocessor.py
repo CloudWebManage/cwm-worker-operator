@@ -9,7 +9,7 @@ JSON_RESPONSE_END = "--multiprocessor-end' + '-json-response--"
 
 def print_json_response(data):
     print(JSON_RESPONSE_START)
-    json.dumps(data)
+    print(json.dumps(data))
     print(JSON_RESPONSE_END)
 
 
@@ -56,7 +56,11 @@ class Multiprocessor:
                             tmp = out.strip().split(JSON_RESPONSE_START)
                             new_out += tmp[0].strip()
                             tmp = tmp[1].split(JSON_RESPONSE_END)
-                            res = json.loads(tmp[0])
+                            try:
+                                res = json.loads(tmp[0].strip())
+                            except:
+                                print("Failed to parse multiprocessor response: '{}'".format(tmp[0]))
+                                raise
                             new_out += tmp[1].strip()
                             if new_out:
                                 print(new_out)
