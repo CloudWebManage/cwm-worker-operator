@@ -252,6 +252,8 @@ spec:
           value: {{ $.Values.operator.WORKERS_CHECKER_ALERT_POD_PENDING_SECONDS | quote }}
         - name: WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS
           value: {{ $.Values.operator.WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS | quote }}
+        - name: WORKERS_CHECKER_ALERT_NAMESPACE_TERMINATING_SECONDS
+          value: {{ $.Values.operator.WORKERS_CHECKER_ALERT_NAMESPACE_TERMINATING_SECONDS | quote }}
 {{ $.Values.operator.env | indent 8 }}
         volumeMounts:
         - mountPath: "/data"

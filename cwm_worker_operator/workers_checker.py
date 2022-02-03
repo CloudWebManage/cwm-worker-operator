@@ -227,14 +227,14 @@ def get_worker_conditions_alert(worker_conditions):
     pod_pending_seconds = round(worker_conditions.get('pod_pending_seconds') or 0)
     pod_error_crash_loop = bool(worker_conditions.get('pod_error_crash_loop'))
     namespace_terminating_seconds = round(worker_conditions.get('namespace_terminating_seconds') or 0)
-    has_missing_pods_seconds = int(worker_conditions.get('has_missing_pods_seconds') or 0)
+    has_missing_pods_seconds = round(worker_conditions.get('has_missing_pods_seconds') or 0)
     has_unknown_pods = bool(worker_conditions.get('has_unknown_pods'))
     messages = []
     if pod_pending_seconds >= config.WORKERS_CHECKER_ALERT_POD_PENDING_SECONDS:
         messages.append('pod is pending for {} seconds'.format(pod_pending_seconds))
     if pod_error_crash_loop:
         messages.append('pod has error or crash looping')
-    if namespace_terminating_seconds:
+    if namespace_terminating_seconds >= config.WORKERS_CHECKER_ALERT_NAMESPACE_TERMINATING_SECONDS:
         messages.append('namespace is terminating for {} seconds'.format(namespace_terminating_seconds))
     if has_missing_pods_seconds >= config.WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS:
         messages.append('pod is missing for {} seconds'.format(has_missing_pods_seconds))
@@ -252,13 +252,13 @@ def send_worker_conditions_alert(worker_id, worker_conditions, domains_config: D
 
 def send_worker_conditions_metrics(worker_id, worker_conditions, metrics: WorkersCheckerMetrics):
     if worker_conditions.get('pod_pending_seconds'):
-        metrics.observe_state(worker_id, 'pod_pending')
+        metrics.observe_state_duration(worker_id, 'pod_pending', worker_conditions['pod_pending_seconds'])
     if worker_conditions.get('pod_error_crash_loop'):
         metrics.observe_state(worker_id, 'pod_error_crash_loop')
     if worker_conditions.get('namespace_terminating_seconds'):
-        metrics.observe_state(worker_id, 'namespace_terminating')
+        metrics.observe_state_duration(worker_id, 'namespace_terminating', worker_conditions['namespace_terminating_seconds'])
     if worker_conditions.get('has_missing_pods_seconds'):
-        metrics.observe_state(worker_id, 'has_missing_pods')
+        metrics.observe_state_duration(worker_id, 'has_missing_pods', worker_conditions['has_missing_pods_seconds'])
     if worker_conditions.get('has_unknown_pods'):
         metrics.observe_state(worker_id, 'has_unknown_pods')
 

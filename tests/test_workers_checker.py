@@ -1,14 +1,42 @@
-import datetime
 import os
 import json
 import shutil
 import random
+import datetime
 from glob import glob
 
 import prometheus_client
 import prometheus_client.samples
 
 from cwm_worker_operator import workers_checker, common, config
+
+
+def get_worker_metric_samples(metrics_registry):
+    worker_metric_samples = {}
+    worker_metric_samples_buckets = {}
+    for metric in metrics_registry.collect():
+        sample: prometheus_client.samples.Sample
+        for sample in metric.samples:
+            if 'worker_id' in sample.labels and 'state' in sample.labels:
+                if 'le' in sample.labels:
+                    worker_metric_samples_buckets.setdefault(sample.labels['worker_id'], {}).setdefault(sample.labels['state'], {}).setdefault(sample.labels['le'], 0.0)
+                    worker_metric_samples_buckets[sample.labels['worker_id']][sample.labels['state']][sample.labels['le']] += sample.value
+                else:
+                    worker_metric_samples.setdefault(sample.labels['worker_id'], {}).setdefault(sample.labels['state'], 0.0)
+                    worker_metric_samples[sample.labels['worker_id']][sample.labels['state']] += sample.value
+    res = {}
+    for worker_id, metric_samples in worker_metric_samples.items():
+        for state, value in metric_samples.items():
+            if state not in worker_metric_samples_buckets.get(worker_id, {}):
+                res.setdefault(worker_id, {})[state] = value
+    for worker_id, metric_samples in worker_metric_samples_buckets.items():
+        for state, buckets in metric_samples.items():
+            last_value = None
+            for bucket_name, value in buckets.items():
+                if last_value != value:
+                    res.setdefault(worker_id, {}).setdefault(state, {})[bucket_name] = value
+                    last_value = value
+    return res
 
 
 def test(domains_config, deployments_manager):
@@ -32,10 +60,13 @@ def test(domains_config, deployments_manager):
     config.WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS = 1
     first_now = now = common.now()
     workers_checker.run_single_iteration(domains_config, deployments_manager, now=now, metrics=metrics)
+    assert get_worker_metric_samples(metrics_registry) == {}
     now += datetime.timedelta(seconds=1)
     workers_checker.run_single_iteration(domains_config, deployments_manager, now=now, metrics=metrics)
+    assert get_worker_metric_samples(metrics_registry) == {'worker1': {'has_missing_pods': {'0.5': 0.0, '1.0': 1.0}}}
     now += datetime.timedelta(seconds=1)
     workers_checker.run_single_iteration(domains_config, deployments_manager, now=now, metrics=metrics)
+    assert get_worker_metric_samples(metrics_registry) == {'worker1': {'has_missing_pods': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0}}}
     assert deployments_manager.calls == [('get_all_namespaces', []), ('get_health', [namespace_name, 'minio']),
                                          ('get_all_namespaces', []), ('get_health', [namespace_name, 'minio']),
                                          ('get_all_namespaces', []), ('get_health', [namespace_name, 'minio'])]
@@ -125,20 +156,7 @@ def test(domains_config, deployments_manager):
             'pod_pending_seconds': None
         }
     }
-    worker_state_metrics = {}
-    for metric in metrics_registry.collect():
-        sample: prometheus_client.samples.Sample
-        for sample in metric.samples:
-            if sample.name == 'workers_checker_states_total':
-                worker_state_metrics.setdefault(sample.labels['worker_id'], {}).setdefault(sample.labels['state'], 0)
-                worker_state_metrics[sample.labels['worker_id']][sample.labels['state']] += sample.value
-    assert worker_state_metrics == {
-        'worker1': {
-            'has_missing_pods': 3.0
-        }
-    }
-
-
+    assert get_worker_metric_samples(metrics_registry) == {'worker1': {'has_missing_pods': {'0.5': 0.0, '1.0': 1.0, '2.0': 3.0}}}
 
 
 def get_mock_deployment_deployment(name, conditions=None, replicas=None, **kwargs):
