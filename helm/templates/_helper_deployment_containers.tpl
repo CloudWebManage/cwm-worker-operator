@@ -16,6 +16,15 @@
   volumeMounts:
   - mountPath: "/data"
     name: "data"
+  {{ if eq .deploymentName "web-ui" }}
+  readinessProbe:
+    httpGet:
+      port: 8182
+    periodSeconds: 1
+    timeoutSeconds: 1
+    successThreshold: 2
+    failureThreshold: 2
+  {{ end }}
   resources:
   {{- include "deployment.container.resources" . | indent 2 }}
 {{ if eq .deploymentName "web-ui" }}
@@ -27,5 +36,12 @@
     mountPath: /data
   - name: config
     mountPath: /etc/nginx/conf.d
+  readinessProbe:
+    httpGet:
+      port: 80
+    periodSeconds: 1
+    timeoutSeconds: 1
+    successThreshold: 2
+    failureThreshold: 2
 {{ end }}
 {{- end }}

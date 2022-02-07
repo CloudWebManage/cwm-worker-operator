@@ -9,7 +9,7 @@ spec:
     matchLabels:
       app: cwm-worker-operator-redis-internal
   strategy:
-{{ $.Values.strategy | indent 4 }}
+    type: Recreate
   template:
     metadata:
       labels:

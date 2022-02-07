@@ -10,6 +10,12 @@ from cwm_worker_operator import config, common
 from cwm_worker_operator import domains_config
 
 
+def debug_print(*args):
+    pass
+    # if config.DEBUG:
+    #     print(*args)
+
+
 def get_header(is_api, server):
     if is_api:
         yield {
@@ -179,51 +185,41 @@ class CwmWorkerOperatorHTTPRequestHandler(BaseHTTPRequestHandler):
             self._send_html(res)
 
     def _send_json(self, res):
-        if config.DEBUG:
-            print("start send_json")
+        debug_print("start send_json")
         self.send_response(200)
         self.send_header("Content-type", "application/json; charset=utf-8")
         self.end_headers()
-        if config.DEBUG:
-            print("start send_json write")
+        debug_print("start send_json write")
         self.wfile.write(b'[\n')
         for data in res:
             self.wfile.write(json.dumps(data).encode())
             self.wfile.write(b',\n')
         self.wfile.write(b'null]')
-        if config.DEBUG:
-            print("end send_html")
+        debug_print("end send_html")
 
     def _send_html(self, html):
-        if config.DEBUG:
-            print("start send_html")
+        debug_print("start send_html")
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        if config.DEBUG:
-            print("start send_html write")
+        debug_print("start send_html write")
         for data in html:
             self.wfile.write(data.encode())
-        if config.DEBUG:
-            print("end send_html")
+        debug_print("end send_html")
 
     def _send_server_error(self, error='Server Error', status_code=500):
-        if config.DEBUG:
-            print("start send_server_error({} {})".format(status_code, error))
+        debug_print("start send_server_error({} {})".format(status_code, error))
         self.send_response(status_code)
         self.end_headers()
-        if config.DEBUG:
-            print("start send_server_error write")
+        debug_print("start send_server_error write")
         self.wfile.write(error.encode())
-        if config.DEBUG:
-            print("end send_server_error")
+        debug_print("end send_server_error")
 
     def _send_request_error(self, error='Bad Request'):
         self._send_server_error(error, 400)
 
     def do_GET(self):
-        if config.DEBUG:
-            print("Start do_GET ({})".format(self.path))
+        debug_print("Start do_GET ({})".format(self.path))
         try:
             self.is_api = self.path.startswith('/api')
             if self.is_api:
