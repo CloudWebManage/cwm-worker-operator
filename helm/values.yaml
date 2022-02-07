@@ -2,8 +2,6 @@ debug: true
 debugVerbosity: 10
 revisionHistoryLimit: 2
 terminationGracePeriodSeconds: 30
-strategy: |
-  type: Recreate
 cwm_api_url: ""
 cwm_api_key: ""
 cwm_api_secret: ""
