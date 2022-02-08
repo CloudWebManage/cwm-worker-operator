@@ -185,6 +185,7 @@ operator:
       memory: "50Mi"
     limits:
       memory: "200Mi"
+  webUiReplicas: 1
 
 # each object have required attributes: apiVersion, kind, name, spec
 extraObjects: []

@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: cwm-worker-operator-{{ .deploymentName }}
 spec:
-  replicas: 1
+  replicas: {{ if eq .deploymentName "web-ui" }}{{ .root.Values.operator.webUiReplicas }}{{ else }}1{{ end }}
   revisionHistoryLimit: {{ .root.Values.revisionHistoryLimit }}
   selector:
     matchLabels:
