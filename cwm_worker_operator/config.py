@@ -8,7 +8,7 @@ DEBUG_VERBOSITY = int(os.environ.get("DEBUG_VERBOSITY") or "10")
 
 _default_redis_host = os.environ.get("REDIS_HOST") or "localhost"
 _default_redis_port = int(os.environ.get("REDIS_PORT") or "6379")
-_default_redis_pool_max_connections = int(os.environ.get("REDIS_POOL_MAX_CONNECTIONS") or "50")
+_default_redis_pool_max_connections = int(os.environ.get("REDIS_POOL_MAX_CONNECTIONS") or "200")
 _default_redis_pool_timeout = int(os.environ.get("REDIS_POOL_TIMEOUT") or "5")
 
 INGRESS_REDIS_HOST = os.environ.get("INGRESS_REDIS_HOST") or _default_redis_host

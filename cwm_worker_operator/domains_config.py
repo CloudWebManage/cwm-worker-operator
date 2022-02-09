@@ -390,14 +390,14 @@ class DomainsConfig:
             'metrics',
             config.METRICS_REDIS_HOST, config.METRICS_REDIS_PORT,
             config.METRICS_REDIS_POOL_MAX_CONNECTIONS, config.METRICS_REDIS_POOL_TIMEOUT,
-            config.METRICS_REDIS_DB
+            config.METRICS_REDIS_DB,
         )
 
     def init_redis(self, type, host, port, pool_max_connections, pool_timeout, db):
         # print("{}: host={} port={}".format(type, host, port))
         redis_pool = redis.BlockingConnectionPool(
             max_connections=pool_max_connections, timeout=pool_timeout,
-            host=host, port=port, db=db
+            host=host, port=port, db=db, health_check_interval=10
         )
         r = redis.Redis(connection_pool=redis_pool)
         try:
