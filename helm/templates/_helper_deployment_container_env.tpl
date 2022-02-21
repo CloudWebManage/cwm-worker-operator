@@ -201,5 +201,7 @@
   value: {{ .root.Values.operator.WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS | quote }}
 - name: WORKERS_CHECKER_ALERT_NAMESPACE_TERMINATING_SECONDS
   value: {{ .root.Values.operator.WORKERS_CHECKER_ALERT_NAMESPACE_TERMINATING_SECONDS | quote }}
+- name: WORKERS_CHECKER_ALERT_INVALID_WORKER_SECONDS
+  value: {{ .root.Values.operator.WORKERS_CHECKER_ALERT_INVALID_WORKER_SECONDS | quote }}
 {{ .root.Values.operator.env }}
 {{- end }}

@@ -293,11 +293,11 @@ def test_deployer_async(domains_config):
         domains_config.keys.hostname_initialize.set(hostname, '')
         domains_config.keys.worker_ready_for_deployment.set(worker_id, common.now().strftime("%Y%m%dT%H%M%S.%f"))
     namespace_names = [w['namespace_name'] for w in workers.values()]
-    ret, out = subprocess.getstatusoutput('kubectl delete ns {} --wait --timeout 60s'.format(' '.join(namespace_names)))
+    ret, out = subprocess.getstatusoutput('kubectl delete ns {} --wait --timeout 120s'.format(' '.join(namespace_names)))
     if ret != 0:
         print(out)
     deployer.run_single_iteration(domains_config, None, None)
     ret, out = subprocess.getstatusoutput('kubectl get ns {}'.format(' '.join(namespace_names)))
     assert ret == 0, out
-    ret, out = subprocess.getstatusoutput('kubectl delete ns {} --wait --timeout 60s'.format(' '.join(namespace_names)))
+    ret, out = subprocess.getstatusoutput('kubectl delete ns {} --wait --timeout 120s'.format(' '.join(namespace_names)))
     assert ret == 0, out
