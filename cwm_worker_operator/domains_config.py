@@ -10,6 +10,11 @@ from cwm_worker_operator import common
 from cwm_worker_operator import cwm_api_manager
 
 
+WORKER_ID_VALIDATION_INVALID_WORKER_ID = 'WORKER_ID_VALIDATION_INVALID_WORKER_ID'
+WORKER_ID_VALIDATION_API_FAILURE = 'WORKER_ID_VALIDATION_API_FAILURE'
+WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID = 'WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID'
+
+
 class DomainsConfigKey:
 
     def __init__(self, redis_pool_name, domains_config, **extra_kwargs):
@@ -454,17 +459,17 @@ class DomainsConfig:
         else:
             return cwm_api_manager.CwmApiManager().volume_config_api_call(query_param, query_value)
 
-    def is_valid_worker_id(self, worker_id):
+    def validate_worker_id(self, worker_id):
         try:
             common.get_namespace_name_from_worker_id(worker_id)
         except common.InvalidWorkerIdException:
-            return False
+            return WORKER_ID_VALIDATION_INVALID_WORKER_ID
         try:
             volume_config = self.get_cwm_api_volume_config(force_update=True, worker_id=worker_id)
         except:
-            return False
+            return WORKER_ID_VALIDATION_API_FAILURE
         if not volume_config.id:
-            return False
+            return WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID
         return True
 
     def get_cwm_api_volume_config(self, metrics=None, force_update=False, hostname=None, worker_id=None) -> VolumeConfig:

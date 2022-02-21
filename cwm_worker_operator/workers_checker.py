@@ -7,7 +7,9 @@ import subprocess
 
 from cwm_worker_operator import config, common, logs
 from cwm_worker_operator.daemon import Daemon
-from cwm_worker_operator.domains_config import DomainsConfig
+from cwm_worker_operator.domains_config import (
+    DomainsConfig, WORKER_ID_VALIDATION_INVALID_WORKER_ID
+)
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 from cwm_worker_operator import multiprocessor
 from cwm_worker_operator.metrics import WorkersCheckerMetrics
@@ -36,7 +38,8 @@ def process_worker(worker_id,
         deployments_manager = DeploymentsManager()
     if now is None:
         now = common.now()
-    if domains_config.is_valid_worker_id(worker_id):
+    worker_id_validation = domains_config.validate_worker_id(worker_id)
+    if worker_id_validation != WORKER_ID_VALIDATION_INVALID_WORKER_ID:
         namespace_name = common.get_namespace_name_from_worker_id(worker_id)
         try:
             health = deployments_manager.get_health(namespace_name, 'minio')
@@ -48,23 +51,29 @@ def process_worker(worker_id,
                 'exception': exception
             }
         if health:
+            # there is health data for this worker (or there was an exception trying to get health)
+            # we record this as latest health data for this worker
+            health['worker_id_validation'] = worker_id_validation
             domains_config.keys.worker_health.set(worker_id, json.dumps(health))
             common.local_storage_json_last_items_append(
                 'workers_checker/health/{}'.format(worker_id),
                 health, max_items=100,
                 now_=now
             )
-            worker_conditions = get_worker_conditions(worker_id)
         elif domains_config.keys.worker_health.exists(worker_id):
+            # there is no health data for this worker, but there is a past health in redis
+            # we delete the past health and record the deletion in storage
             domains_config.keys.worker_health.delete(worker_id)
             common.local_storage_json_last_items_append(
                 'workers_checker/health/{}'.format(worker_id),
-                {'__deleted': True}, max_items=100,
+                {'__deleted': True, 'worker_id_validation': worker_id_validation}, max_items=100,
                 now_=now
             )
-            worker_conditions = get_worker_conditions(worker_id)
         else:
-            worker_conditions = None
+            # there is no health data for this worker AND there is no past health in redis
+            # nothing to be done here, it's an edge-case race condition which can safely be ignored
+            return None
+        worker_conditions = get_worker_conditions(worker_id)
         if worker_conditions:
             common.local_storage_json_last_items_append(
                 'workers_checker/conditions/{}'.format(worker_id),
@@ -134,6 +143,7 @@ class HealthItemConditions:
         self.deleted = bool(health.get('__deleted'))
         if not self.deleted:
             self.ready = bool(health.get('is_ready'))
+            self.invalid_worker = (health.get('worker_id_validation') or True) is not True
             self.namespace_active = health.get('namespace', {}).get('phase') == 'Active'
             self.namespace_terminating = health.get('namespace', {}).get('phase') == 'Terminating'
             self.logger = HealthItemDeploymentConditions(health, 'logger')
@@ -192,12 +202,14 @@ def get_worker_conditions(worker_id):
     namespace_terminating_state_duration = StateDuration()
     has_unknown_pods = False
     has_missing_pods_state_duration = StateDuration()
+    invalid_worker_state_duration = StateDuration()
     for item_conditions in map(HealthItemConditions, common.local_storage_json_last_items_iterator('workers_checker/health/{}'.format(worker_id))):
         if not item_conditions.deleted:
             pod_error_crash_loop = item_conditions.has_pod_error or item_conditions.has_pod_crash_loop
             pod_pending = item_conditions.has_pod_pending
             namespace_terminating = item_conditions.namespace_terminating
             has_missing_pods = item_conditions.has_missing_pods
+            invalid_worker = item_conditions.invalid_worker
             if first_item_conditions is None:
                 first_item_conditions = item_conditions
                 if item_conditions.has_unknown_pods:
@@ -210,16 +222,20 @@ def get_worker_conditions(worker_id):
                     namespace_terminating_state_duration.first(item_conditions.datetime)
                 if has_missing_pods:
                     has_missing_pods_state_duration.first(item_conditions.datetime)
+                if invalid_worker:
+                    invalid_worker_state_duration.first(item_conditions.datetime)
             else:
                 pending_pod_state_duration.next(pod_pending, item_conditions.datetime)
                 namespace_terminating_state_duration.next(namespace_terminating, item_conditions.datetime)
                 has_missing_pods_state_duration.next(has_missing_pods, item_conditions.datetime)
+                invalid_worker_state_duration.next(invalid_worker, item_conditions.datetime)
     return {
         'pod_pending_seconds': pending_pod_state_duration.total_seconds(),
         'pod_error_crash_loop': is_first_pod_error_crash_loop,
         'namespace_terminating_seconds': namespace_terminating_state_duration.total_seconds(),
         'has_missing_pods_seconds': has_missing_pods_state_duration.total_seconds(),
-        'has_unknown_pods': has_unknown_pods
+        'has_unknown_pods': has_unknown_pods,
+        'invalid_worker_seconds': invalid_worker_state_duration.total_seconds()
     }
 
 
@@ -229,6 +245,7 @@ def get_worker_conditions_alert(worker_conditions):
     namespace_terminating_seconds = round(worker_conditions.get('namespace_terminating_seconds') or 0)
     has_missing_pods_seconds = round(worker_conditions.get('has_missing_pods_seconds') or 0)
     has_unknown_pods = bool(worker_conditions.get('has_unknown_pods'))
+    invalid_worker_seconds = round(worker_conditions.get('invalid_worker_seconds') or 0)
     messages = []
     if pod_pending_seconds >= config.WORKERS_CHECKER_ALERT_POD_PENDING_SECONDS:
         messages.append('pod is pending for {} seconds'.format(pod_pending_seconds))
@@ -240,6 +257,8 @@ def get_worker_conditions_alert(worker_conditions):
         messages.append('pod is missing for {} seconds'.format(has_missing_pods_seconds))
     if has_unknown_pods:
         messages.append('namespace has unknown pods')
+    if invalid_worker_seconds >= config.WORKERS_CHECKER_ALERT_INVALID_WORKER_SECONDS:
+        messages.append('invalid worker for {} seconds'.format(invalid_worker_seconds))
     return ', '.join(messages) if len(messages) > 0 else None
 
 
@@ -261,6 +280,8 @@ def send_worker_conditions_metrics(worker_id, worker_conditions, metrics: Worker
         metrics.observe_state_duration(worker_id, 'has_missing_pods', worker_conditions['has_missing_pods_seconds'])
     if worker_conditions.get('has_unknown_pods'):
         metrics.observe_state(worker_id, 'has_unknown_pods')
+    if worker_conditions.get('invalid_worker_seconds'):
+        metrics.observe_state_duration(worker_id, 'invalid_worker', worker_conditions['invalid_worker_seconds'])
 
 
 class WorkersCheckerMultiprocessor(multiprocessor.Multiprocessor):
