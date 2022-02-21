@@ -54,10 +54,9 @@ def test(domains_config, deployments_manager):
         {
             "namespace": namespace_name,
         },
-        {
-            "namespace": invalid_namespace_name,
-        },
     ]
+    deployments_manager.all_namespaces.append('non-worker-namespace')
+    deployments_manager.all_namespaces.append(invalid_namespace_name)
     # mock get_health response, doesn't matter what's the content, it just saves it as-is
     deployments_manager.namespace_deployment_type_get_health['{}-minio'.format(namespace_name)] = {
         'foo': 'bar'
@@ -69,7 +68,7 @@ def test(domains_config, deployments_manager):
     domains_config._cwm_api_volume_configs['id:{}'.format(worker_id)] = {'instanceId': worker_id}
     # for the invalid worker we mock an invalid response without the id
     domains_config._cwm_api_volume_configs['id:{}'.format(invalid_worker_id)] = {}
-    config.WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS = 1
+    config.WORKERS_CHECKER_ALERT_POD_MISSING_SECONDS = config.WORKERS_CHECKER_ALERT_INVALID_WORKER_SECONDS = 1
     first_now = now = common.now()
     workers_checker.run_single_iteration(domains_config, deployments_manager, now=now, metrics=metrics)
     assert get_worker_metric_samples(metrics_registry) == {}
@@ -77,19 +76,13 @@ def test(domains_config, deployments_manager):
     workers_checker.run_single_iteration(domains_config, deployments_manager, now=now, metrics=metrics)
     assert get_worker_metric_samples(metrics_registry) == {
         'worker1': {'has_missing_pods': {'0.5': 0.0, '1.0': 1.0}},
-        'worker2': {
-            'has_missing_pods': {'0.5': 0.0, '1.0': 1.0},
-            'invalid_worker': {'0.5': 0.0, '1.0': 1.0}
-        },
+        'worker2': {'invalid_worker': {'0.5': 0.0, '1.0': 1.0}},
     }
     now += datetime.timedelta(seconds=1)
     workers_checker.run_single_iteration(domains_config, deployments_manager, now=now, metrics=metrics)
     assert get_worker_metric_samples(metrics_registry) == {
         'worker1': {'has_missing_pods': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0}},
-        'worker2': {
-            'has_missing_pods': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0},
-            'invalid_worker': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0}
-        }
+        'worker2': {'invalid_worker': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0}}
     }
     stats = defaultdict(int)
     for call in deployments_manager.calls:
@@ -126,9 +119,9 @@ def test(domains_config, deployments_manager):
             break
     expected_alerts = [
         {'kwargs': {}, 'msg': 'workers_checker (worker1): pod is missing for 1 seconds', 'type': 'cwm-worker-operator-logs'},
-        {'kwargs': {}, 'msg': 'workers_checker (worker2): pod is missing for 1 seconds', 'type': 'cwm-worker-operator-logs'},
         {'kwargs': {}, 'msg': 'workers_checker (worker1): pod is missing for 2 seconds', 'type': 'cwm-worker-operator-logs'},
-        {'kwargs': {}, 'msg': 'workers_checker (worker2): pod is missing for 2 seconds', 'type': 'cwm-worker-operator-logs'},
+        {'kwargs': {}, 'msg': 'workers_checker (worker2): invalid worker for 1 seconds', 'type': 'cwm-worker-operator-logs'},
+        {'kwargs': {}, 'msg': 'workers_checker (worker2): invalid worker for 2 seconds', 'type': 'cwm-worker-operator-logs'},
     ]
     for expected_alert in expected_alerts:
         assert expected_alert in alerts, 'missing alert: {}'.format(expected_alert)
@@ -225,8 +218,8 @@ def test(domains_config, deployments_manager):
     assert get_worker_metric_samples(metrics_registry) == {
         'worker1': {'has_missing_pods': {'0.5': 0.0, '1.0': 1.0, '2.0': 3.0}},
         'worker2': {
-            'has_missing_pods': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0, '4.0': 4.0},
-            'invalid_worker': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0, '4.0': 3.0}
+            'invalid_worker': {'0.5': 0.0, '1.0': 1.0, '2.0': 2.0, '4.0': 3.0},
+            'has_missing_pods': {'0.5': 0.0, '4.0': 1.0}
         }
     }
 
@@ -465,9 +458,9 @@ def test_check_worker_conditions_invalid_worker():
         common.local_storage_json_last_items_append(key, health, now_=(now + datetime.timedelta(seconds=i)))
     assert workers_checker.get_worker_conditions(worker_id) == {
         'pod_pending_seconds': None,
-        'pod_error_crash_loop': False,
+        'pod_error_crash_loop': None,
         'namespace_terminating_seconds': None,
         'has_missing_pods_seconds': None,
-        'has_unknown_pods': False,
+        'has_unknown_pods': None,
         'invalid_worker_seconds': 1.0,
     }

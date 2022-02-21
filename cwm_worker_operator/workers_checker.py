@@ -22,9 +22,10 @@ def get_worker_ids(deployments_manager: DeploymentsManager, domains_config: Doma
     for worker_id in domains_config.keys.worker_health.iterate_prefix_key_suffixes():
         worker_ids.add(worker_id)
     for namespace_name in deployments_manager.get_all_namespaces():
-        worker_id = common.get_worker_id_from_namespace_name(namespace_name)
-        if worker_id != namespace_name:
-            worker_ids.add(worker_id)
+        if namespace_name.startswith('cwm-worker-'):
+            worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+            if worker_id != namespace_name:
+                worker_ids.add(worker_id)
     return worker_ids
 
 
@@ -203,6 +204,7 @@ def get_worker_conditions(worker_id):
     has_unknown_pods = False
     has_missing_pods_state_duration = StateDuration()
     invalid_worker_state_duration = StateDuration()
+    is_first_item_invalid_worker = False
     for item_conditions in map(HealthItemConditions, common.local_storage_json_last_items_iterator('workers_checker/health/{}'.format(worker_id))):
         if not item_conditions.deleted:
             pod_error_crash_loop = item_conditions.has_pod_error or item_conditions.has_pod_crash_loop
@@ -224,18 +226,19 @@ def get_worker_conditions(worker_id):
                     has_missing_pods_state_duration.first(item_conditions.datetime)
                 if invalid_worker:
                     invalid_worker_state_duration.first(item_conditions.datetime)
+                    is_first_item_invalid_worker = True
             else:
                 pending_pod_state_duration.next(pod_pending, item_conditions.datetime)
                 namespace_terminating_state_duration.next(namespace_terminating, item_conditions.datetime)
                 has_missing_pods_state_duration.next(has_missing_pods, item_conditions.datetime)
                 invalid_worker_state_duration.next(invalid_worker, item_conditions.datetime)
     return {
-        'pod_pending_seconds': pending_pod_state_duration.total_seconds(),
-        'pod_error_crash_loop': is_first_pod_error_crash_loop,
-        'namespace_terminating_seconds': namespace_terminating_state_duration.total_seconds(),
-        'has_missing_pods_seconds': has_missing_pods_state_duration.total_seconds(),
-        'has_unknown_pods': has_unknown_pods,
-        'invalid_worker_seconds': invalid_worker_state_duration.total_seconds()
+        'pod_pending_seconds': None if is_first_item_invalid_worker else pending_pod_state_duration.total_seconds(),
+        'pod_error_crash_loop': None if is_first_item_invalid_worker else is_first_pod_error_crash_loop,
+        'namespace_terminating_seconds': None if is_first_item_invalid_worker else namespace_terminating_state_duration.total_seconds(),
+        'has_missing_pods_seconds': None if is_first_item_invalid_worker else has_missing_pods_state_duration.total_seconds(),
+        'has_unknown_pods': None if is_first_item_invalid_worker else has_unknown_pods,
+        'invalid_worker_seconds': invalid_worker_state_duration.total_seconds() if is_first_item_invalid_worker else None
     }
 
 
