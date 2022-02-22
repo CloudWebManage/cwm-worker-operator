@@ -66,6 +66,15 @@ def get_worker_id_from_namespace_name(namespace_name):
     return worker_id
 
 
+def is_worker_namespace(namespace_name):
+    return (
+        namespace_name.startswith('cwm-worker-')
+        and namespace_name not in [
+            'cwm-worker-ingress',
+            'cwm-worker-operator-nas-checker',
+        ]
+    )
+
 def is_hostnames_match(full_hostname, partial_hostname):
     if full_hostname.lower() == partial_hostname.lower():
         return True

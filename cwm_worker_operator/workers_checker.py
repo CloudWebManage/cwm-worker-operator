@@ -22,7 +22,7 @@ def get_worker_ids(deployments_manager: DeploymentsManager, domains_config: Doma
     for worker_id in domains_config.keys.worker_health.iterate_prefix_key_suffixes():
         worker_ids.add(worker_id)
     for namespace_name in deployments_manager.get_all_namespaces():
-        if namespace_name.startswith('cwm-worker-'):
+        if common.is_worker_namespace(namespace_name):
             worker_id = common.get_worker_id_from_namespace_name(namespace_name)
             if worker_id != namespace_name:
                 worker_ids.add(worker_id)
