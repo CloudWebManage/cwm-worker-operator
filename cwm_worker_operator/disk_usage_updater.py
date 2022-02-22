@@ -9,9 +9,10 @@ from cwm_worker_operator import metrics
 from cwm_worker_operator import logs
 from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
+from cwm_worker_operator.domains_config import DomainsConfig
 
 
-def run_single_iteration(domains_config, metrics, subprocess_getstatusoutput, **_):
+def run_single_iteration(domains_config: DomainsConfig, metrics, subprocess_getstatusoutput, **_):
     disk_usage_updater_metrics = metrics
     ret, out = subprocess_getstatusoutput('umount -f /tmp/dum; mkdir -p /tmp/dum; mount -t nfs4 {}:{} /tmp/dum'.format(
         config.DISK_USAGE_UPDATER_NFS_SERVER, config.DISK_USAGE_UPDATER_NFS_ROOT_PATH))
@@ -24,13 +25,17 @@ def run_single_iteration(domains_config, metrics, subprocess_getstatusoutput, **
             start_time = common.now()
             worker_id = common.get_worker_id_from_namespace_name(namespace_name)
             try:
-                ret, out = subprocess_getstatusoutput('du -s /tmp/dum/{}'.format(namespace_name))
-                if ret != 0:
-                    logs.debug_info("encountered errors when running du: {}".format(out), worker_id=worker_id, start_time=start_time)
-                    out = out.splitlines()[-1]
-                total_used_bytes = int(out.split()[0]) * 1024
-                domains_config.set_worker_total_used_bytes(worker_id, total_used_bytes)
-                disk_usage_updater_metrics.disk_usage_update(worker_id, start_time)
+                worker_id_validation = domains_config.validate_worker_id(worker_id)
+                if worker_id_validation is True:
+                    ret, out = subprocess_getstatusoutput('du -s /tmp/dum/{}'.format(namespace_name))
+                    if ret != 0:
+                        logs.debug_info("encountered errors when running du: {}".format(out), worker_id=worker_id, start_time=start_time)
+                        out = out.splitlines()[-1]
+                    total_used_bytes = int(out.split()[0]) * 1024
+                    domains_config.set_worker_total_used_bytes(worker_id, total_used_bytes)
+                    disk_usage_updater_metrics.disk_usage_update(worker_id, start_time)
+                else:
+                    logs.alert(domains_config, 'disk_usage_updater found namespace which failed worker id validation ({}): {}'.format(namespace_name, worker_id_validation))
             except Exception as e:
                 logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
                 if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
