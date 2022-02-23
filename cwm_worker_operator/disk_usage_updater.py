@@ -19,6 +19,7 @@ def run_single_iteration(domains_config: DomainsConfig, metrics, subprocess_gets
     assert ret == 0, out
     ret, out = subprocess_getstatusoutput('ls /tmp/dum')
     assert ret == 0, out
+    worker_ids_failed_validations = {}
     for namespace_name in out.split():
         namespace_name = namespace_name.strip()
         if namespace_name:
@@ -35,13 +36,17 @@ def run_single_iteration(domains_config: DomainsConfig, metrics, subprocess_gets
                     domains_config.set_worker_total_used_bytes(worker_id, total_used_bytes)
                     disk_usage_updater_metrics.disk_usage_update(worker_id, start_time)
                 else:
-                    logs.alert(domains_config, 'disk_usage_updater found namespace which failed worker id validation ({}): {}'.format(namespace_name, worker_id_validation))
+                    worker_ids_failed_validations[namespace_name] = worker_id_validation
             except Exception as e:
                 logs.debug_info("exception: {}".format(e), worker_id=worker_id, start_time=start_time)
                 if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
                     traceback.print_exc()
                 disk_usage_updater_metrics.exception(worker_id, start_time)
-
+    if len(worker_ids_failed_validations) > 0:
+        logs.alert(
+            domains_config,
+            f'disk_usage_updater found namespaces which failed worker id validation: {worker_ids_failed_validations}'
+        )
 
 def start_daemon(once=False, with_prometheus=True, disk_usage_updater_metrics=None, domains_config=None, subprocess_getstatusoutput=None):
     if subprocess_getstatusoutput is None:

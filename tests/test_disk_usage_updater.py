@@ -50,8 +50,9 @@ def test_disk_usage_updater(domains_config):
         else:
             break
     assert len(alerts) == 1
+    worker_ids_failed_validations = {namespace_name_invalid: WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID}
     assert alerts[0] == {
         'type': 'cwm-worker-operator-logs',
-        'msg': f'disk_usage_updater found namespace which failed worker id validation ({namespace_name_invalid}): {WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID}',
+        'msg': f'disk_usage_updater found namespaces which failed worker id validation: {worker_ids_failed_validations}',
         'kwargs': {}
     }
