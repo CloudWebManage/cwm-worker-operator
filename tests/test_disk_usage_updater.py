@@ -1,3 +1,5 @@
+import json
+
 from cwm_worker_operator import disk_usage_updater, common
 from cwm_worker_operator.domains_config import WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID
 
@@ -7,6 +9,7 @@ from .mocks.metrics import MockDiskUsageUpdaterMetrics
 def test_disk_usage_updater(domains_config):
     disk_usage_updater_metrics = MockDiskUsageUpdaterMetrics()
 
+    # valid workers / namespaces - should be included in disk usage
     worker_id_1 = 'worker1'
     worker_id_2 = 'worker2'
     worker_id_3 = 'worker3'
@@ -17,14 +20,19 @@ def test_disk_usage_updater(domains_config):
     domains_config._cwm_api_volume_configs['id:{}'.format(worker_id_2)] = {'instanceId': worker_id_2}
     domains_config._cwm_api_volume_configs['id:{}'.format(worker_id_3)] = {'instanceId': worker_id_3}
 
-    namespace_name_invalid = 'invalid'
+    # invalid namespace - not related to valid worker id - should be ignored
+    namespace_name_invalid = 'cwm-worker-invalid'
+
+    # invalid namespace - matching a valid worker_id but is not a valid namespace for that worker
+    # (valid namespace should have cwm-worker- prefix) - should be ignored
+    namespace_name_worker_3_invalid = worker_id_3
 
     cmds = []
 
     def subprocess_getstatusoutput(cmd):
         cmds.append(cmd)
         if cmd.startswith('ls '):
-            return 0, f'{namespace_name_1} {namespace_name_2} {namespace_name_3} {namespace_name_invalid}'
+            return 0, f'{namespace_name_1} {namespace_name_2} {namespace_name_3} {namespace_name_invalid} {namespace_name_worker_3_invalid}'
         elif cmd.startswith('du '):
             return 0, '123\tfoo'
         else:
@@ -50,9 +58,15 @@ def test_disk_usage_updater(domains_config):
         else:
             break
     assert len(alerts) == 1
-    worker_ids_failed_validations = {namespace_name_invalid: WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID}
-    assert alerts[0] == {
-        'type': 'cwm-worker-operator-logs',
-        'msg': f'disk_usage_updater found namespaces which failed worker id validation: {worker_ids_failed_validations}',
-        'kwargs': {}
-    }
+    assert alerts[0].pop('type') == 'cwm-worker-operator-logs'
+    assert alerts[0].pop('kwargs') == {}
+    msg = alerts[0].pop('msg')
+    assert len(alerts[0]) == 0
+    assert msg.startswith('disk_usage_updater found namespaces which failed worker id validation: ')
+    try:
+        assert json.loads(':'.join(msg.split(':')[1:])) == {
+            namespace_name_invalid: WORKER_ID_VALIDATION_MISSING_VOLUME_CONFIG_ID,
+            namespace_name_worker_3_invalid: 'not worker namespace'
+        }
+    finally:
+        print(msg)
