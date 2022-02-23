@@ -205,6 +205,7 @@ def get_worker_conditions(worker_id):
     has_missing_pods_state_duration = StateDuration()
     invalid_worker_state_duration = StateDuration()
     is_first_item_invalid_worker = False
+    is_first_item_namespace_terminating = False
     for item_conditions in map(HealthItemConditions, common.local_storage_json_last_items_iterator('workers_checker/health/{}'.format(worker_id))):
         if not item_conditions.deleted:
             pod_error_crash_loop = item_conditions.has_pod_error or item_conditions.has_pod_crash_loop
@@ -222,6 +223,7 @@ def get_worker_conditions(worker_id):
                     pending_pod_state_duration.first(item_conditions.datetime)
                 if namespace_terminating:
                     namespace_terminating_state_duration.first(item_conditions.datetime)
+                    is_first_item_namespace_terminating = True
                 if has_missing_pods:
                     has_missing_pods_state_duration.first(item_conditions.datetime)
                 if invalid_worker:
@@ -232,14 +234,26 @@ def get_worker_conditions(worker_id):
                 namespace_terminating_state_duration.next(namespace_terminating, item_conditions.datetime)
                 has_missing_pods_state_duration.next(has_missing_pods, item_conditions.datetime)
                 invalid_worker_state_duration.next(invalid_worker, item_conditions.datetime)
-    return {
-        'pod_pending_seconds': None if is_first_item_invalid_worker else pending_pod_state_duration.total_seconds(),
-        'pod_error_crash_loop': None if is_first_item_invalid_worker else is_first_pod_error_crash_loop,
-        'namespace_terminating_seconds': None if is_first_item_invalid_worker else namespace_terminating_state_duration.total_seconds(),
-        'has_missing_pods_seconds': None if is_first_item_invalid_worker else has_missing_pods_state_duration.total_seconds(),
-        'has_unknown_pods': None if is_first_item_invalid_worker else has_unknown_pods,
-        'invalid_worker_seconds': invalid_worker_state_duration.total_seconds() if is_first_item_invalid_worker else None
+    worker_conditions = {
+        'pod_pending_seconds': None,
+        'pod_error_crash_loop': None,
+        'namespace_terminating_seconds': None,
+        'has_missing_pods_seconds': None,
+        'has_unknown_pods': None,
+        'invalid_worker_seconds': None
     }
+    if is_first_item_invalid_worker:
+        worker_conditions['invalid_worker_seconds'] = invalid_worker_state_duration.total_seconds()
+    elif is_first_item_namespace_terminating:
+        worker_conditions['namespace_terminating_seconds'] = namespace_terminating_state_duration.total_seconds()
+    else:
+        worker_conditions.update({
+            'pod_pending_seconds': pending_pod_state_duration.total_seconds(),
+            'pod_error_crash_loop': is_first_pod_error_crash_loop,
+            'has_missing_pods_seconds': has_missing_pods_state_duration.total_seconds(),
+            'has_unknown_pods': has_unknown_pods,
+        })
+    return worker_conditions
 
 
 def get_worker_conditions_alert(worker_conditions):

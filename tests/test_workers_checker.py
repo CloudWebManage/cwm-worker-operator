@@ -395,10 +395,10 @@ def test_check_worker_conditions_namespace_terminating():
         common.local_storage_json_last_items_append(key, health, now_=(now + datetime.timedelta(seconds=i)))
     assert workers_checker.get_worker_conditions(worker_id) == {
         'pod_pending_seconds': None,
-        'pod_error_crash_loop': False,
+        'pod_error_crash_loop': None,
         'namespace_terminating_seconds': 2.0,
         'has_missing_pods_seconds': None,
-        'has_unknown_pods': False,
+        'has_unknown_pods': None,
         'invalid_worker_seconds': None,
     }
 
