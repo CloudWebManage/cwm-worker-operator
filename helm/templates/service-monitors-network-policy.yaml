@@ -1,0 +1,22 @@
+{{- if .Values.enableServiceMonitor }}
+{{ range .Values.serviceMonitors }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cwm-worker-operator-{{ . }}-monitor
+spec:
+  podSelector:
+    matchLabels:
+      app: cwm-worker-operator-{{ . }}-monitor
+  policyTypes:
+  - Ingress
+  ingress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: {{ .Values.serviceMonitorsPort }}
+---
+{{- end }}
+{{- end }}

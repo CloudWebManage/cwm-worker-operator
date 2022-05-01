@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cwm-worker-operator-redis-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app: cwm-worker-operator-redis-ingress
+  policyTypes:
+  - Ingress
+  ingress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: {{ .Values.operator.INGRESS_REDIS_PORT }}
