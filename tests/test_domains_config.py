@@ -300,10 +300,24 @@ def test_del_worker_keys(domains_config):
         'worker:aggregated-metrics-last-sent-update:worker1',
         'worker:aggregated-metrics:worker1',
         'worker:force_delete_data:worker1',
-        'worker:total-used-bytes:worker1'
+        'worker:throttle:expiry:worker1',
+        'worker:throttle:last_check:worker1',
+        'worker:total-used-bytes:worker1',
     }
-    domains_config.del_worker_keys(worker_id, with_metrics=True, with_force_delete_data=True)
+    domains_config.del_worker_keys(worker_id, with_metrics=True, with_force_delete_data=True, with_throttle=True)
     assert domains_config._get_all_redis_pools_keys() == set()
+
+
+def test_del_worker_keys_throttle(domains_config):
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
+    domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_THROTTLED)
+    domains_config.del_worker_keys(worker_id, with_error=True)
+    assert domains_config._get_all_redis_pools_values() == {
+        domains_config.keys.hostname_error._(hostname): domains_config.WORKER_ERROR_THROTTLED
+    }
+    worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
+    domains_config.del_worker_keys(worker_id, with_error=True, with_throttle=True)
+    assert domains_config._get_all_redis_pools_values() == {}
 
 
 def test_redis_pools(domains_config):
