@@ -8,9 +8,10 @@ from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.domains_config import DomainsConfig
 
 
-def check_worker_throttle(domains_config, worker_id):
+def check_worker_throttle(domains_config, worker_id, now=None):
+    if now is None:
+        now = common.now()
     last_throttle_check = domains_config.keys.worker_last_throttle_check.get(worker_id)
-    now = common.now()
     if last_throttle_check and last_throttle_check.get('t'):
         last_throttle_check_datetime = common.strptime(last_throttle_check['t'], '%Y-%m-%d %H:%M:%S')
         last_throttle_check_num_requests_total = int(last_throttle_check.get('r') or 0)
@@ -35,20 +36,21 @@ def check_worker_throttle(domains_config, worker_id):
                 domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_THROTTLED)
 
 
-def check_worker_throttle_expiry(domains_config, worker_id):
-    now = common.now()
+def check_worker_throttle_expiry(domains_config, worker_id, now=None):
+    if now is None:
+        now = common.now()
     expiry = domains_config.keys.worker_throttled_expiry.get(worker_id)
     if expiry and now >= expiry:
         domains_config.del_worker_keys(worker_id, with_throttle=True)
 
 
-def run_single_iteration(domains_config: DomainsConfig, **_):
+def run_single_iteration(domains_config: DomainsConfig, now=None, **_):
     for hostname in domains_config.keys.hostname_available.iterate_prefix_key_suffixes():
         worker_id = domains_config.keys.volume_config_hostname_worker_id.get(hostname)
         if worker_id:
-            check_worker_throttle(domains_config, worker_id)
+            check_worker_throttle(domains_config, worker_id.decode(), now)
     for worker_id in domains_config.keys.worker_throttled_expiry.iterate_prefix_key_suffixes():
-        check_worker_throttle_expiry(domains_config, worker_id)
+        check_worker_throttle_expiry(domains_config, worker_id, now)
 
 
 def start_daemon(once=False, domains_config=None):
