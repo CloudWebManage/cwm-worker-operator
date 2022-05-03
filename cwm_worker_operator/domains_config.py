@@ -639,7 +639,7 @@ class DomainsConfig:
 
     def del_worker_hostname_keys(self, hostname,
                                  with_error=True, with_available=True, with_ingress=True,
-                                 with_deployment_flow=True):
+                                 with_deployment_flow=True, with_throttle=False):
         self.keys.hostname_initialize.delete(hostname)
         self.keys.volume_config_hostname_worker_id.delete(hostname)
         if with_available:
@@ -647,7 +647,8 @@ class DomainsConfig:
         if with_ingress:
             self.keys.hostname_ingress_hostname.delete(hostname)
         if with_error:
-            self.keys.hostname_error.delete(hostname)
+            if with_throttle or self.keys.hostname_error.get(hostname) != self.WORKER_ERROR_THROTTLED.encode():
+                self.keys.hostname_error.delete(hostname)
             self.keys.hostname_error_attempt_number.delete(hostname)
         if with_deployment_flow:
             self.keys.hostname_last_deployment_flow_action.delete(hostname)
@@ -663,7 +664,8 @@ class DomainsConfig:
             for hostname in self.iterate_worker_hostnames(worker_id):
                 self.del_worker_hostname_keys(hostname,
                                               with_error=with_error, with_available=with_available,
-                                              with_ingress=with_ingress, with_deployment_flow=with_deployment_flow)
+                                              with_ingress=with_ingress, with_deployment_flow=with_deployment_flow,
+                                              with_throttle=with_throttle)
         except:
             print("Failed to delete worker hostname keys")
             traceback.print_exc()

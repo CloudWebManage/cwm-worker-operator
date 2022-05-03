@@ -66,6 +66,7 @@ for daemon in [
             click.Option(['--worker-id']),
         ], 'help': 'Check and update a single worker, used by workers-checker to run async operations'}
     }},
+    {'name': 'throttler'},
 ]:
     try:
         daemon_module = importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_')))
