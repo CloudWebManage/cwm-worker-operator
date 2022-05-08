@@ -203,5 +203,13 @@
   value: {{ .root.Values.operator.WORKERS_CHECKER_ALERT_NAMESPACE_TERMINATING_SECONDS | quote }}
 - name: WORKERS_CHECKER_ALERT_INVALID_WORKER_SECONDS
   value: {{ .root.Values.operator.WORKERS_CHECKER_ALERT_INVALID_WORKER_SECONDS | quote }}
+- name: THROTTLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
+  value: {{ .root.Values.operator.THROTTLER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
+- name: THROTTLER_THROTTLE_PERIOD_SECONDS
+  value: {{ .root.Values.operator.THROTTLER_THROTTLE_PERIOD_SECONDS | quote }}
+- name: THROTTLER_THROTTLE_MAX_REQUESTS
+  value: {{ .root.Values.operator.THROTTLER_THROTTLE_MAX_REQUESTS | quote }}
+- name: THROTTLER_CHECK_TTL_SECONDS
+  value: {{ .root.Values.operator.THROTTLER_CHECK_TTL_SECONDS | quote }}
 {{ .root.Values.operator.env }}
 {{- end }}

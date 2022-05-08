@@ -103,6 +103,19 @@ class DomainsConfigKeyPrefixDateTime(DomainsConfigKeyPrefix):
             return None
 
 
+class DomainsConfigKeyPrefixJson(DomainsConfigKeyPrefix):
+
+    def set(self, param, value):
+        super(DomainsConfigKeyPrefixJson, self).set(param, json.dumps(value))
+
+    def get(self, param):
+        value = super(DomainsConfigKeyPrefixJson, self).get(param)
+        if value:
+            return json.loads(value)
+        else:
+            return None
+
+
 class DomainsConfigKeyTemplate(DomainsConfigKey):
 
     def __init__(self, key_template, redis_pool_name, domains_config, **extra_kwargs):
@@ -167,6 +180,8 @@ class DomainsConfigKeys:
         self.hostname_last_deployment_flow_action = DomainsConfigKeyPrefix("hostname:last_deployment_flow:action", 'internal', domains_config, keys_summary_param='hostname')
         self.hostname_last_deployment_flow_time = DomainsConfigKeyPrefixDateTime("hostname:last_deployment_flow:time", 'internal', domains_config, keys_summary_param='hostname')
         self.hostname_last_deployment_flow_worker_id = DomainsConfigKeyPrefix("hostname:last_deployment_flow:worker_id", 'internal', domains_config, keys_summary_param='hostname')
+        self.worker_last_throttle_check = DomainsConfigKeyPrefixJson("worker:throttle:last_check", 'internal', domains_config, keys_summary_param='worker_id')
+        self.worker_throttled_expiry = DomainsConfigKeyPrefixDateTime("worker:throttle:expiry", 'internal', domains_config, keys_summary_param='worker_id')
 
         # metrics_redis - keys shared with deployments to get metrics
         self.deployment_last_action = DomainsConfigKeyPrefix("deploymentid:last_action", 'metrics', domains_config, keys_summary_param='namespace_name')
@@ -376,6 +391,7 @@ class DomainsConfig:
     WORKER_ERROR_INVALID_VOLUME_ZONE = "INVALID_VOLUME_ZONE"
     WORKER_ERROR_INVALID_HOSTNAME = "INVALID_HOSTNAME"
     WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG = "FAILED_TO_GET_VOLUME_CONFIG"
+    WORKER_ERROR_THROTTLED = "THROTTLED"
 
     def __init__(self):
         self.keys = DomainsConfigKeys(self)
@@ -623,7 +639,7 @@ class DomainsConfig:
 
     def del_worker_hostname_keys(self, hostname,
                                  with_error=True, with_available=True, with_ingress=True,
-                                 with_deployment_flow=True):
+                                 with_deployment_flow=True, with_throttle=False):
         self.keys.hostname_initialize.delete(hostname)
         self.keys.volume_config_hostname_worker_id.delete(hostname)
         if with_available:
@@ -631,7 +647,8 @@ class DomainsConfig:
         if with_ingress:
             self.keys.hostname_ingress_hostname.delete(hostname)
         if with_error:
-            self.keys.hostname_error.delete(hostname)
+            if with_throttle or self.keys.hostname_error.get(hostname) != self.WORKER_ERROR_THROTTLED.encode():
+                self.keys.hostname_error.delete(hostname)
             self.keys.hostname_error_attempt_number.delete(hostname)
         if with_deployment_flow:
             self.keys.hostname_last_deployment_flow_action.delete(hostname)
@@ -641,13 +658,14 @@ class DomainsConfig:
     def del_worker_keys(self, worker_id,
                         with_error=True, with_volume_config=True, with_available=True,
                         with_ingress=True, with_metrics=False, with_deployment_flow=True,
-                        with_force_delete_data=False
+                        with_force_delete_data=False, with_throttle=False
                         ):
         try:
             for hostname in self.iterate_worker_hostnames(worker_id):
                 self.del_worker_hostname_keys(hostname,
                                               with_error=with_error, with_available=with_available,
-                                              with_ingress=with_ingress, with_deployment_flow=with_deployment_flow)
+                                              with_ingress=with_ingress, with_deployment_flow=with_deployment_flow,
+                                              with_throttle=with_throttle)
         except:
             print("Failed to delete worker hostname keys")
             traceback.print_exc()
@@ -675,6 +693,9 @@ class DomainsConfig:
             self.keys.worker_last_deployment_flow_time.delete(worker_id)
         if with_force_delete_data:
             self.keys.worker_force_delete_data.delete(worker_id)
+        if with_throttle:
+            self.keys.worker_throttled_expiry.delete(worker_id)
+            self.keys.worker_last_throttle_check.delete(worker_id)
 
     def set_worker_force_update(self, worker_id):
         self.keys.worker_force_update.set(worker_id, '')
