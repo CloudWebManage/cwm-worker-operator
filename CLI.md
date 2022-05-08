@@ -67,6 +67,9 @@ Commands:
   send-agg-metrics                Send aggregated metrics to CWM api for
                                   debugging
 
+  throttler                       Throttle workers which use too much
+                                  resources
+
   updater                         Initiates updates for workers, also sends
                                   aggregated metrics to CWM
 
@@ -531,6 +534,30 @@ Usage: cwm-worker-operator workers-checker process_worker [OPTIONS]
 Options:
   --worker-id TEXT
   --help            Show this message and exit.
+```
+
+#### cwm-worker-operator throttler
+
+```
+Usage: cwm-worker-operator throttler [OPTIONS] COMMAND [ARGS]...
+
+  Throttle workers which use too much resources
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  start_daemon
+```
+
+#### cwm-worker-operator throttler start_daemon
+
+```
+Usage: cwm-worker-operator throttler start_daemon [OPTIONS]
+
+Options:
+  --once
+  --help  Show this message and exit.
 ```
 
 #### cwm-worker-operator cwm-api-volume-config-api-call
