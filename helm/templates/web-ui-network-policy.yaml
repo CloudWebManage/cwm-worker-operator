@@ -1,0 +1,19 @@
+{{- if .Values.webUiIngress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cwm-worker-operator-web-ui
+spec:
+  podSelector:
+    matchLabels:
+      app: cwm-worker-operator-web-ui
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 80
+{{- end }}
