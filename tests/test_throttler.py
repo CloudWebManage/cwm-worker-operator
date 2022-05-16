@@ -1,9 +1,13 @@
+import os
+import shutil
 import datetime
 
 from cwm_worker_operator import throttler, common, config
 
 
 def test_throttler(domains_config):
+    shutil.rmtree(os.path.join(config.LOCAL_STORAGE_PATH, 'throttler'), ignore_errors=True)
+
     # no hostnames - no actions performed
     throttler.run_single_iteration(domains_config)
     assert domains_config._get_all_redis_pools_values(blank_keys=[]) == {}
@@ -132,3 +136,47 @@ def test_throttler(domains_config):
     del expected_values[domains_config.keys.worker_last_throttle_check._(worker_id)]
     del expected_values[domains_config.keys.volume_config._(worker_id)]
     assert domains_config._get_all_redis_pools_values(blank_keys=blank_keys) == expected_values
+
+    # fake another throttle to ensure local storage keeps a log of all throttles
+    domains_config.keys.hostname_available.delete(hostname_no_worker_id)
+    del expected_values[domains_config.keys.hostname_available._(hostname_no_worker_id)]
+    domains_config.keys.hostname_available.set(hostname, '')
+    expected_values[domains_config.keys.hostname_available._(hostname)] = ''
+    domains_config.keys.volume_config_hostname_worker_id.set(hostname, worker_id)
+    expected_values[domains_config.keys.volume_config_hostname_worker_id._(hostname)] = worker_id
+    num_requests_in = 500
+    domains_config.keys.deployment_api_metric.set('{}:num_requests_in'.format(common.get_namespace_name_from_worker_id(worker_id)), num_requests_in)
+    expected_values[domains_config.keys.deployment_api_metric._('{}:num_requests_in'.format(common.get_namespace_name_from_worker_id(worker_id)))] = str(num_requests_in)
+    now = now + datetime.timedelta(minutes=5)
+    throttler.run_single_iteration(domains_config, now=now)
+    now = now + datetime.timedelta(minutes=5)
+    num_requests_in += 10000000
+    domains_config.keys.deployment_api_metric.set(
+        '{}:num_requests_in'.format(common.get_namespace_name_from_worker_id(worker_id)),
+        num_requests_in
+    )
+    expected_values[domains_config.keys.deployment_api_metric._('{}:num_requests_in'.format(common.get_namespace_name_from_worker_id(worker_id)))] = str(num_requests_in)
+    throttler.run_single_iteration(domains_config, now=now)
+    blank_keys.append(domains_config.keys.worker_throttled_expiry._(worker_id))
+    expected_values = {
+        **expected_values,
+        domains_config.keys.worker_throttled_expiry._(worker_id): '',
+        domains_config.keys.worker_last_throttle_check._(worker_id): '',
+        domains_config.keys.volume_config._(worker_id): ''
+    }
+    assert domains_config._get_all_redis_pools_values(blank_keys=blank_keys) == expected_values
+
+    # check the log of throttles in local storage
+    items = list(common.local_storage_json_last_items_iterator(f'throttler/started/{worker_id}'))
+    assert len(items) == 2
+    assert items[0] == {
+        'datetime': now,
+        'item': {
+            'num_requests_total': 10000500,
+            'throttle_expiry': (now + datetime.timedelta(seconds=config.THROTTLER_THROTTLE_PERIOD_SECONDS)).strftime('%Y-%m-%d %H:%M:%S'),
+            'last_throttle_check': {
+                'num_requests_total': 500,
+                'dt': (now - datetime.timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
+            }
+        }
+    }

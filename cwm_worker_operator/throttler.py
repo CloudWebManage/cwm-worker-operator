@@ -8,6 +8,31 @@ from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.domains_config import DomainsConfig
 
 
+def _throttle_start(domains_config, now, worker_id,
+                    num_requests_total, last_throttle_check_num_requests_total,
+                    last_throttle_check_datetime):
+    throttle_expiry = now + datetime.timedelta(seconds=config.THROTTLER_THROTTLE_PERIOD_SECONDS)
+    domains_config.keys.worker_throttled_expiry.set(worker_id, throttle_expiry)
+    domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_THROTTLED)
+    common.local_storage_json_last_items_append(
+        f'throttler/started/{worker_id}',
+        {
+            'num_requests_total': num_requests_total,
+            'throttle_expiry': throttle_expiry.strftime('%Y-%m-%d %H:%M:%S'),
+            'last_throttle_check': {
+                'num_requests_total': last_throttle_check_num_requests_total,
+                'dt': last_throttle_check_datetime.strftime('%Y-%m-%d %H:%M:%S')
+            }
+        },
+        max_items=100,
+        now_=now
+    )
+
+
+def _throttle_stop(domains_config, worker_id):
+    domains_config.del_worker_keys(worker_id, with_throttle=True)
+
+
 def check_worker_throttle(domains_config, worker_id, now=None):
     if now is None:
         now = common.now()
@@ -19,6 +44,7 @@ def check_worker_throttle(domains_config, worker_id, now=None):
     else:
         last_throttle_check_num_requests_total = None
         seconds_since_last_throttle_check = None
+        last_throttle_check_datetime = None
     if not seconds_since_last_throttle_check or seconds_since_last_throttle_check >= config.THROTTLER_CHECK_TTL_SECONDS:
         deployment_api_metrics = domains_config.get_deployment_api_metrics(common.get_namespace_name_from_worker_id(worker_id))
         num_requests_total = sum([int(deployment_api_metrics.get(key) or 0) for key in ['num_requests_in', 'num_requests_misc', 'num_requests_out']])
@@ -29,11 +55,9 @@ def check_worker_throttle(domains_config, worker_id, now=None):
         if last_throttle_check_num_requests_total is not None:
             num_requests_since_last_throttle_check = num_requests_total - last_throttle_check_num_requests_total
             if num_requests_since_last_throttle_check >= config.THROTTLER_THROTTLE_MAX_REQUESTS:
-                domains_config.keys.worker_throttled_expiry.set(
-                    worker_id,
-                    now + datetime.timedelta(seconds=config.THROTTLER_THROTTLE_PERIOD_SECONDS)
-                )
-                domains_config.set_worker_error(worker_id, domains_config.WORKER_ERROR_THROTTLED)
+                _throttle_start(domains_config, now, worker_id,
+                                num_requests_total, last_throttle_check_num_requests_total,
+                                last_throttle_check_datetime)
 
 
 def check_worker_throttle_expiry(domains_config, worker_id, now=None):
@@ -41,7 +65,7 @@ def check_worker_throttle_expiry(domains_config, worker_id, now=None):
         now = common.now()
     expiry = domains_config.keys.worker_throttled_expiry.get(worker_id)
     if expiry and now >= expiry:
-        domains_config.del_worker_keys(worker_id, with_throttle=True)
+        _throttle_stop(domains_config, worker_id)
 
 
 def run_single_iteration(domains_config: DomainsConfig, now=None, **_):
