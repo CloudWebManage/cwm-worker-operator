@@ -1,6 +1,7 @@
 import os
 import json
 import datetime
+import sys
 import traceback
 
 import requests
@@ -90,12 +91,18 @@ class CwmApiManager:
                 traceback.print_exc()
             return {}
 
-    def volume_config_api_call(self, query_param, query_value):
+    def volume_config_api_call(self, query_param, query_value, api_version=None):
+        if api_version is None:
+            api_version = config.CWM_API_VOLUME_CONFIG_VERSION
         url = "{}?{}={}".format(
-            os.path.join(config.CWM_API_URL, 'svc', 'instances', 'getConfiguration'),
+            os.path.join(
+                config.CWM_API_URL, 'svc',
+                *([api_version] if api_version else []),
+                'instances', 'getConfiguration'
+            ),
             query_param, query_value
         )
-        # print(url)
+        # print(url, file=sys.stderr)
         headers = {
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET

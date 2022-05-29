@@ -345,8 +345,10 @@ def test_get_volume_config_api_call():
     mec = res['minio_extra_configs']
     assert isinstance(mec['hostnames'], list)
     mech = mec['hostnames'][0]
-    assert mech['hostname'] == '{}.as.cloudwm-obj.com'.format(worker_id)
+    assert mech['hostname'] == '{}.eu.cloudwm-obj.com'.format(worker_id)
     assert set(mec['protocols-enabled']) == {'HTTP', 'HTTPS'}
+    assert res['primary instance'] == '{}.{}.cloudwm-obj.com'.format(
+        worker_id, res['zone'].lower())
 
 
 def test_get_volume_config_api_call_gateway():
@@ -369,8 +371,10 @@ def test_get_volume_config_api_call_gateway():
     mec = res['minio_extra_configs']
     assert isinstance(mec['hostnames'], list)
     got_hostname = False
+    geo_hostname = '{}.geo.cloudwm-obj.com'.format(worker_id)
+    assert res['primary instance'] == geo_hostname
     for mech in mec['hostnames']:
-        if mech['hostname'] == '{}.eu.cloudwm-obj.com'.format(worker_id):
+        if mech['hostname'] == geo_hostname:
             assert isinstance(mech['privateKey'], list)
             assert isinstance(mech['chain'], list) or not mech['chain']
             assert isinstance(mech['fullChain'], list)

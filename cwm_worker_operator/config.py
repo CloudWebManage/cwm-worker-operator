@@ -34,6 +34,7 @@ CWM_API_KEY = os.environ["CWM_API_KEY"]
 CWM_API_SECRET = os.environ["CWM_API_SECRET"]
 CWM_ZONE = os.environ["CWM_ZONE"]
 CWM_ADDITIONAL_ZONES = [z.strip() for z in (os.environ.get("CWM_ADDITIONAL_ZONES") or '').split(',') if z.strip()]
+CWM_API_VOLUME_CONFIG_VERSION = os.environ.get('CWM_API_VOLUME_CONFIG_VERSION') or '2.0.1'
 
 VOLUME_CONFIG_OVERRIDE_URL = os.environ.get('VOLUME_CONFIG_OVERRIDE_URL')
 VOLUME_CONFIG_OVERRIDE_USERNAME = os.environ.get('VOLUME_CONFIG_OVERRIDE_USERNAME')

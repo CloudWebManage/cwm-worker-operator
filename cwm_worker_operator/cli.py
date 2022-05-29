@@ -104,14 +104,15 @@ if kubernetes_not_configured:
 @main.command(short_help="Make a low-level API call to get cwm instance volume configuration")
 @click.argument('QUERY_PARAM')
 @click.argument('QUERY_VALUE')
-def cwm_api_volume_config_api_call(query_param, query_value):
+@click.option('--api-version')
+def cwm_api_volume_config_api_call(**kwargs):
     """Make a low-level API call to get cwm instance volume configuration
 
     Supported QUERY_PARAM values: id / hostname
     """
     import json
     from cwm_worker_operator.cwm_api_manager import CwmApiManager
-    print(json.dumps(CwmApiManager().volume_config_api_call(query_param, query_value)))
+    print(json.dumps(CwmApiManager().volume_config_api_call(**kwargs)))
 
 
 @main.command(short_help="Make an operator api call to get instance volume config from cache")

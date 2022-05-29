@@ -45,6 +45,10 @@
   value: {{ .root.Values.cwm_zone | quote }}
 - name: CWM_ADDITIONAL_ZONES
   value: {{ .root.Values.cwm_additional_zones | quote }}
+{{ if .root.Values.cwm_api_volume_config_version }}
+- name: CWM_API_VOLUME_CONFIG_VERSION
+  value: {{ .root.Values.cwm_api_volume_config_version | quote }}
+{{ end }}
 - name: INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS
   value: {{ .root.Values.operator.INITIALIZER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS | quote }}
 - name: DEPLOYER_WAIT_DEPLOYMENT_READY_MAX_SECONDS

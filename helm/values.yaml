@@ -7,6 +7,7 @@ cwm_api_key: ""
 cwm_api_secret: ""
 cwm_zone: "EU"
 cwm_additional_zones: ""
+cwm_api_volume_config_version: ""
 #tolerations: []
 
 ingressRedis:
