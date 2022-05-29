@@ -572,7 +572,8 @@ Usage: cwm-worker-operator cwm-api-volume-config-api-call [OPTIONS]
   Supported QUERY_PARAM values: id / hostname
 
 Options:
-  --help  Show this message and exit.
+  --api-version TEXT
+  --help              Show this message and exit.
 ```
 
 #### cwm-worker-operator get-cwm-api-volume-config
