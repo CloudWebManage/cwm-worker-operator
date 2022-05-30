@@ -7,6 +7,7 @@ import pytest
 import datetime
 import subprocess
 
+from cwm_worker_operator import common
 from cwm_worker_operator.deployments_manager import DeploymentsManager
 
 
@@ -238,7 +239,86 @@ def test_check_node_nas():
     assert set(statuses.keys()) == {'1.2.3.4', '5.6.7.8'}
     assert statuses['1.2.3.4']['is_healthy'] is True
     assert statuses['5.6.7.8']['is_healthy'] is True
-    json.dumps(statuses)
+
+
+def test_check_node_nas_multinode_error():
+    deployments_manager = DeploymentsManager()
+
+    def overrides_callback(operation, data, default_res):
+        if operation == 'nodeSelector':
+            return {
+                "kubernetes.io/hostname": 'minikube'
+            }
+        elif operation == 'get_ls_cmd':
+            if data['node_name'] == 'minikube3':
+                return 'DEBUG= kubectl -n {} exec {} -- sleep 6 && false'.format(data['namespace'], data['pod_name'])
+            else:
+                return 'DEBUG= kubectl -n {} exec {} -- ls /mnt/nas'.format(data['namespace'], data['pod_name'])
+        else:
+            return default_res
+
+    nodes_statuses = deployments_manager.check_nodes_nas([
+        'minikube',
+        'minikube2',
+        'minikube3',
+        'minikube4',
+    ], overrides_callback=overrides_callback)
+    assert set(nodes_statuses.keys()) == {'minikube', 'minikube2', 'minikube3', 'minikube4'}
+    for node_name, statuses in nodes_statuses.items():
+        context = {'node_name': node_name}
+        assert set(statuses.keys()) == {'1.2.3.4', '5.6.7.8'}, context
+        for ip, ip_statuses in statuses.items():
+            context['ip'] = ip
+            assert set(ip_statuses.keys()) == {'is_healthy', 'log', 'kubectl_create_success'}, context
+            assert ip_statuses['kubectl_create_success'] is True, context
+            log_steps = [s['step'] for s in ip_statuses['log']]
+            if node_name in ['minikube3']:
+                assert ip_statuses['is_healthy'] is False, context
+                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create', 'wait_ready_ls', 'wait_ready_failed'], context
+            else:
+                assert ip_statuses['is_healthy'] is True, context
+                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create'], context
+
+
+def test_check_node_nas_multinode_timeout():
+    deployments_manager = DeploymentsManager()
+
+    def overrides_callback(operation, data, default_res):
+        if operation == 'nodeSelector':
+            return {
+                "kubernetes.io/hostname": 'minikube'
+            }
+        elif operation == 'get_ls_cmd':
+            return 'DEBUG= kubectl -n {} exec {} -- sleep 6 && false'.format(data['namespace'], data['pod_name'])
+        else:
+            return default_res
+
+    nodes_statuses = deployments_manager.check_nodes_nas([
+        'minikube',
+        'minikube2',
+        'minikube3',
+        'minikube4',
+    ], overrides_callback=overrides_callback, timeout_seconds_per_node_pod=0.1)
+    assert set(nodes_statuses.keys()) == {'minikube', 'minikube2', 'minikube3', 'minikube4'}
+    for node_name, statuses in nodes_statuses.items():
+        context = {'node_name': node_name}
+        assert set(statuses.keys()) == {'1.2.3.4', '5.6.7.8'}, context
+        for ip, ip_statuses in statuses.items():
+            context['ip'] = ip
+            assert set(ip_statuses.keys()) == {'is_healthy', 'log', 'kubectl_create_success'}, context
+            assert ip_statuses['kubectl_create_success'] is True, context
+            log_steps = [s['step'] for s in ip_statuses['log']]
+            assert ip_statuses['is_healthy'] is False, context
+            if node_name == 'minikube' and ip == '1.2.3.4':
+                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create', 'wait_ready_ls', 'timeout'], {**context, 'log': ip_statuses['log']}
+                assert set(ip_statuses['log'][-2].keys()) == {'dt', 'out', 'ret', 'step'}
+                assert ip_statuses['log'][-2]['out'] == ''
+                assert ip_statuses['log'][-2]['ret'] == 1
+            else:
+                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create', 'timeout'], {**context, 'log': ip_statuses['log']}
+            assert ip_statuses['log'][-1]['step'] == 'timeout'
+            assert ip_statuses['log'][-1]['timeout_msg'] == 'time out in node minikube nas_ip 1.2.3.4'
+            assert set(ip_statuses['log'][-1].keys()) == {'dt', 'timeout_msg', 'step'}
 
 
 def test_get_all_namespaces():
