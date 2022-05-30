@@ -459,9 +459,14 @@ class DeploymentsManager:
                 else:
                     nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_errors'] = ''
 
-    def check_nodes_nas(self, node_names, with_kubelet_logs=False):
+    def check_nodes_nas(self, node_names, with_kubelet_logs=False, overrides_callback=None,
+                        timeout_seconds_per_node_pod=3):
         logs.debug('starting check_nodes_nas', debug_verbosity=8, node_names=node_names)
         logs.debug('deleting existing pods', debug_verbosity=8)
+        if overrides_callback:
+            print("WARNING! using overrides_callback")
+        else:
+            overrides_callback = lambda operation, data, default_res: default_res
         ret, out = subprocess.getstatusoutput(
             'kubectl -n {} delete pods -l app=cwm-worker-operator-check-node-nas --wait --timeout 60s'.format(
                 config.NAS_CHECKER_NAMESPACE)
@@ -504,9 +509,12 @@ class DeploymentsManager:
                             'tolerations': [
                                 {"key": "cwmc-role", "operator": "Exists", "effect": "NoSchedule"}
                             ],
-                            "nodeSelector": {
-                                "kubernetes.io/hostname": node_name
-                            },
+                            "nodeSelector": overrides_callback(
+                                'nodeSelector', {'node_name': node_name},
+                                {
+                                    "kubernetes.io/hostname": node_name
+                                }
+                            ),
                             "containers": [
                                 {
                                     "name": "naschecker",
@@ -543,18 +551,20 @@ class DeploymentsManager:
                     log(node_name, nas_ip, 'end kubectl_create', success=False, error=traceback.format_exc())
         logs.debug('waiting for pod mounts to be ready', debug_verbosity=8)
         start_time = common.now()
-        timeout_seconds_per_node_pod = 3
         timeout_seconds = 0
         for node_name in node_names:
             timeout_seconds += len(nodes_pod_names[node_name]) * timeout_seconds_per_node_pod
         while True:
             time.sleep(5)
+            timeout_msg = None
             for node_name in node_names:
                 for pod_name, nas_ip in nodes_pod_names[node_name].items():
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
-                        ret, out = subprocess.getstatusoutput(
-                            'DEBUG= kubectl -n {} exec {} -- ls /mnt/nas'.format(
-                                config.NAS_CHECKER_NAMESPACE, pod_name))
+                        ls_cmd = overrides_callback(
+                            'get_ls_cmd', {'pod_name': pod_name, 'node_name': node_name, 'namespace': config.NAS_CHECKER_NAMESPACE},
+                            'DEBUG= kubectl -n {} exec {} -- ls /mnt/nas'.format(config.NAS_CHECKER_NAMESPACE, pod_name)
+                        )
+                        ret, out = subprocess.getstatusoutput(ls_cmd)
                         if ret != 0:
                             log(node_name, nas_ip, 'wait_ready_ls', ret=ret, out=out)
                             logs.debug("Error running ls: {}".format(out), debug_verbosity=8, node_name=node_name, nas_ip=nas_ip)
@@ -574,6 +584,8 @@ class DeploymentsManager:
                             else:
                                 nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy'] = True
                     if (common.now() - start_time).total_seconds() > timeout_seconds:
+                        if not timeout_msg:
+                            timeout_msg = f'timeout in node {node_name} nas_ip {nas_ip}'
                         break
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
                         ret, out = subprocess.getstatusoutput(
@@ -581,17 +593,21 @@ class DeploymentsManager:
                                 config.NAS_CHECKER_NAMESPACE, pod_name))
                         log(node_name, nas_ip, 'wait_ready_failed', ret=ret, out=out)
                 if (common.now() - start_time).total_seconds() > timeout_seconds:
+                    if not timeout_msg:
+                        timeout_msg = f'timeout in node {node_name}'
                     break
             num_not_healthy = 0
             for node_name in node_names:
                 for pod_name, nas_ip in nodes_pod_names[node_name].items():
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
                         num_not_healthy += 1
-            logs.debug('some node pods are not healthy yet', debug_verbosity=8, num_not_healthy=num_not_healthy)
+                        if timeout_msg:
+                            log(node_name, nas_ip, 'timeout', timeout_msg=timeout_msg)
             if num_not_healthy == 0:
                 break
             elif (common.now() - start_time).total_seconds() > timeout_seconds:
                 break
+            logs.debug('some node pods are not healthy yet', debug_verbosity=8, num_not_healthy=num_not_healthy)
         if with_kubelet_logs:
             self.check_nodes_nas_update_kubelet_logs(node_names, nodes_pod_names, nodes_nas_ip_statuses)
         logs.debug('deleting pods', debug_verbosity=8)
