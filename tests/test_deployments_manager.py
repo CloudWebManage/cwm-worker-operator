@@ -273,11 +273,11 @@ def test_check_node_nas_multinode_error():
             assert ip_statuses['kubectl_create_success'] is True, context
             log_steps = [s['step'] for s in ip_statuses['log']]
             if node_name in ['minikube3']:
-                assert ip_statuses['is_healthy'] is False, context
-                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create', 'wait_ready_ls', 'wait_ready_failed'], context
+                assert ip_statuses['is_healthy'] is False, {**context, 'log': ip_statuses['log']}
+                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create', 'wait_ready_ls', 'wait_ready_failed', 'timeout'], {**context, 'log': ip_statuses['log']}
             else:
-                assert ip_statuses['is_healthy'] is True, context
-                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create'], context
+                assert ip_statuses['is_healthy'] is True, {**context, 'log': ip_statuses['log']}
+                assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create'], {**context, 'log': ip_statuses['log']}
 
 
 def test_check_node_nas_multinode_timeout():
@@ -317,7 +317,7 @@ def test_check_node_nas_multinode_timeout():
             else:
                 assert log_steps == ['start', 'start kubectl_create', 'end kubectl_create', 'timeout'], {**context, 'log': ip_statuses['log']}
             assert ip_statuses['log'][-1]['step'] == 'timeout'
-            assert ip_statuses['log'][-1]['timeout_msg'] == 'time out in node minikube nas_ip 1.2.3.4'
+            assert ip_statuses['log'][-1]['timeout_msg'] == 'timeout in node minikube nas_ip 1.2.3.4'
             assert set(ip_statuses['log'][-1].keys()) == {'dt', 'timeout_msg', 'step'}
 
 

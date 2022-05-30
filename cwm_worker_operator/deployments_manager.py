@@ -459,7 +459,8 @@ class DeploymentsManager:
                 else:
                     nodes_nas_ip_statuses[node_name][nas_ip]['mount_duration_errors'] = ''
 
-    def check_nodes_nas(self, node_names, with_kubelet_logs=False, overrides_callback=None, timeout_seconds_per_node_pod=3):
+    def check_nodes_nas(self, node_names, with_kubelet_logs=False, overrides_callback=None,
+                        timeout_seconds_per_node_pod=3):
         logs.debug('starting check_nodes_nas', debug_verbosity=8, node_names=node_names)
         logs.debug('deleting existing pods', debug_verbosity=8)
         if overrides_callback:
@@ -584,7 +585,7 @@ class DeploymentsManager:
                                 nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy'] = True
                     if (common.now() - start_time).total_seconds() > timeout_seconds:
                         if not timeout_msg:
-                            timeout_msg = f'time out in node {node_name} nas_ip {nas_ip}'
+                            timeout_msg = f'timeout in node {node_name} nas_ip {nas_ip}'
                         break
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
                         ret, out = subprocess.getstatusoutput(
@@ -593,17 +594,15 @@ class DeploymentsManager:
                         log(node_name, nas_ip, 'wait_ready_failed', ret=ret, out=out)
                 if (common.now() - start_time).total_seconds() > timeout_seconds:
                     if not timeout_msg:
-                        timeout_msg = f'time out in node {node_name}'
+                        timeout_msg = f'timeout in node {node_name}'
                     break
-            if timeout_msg:
-                for node_name in node_names:
-                    for pod_name, nas_ip in nodes_pod_names[node_name].items():
-                        log(node_name, nas_ip, 'timeout', timeout_msg=timeout_msg)
             num_not_healthy = 0
             for node_name in node_names:
                 for pod_name, nas_ip in nodes_pod_names[node_name].items():
                     if not nodes_nas_ip_statuses[node_name][nas_ip]['is_healthy']:
                         num_not_healthy += 1
+                        if timeout_msg:
+                            log(node_name, nas_ip, 'timeout', timeout_msg=timeout_msg)
             if num_not_healthy == 0:
                 break
             elif (common.now() - start_time).total_seconds() > timeout_seconds:
