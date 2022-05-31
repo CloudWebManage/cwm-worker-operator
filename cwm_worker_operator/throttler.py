@@ -69,10 +69,11 @@ def check_worker_throttle_expiry(domains_config, worker_id, now=None):
 
 
 def run_single_iteration(domains_config: DomainsConfig, now=None, **_):
-    for hostname in domains_config.keys.hostname_available.iterate_prefix_key_suffixes():
-        worker_id = domains_config.keys.volume_config_hostname_worker_id.get(hostname)
-        if worker_id:
-            check_worker_throttle(domains_config, worker_id.decode(), now)
+    checked_worker_ids = set()
+    for _, worker_id in domains_config.iterate_ingress_hostname_worker_ids():
+        if worker_id not in checked_worker_ids:
+            checked_worker_ids.add(worker_id)
+            check_worker_throttle(domains_config, worker_id, now)
     for worker_id in domains_config.keys.worker_throttled_expiry.iterate_prefix_key_suffixes():
         check_worker_throttle_expiry(domains_config, worker_id, now)
 

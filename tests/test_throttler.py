@@ -1,8 +1,20 @@
 import os
+import json
 import shutil
 import datetime
 
 from cwm_worker_operator import throttler, common, config
+
+
+def set_ingress_hostname(domains_config, hostname, worker_id):
+    domains_config.keys.hostname_ingress_hostname.set(hostname, json.dumps({
+        'http': f'minio-nginx.{common.get_namespace_name_from_worker_id(worker_id)}.svc.cluster.local',
+        'https': f'minio-nginx.{common.get_namespace_name_from_worker_id(worker_id)}.svc.cluster.local',
+    }))
+
+
+def set_ingress_hostname_invalid(domains_config, hostname):
+    domains_config.keys.hostname_ingress_hostname.set(hostname, json.dumps({}))
 
 
 def test_throttler(domains_config):
@@ -14,22 +26,22 @@ def test_throttler(domains_config):
 
     # an available hostname but which doesn't have any related worker_id - will not be processed
     hostname_no_worker_id = 'hostname.available.no.worker.id'
-    domains_config.keys.hostname_available.set(hostname_no_worker_id, '')
+    set_ingress_hostname_invalid(domains_config, hostname_no_worker_id)
 
     # a valid hostname available with related worker id - will be processed by the throttler
     worker_id, hostname, namespace_name = domains_config._set_mock_volume_config()
-    domains_config.keys.hostname_available.set(hostname, '')
-    domains_config.keys.volume_config_hostname_worker_id.set(hostname, worker_id)
+    set_ingress_hostname(domains_config, hostname, worker_id)
 
     now = common.now()
     blank_keys = [
         domains_config.keys.worker_last_throttle_check._(worker_id),
         domains_config.keys.volume_config._(worker_id),
+        domains_config.keys.hostname_ingress_hostname._(hostname),
+        domains_config.keys.hostname_ingress_hostname._(hostname_no_worker_id),
     ]
     expected_values = {
-        domains_config.keys.hostname_available._(hostname_no_worker_id): '',
-        domains_config.keys.hostname_available._(hostname): '',
-        domains_config.keys.volume_config_hostname_worker_id._(hostname): worker_id,
+        domains_config.keys.hostname_ingress_hostname._(hostname): '',
+        domains_config.keys.hostname_ingress_hostname._(hostname_no_worker_id): '',
         domains_config.keys.worker_last_throttle_check._(worker_id): '',
         domains_config.keys.volume_config._(worker_id): '',
     }
@@ -95,8 +107,7 @@ def test_throttler(domains_config):
         '{}:num_requests_in'.format(common.get_namespace_name_from_worker_id(worker_id)),
         num_requests_in
     )
-    del expected_values[domains_config.keys.hostname_available._(hostname)]
-    del expected_values[domains_config.keys.volume_config_hostname_worker_id._(hostname)]
+    del expected_values[domains_config.keys.hostname_ingress_hostname._(hostname)]
     now = now + datetime.timedelta(seconds=config.THROTTLER_CHECK_TTL_SECONDS + 1)
     expected_values = {
         **expected_values,
@@ -138,12 +149,11 @@ def test_throttler(domains_config):
     assert domains_config._get_all_redis_pools_values(blank_keys=blank_keys) == expected_values
 
     # fake another throttle to ensure local storage keeps a log of all throttles
-    domains_config.keys.hostname_available.delete(hostname_no_worker_id)
-    del expected_values[domains_config.keys.hostname_available._(hostname_no_worker_id)]
-    domains_config.keys.hostname_available.set(hostname, '')
-    expected_values[domains_config.keys.hostname_available._(hostname)] = ''
-    domains_config.keys.volume_config_hostname_worker_id.set(hostname, worker_id)
-    expected_values[domains_config.keys.volume_config_hostname_worker_id._(hostname)] = worker_id
+    domains_config.keys.hostname_ingress_hostname.delete(hostname_no_worker_id)
+    del expected_values[domains_config.keys.hostname_ingress_hostname._(hostname_no_worker_id)]
+    set_ingress_hostname(domains_config, hostname, worker_id)
+    blank_keys.append(domains_config.keys.hostname_ingress_hostname._(hostname))
+    expected_values[domains_config.keys.hostname_ingress_hostname._(hostname)] = ''
     num_requests_in = 500
     domains_config.keys.deployment_api_metric.set('{}:num_requests_in'.format(common.get_namespace_name_from_worker_id(worker_id)), num_requests_in)
     expected_values[domains_config.keys.deployment_api_metric._('{}:num_requests_in'.format(common.get_namespace_name_from_worker_id(worker_id)))] = str(num_requests_in)
