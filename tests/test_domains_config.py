@@ -584,9 +584,9 @@ def test_iterate_ingress_hostname_worker_ids(domains_config):
     domains_config.keys.hostname_ingress_hostname.set(hostname_invalid2, json.dumps({
         'foo': 'bar',
     }))
-    assert list(domains_config.iterate_ingress_hostname_worker_ids()) == [
+    assert set(domains_config.iterate_ingress_hostname_worker_ids()) == {
         # hostname         worker id
         ('www.valid1.com', 'valid1'),
         ('www.valid2.com', 'valid2'),
         ('www.valid1-2.com', 'valid1')
-    ]
+    }
