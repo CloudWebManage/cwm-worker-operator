@@ -1,8 +1,11 @@
 import json
+
 import redis
 import traceback
 from copy import deepcopy
 from contextlib import contextmanager
+
+import cwm_worker_deployment.deployment
 
 from cwm_worker_operator import config
 from cwm_worker_operator import logs
@@ -600,6 +603,19 @@ class DomainsConfig:
                 return True
         return False
 
+    def iterate_ingress_hostname_worker_ids(self):
+        with self.keys.hostname_ingress_hostname.get_redis() as r:
+            for key in r.keys(self.keys.hostname_ingress_hostname.key_template.format("*")):
+                try:
+                    hostname = key.decode().replace(self.keys.hostname_ingress_hostname.key_template.format(""), '')
+                    for protocol, internal_hostname in json.loads(self.keys.hostname_ingress_hostname.get(hostname)).items():
+                        namespace_name = cwm_worker_deployment.deployment.get_namespace_name_from_hostname('minio', protocol, internal_hostname)
+                        break
+                    worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+                    yield hostname, worker_id
+                except:
+                    pass
+
     def iterate_worker_hostnames(self, worker_id):
         all_yielded_hostnames = set()
         volume_hostnames = set()
@@ -822,7 +838,6 @@ class DomainsConfig:
                     return None
             else:
                 return self.get_key_summary_single_multi_domain(r, key_name, key, max_keys_per_summary)
-
 
     def get_key_summary_prefix_subkeys(self, key_name, key, worker_id, max_keys_per_summary, hostname=None, is_api=False):
         with key.get_redis() as r:

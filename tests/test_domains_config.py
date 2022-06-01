@@ -558,3 +558,35 @@ def test_volume_config_invalid_zone_for_cluster(domains_config):
     assert not volume_config.is_valid_zone_for_cluster
     assert volume_config.gateway_updated_for_request_hostname == geo_hostname
     assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
+
+
+def test_iterate_ingress_hostname_worker_ids(domains_config):
+    namespace_name_valid1, hostname_valid1 = 'cwm-worker-valid1', 'www.valid1.com'
+    domains_config.keys.hostname_ingress_hostname.set(hostname_valid1, json.dumps({
+        'http': f'minio-nginx.{namespace_name_valid1}.svc.cluster.local',
+        'https': f'minio-nginx.{namespace_name_valid1}.svc.cluster.local',
+    }))
+    hostname_valid1_2 = 'www.valid1-2.com'
+    domains_config.keys.hostname_ingress_hostname.set(hostname_valid1_2, json.dumps({
+        'http': f'minio-nginx.{namespace_name_valid1}.svc.cluster.local',
+        'https': f'minio-nginx.{namespace_name_valid1}.svc.cluster.local',
+    }))
+    namespace_name_valid2, hostname_valid2 = 'cwm-worker-valid2', 'www.valid2.com'
+    domains_config.keys.hostname_ingress_hostname.set(hostname_valid2, json.dumps({
+        'http': f'minio-nginx.{namespace_name_valid2}.svc.cluster.local',
+        'https': f'minio-nginx.{namespace_name_valid2}.svc.cluster.local',
+    }))
+    namespace_name_invalid1, hostname_invalid1 = 'cwm-worker-invalid1', 'www.invalid1.com'
+    domains_config.keys.hostname_ingress_hostname.set(hostname_invalid1, json.dumps({
+        'http': f'xxxminio-nginx.{namespace_name_invalid1}.svc.cluster.local',
+    }))
+    namespace_name_invalid2, hostname_invalid2 = 'cwm-worker-invalid2', 'www.invalid2.com'
+    domains_config.keys.hostname_ingress_hostname.set(hostname_invalid2, json.dumps({
+        'foo': 'bar',
+    }))
+    assert list(domains_config.iterate_ingress_hostname_worker_ids()) == [
+        # hostname         worker id
+        ('www.valid1.com', 'valid1'),
+        ('www.valid2.com', 'valid2'),
+        ('www.valid1-2.com', 'valid1')
+    ]
