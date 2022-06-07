@@ -230,16 +230,9 @@ class VolumeConfig:
         for protocol in minio_extra_configs.pop('protocols-enabled', ['http', 'https']):
             if protocol.lower() in ['http', 'https']:
                 self.protocols_enabled.add(protocol.lower())
-        self.zone_hostname, self.geo_hostname, self.root_hostname = None, None, None
         if len(self.protocols_enabled) > 0:
             for hostname in minio_extra_configs.pop('hostnames', []):
                 self.hostnames.append(hostname['hostname'])
-                if not self.zone_hostname and self.zone and hostname['hostname'].lower() == '{}.{}.{}'.format(self.id, self.zone.lower(), config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
-                    self.zone_hostname = hostname['hostname']
-                if not self.geo_hostname and hostname['hostname'].lower() == '{}.geo.{}'.format(self.id, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
-                    self.geo_hostname = hostname['hostname']
-                if not self.root_hostname and hostname['hostname'].lower() == '{}.{}'.format(self.id, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
-                    self.root_hostname = hostname['hostname']
                 if 'https' in self.protocols_enabled:
                     if hostname.get('privateKey') and hostname.get('fullChain'):
                         self.hostname_certs[hostname['hostname']] = {
@@ -258,7 +251,7 @@ class VolumeConfig:
                         'token': hostname['token'],
                         'payload': hostname['payload']
                     }
-        self.primary_hostname = self.zone_hostname or self.geo_hostname or self.root_hostname
+        self.primary_hostname = data.get('primary instance')
         self.client_id = data.get("client_id")
         self.secret = data.get("secret")
         self.cache_enabled = bool(data.get('cache'))

@@ -548,13 +548,12 @@ def test_volume_config_invalid_zone_for_cluster(domains_config):
             {'hostname': geo_hostname},
         ],
         additional_volume_config={
-            'zone': instance_zone
+            'zone': instance_zone,
+            'primary instance': instance_zone_hostname
         }
     )
     volume_config = domains_config.get_cwm_api_volume_config(hostname=geo_hostname)
-    assert volume_config.zone_hostname == instance_zone_hostname
     assert volume_config.primary_hostname == instance_zone_hostname
-    assert volume_config.geo_hostname == geo_hostname
     assert not volume_config.is_valid_zone_for_cluster
     assert volume_config.gateway_updated_for_request_hostname == geo_hostname
     assert isinstance(volume_config.gateway, VolumeConfigGatewayTypeS3)
