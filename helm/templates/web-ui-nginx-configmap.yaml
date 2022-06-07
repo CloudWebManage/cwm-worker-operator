@@ -11,6 +11,12 @@ data:
         root   /;
         autoindex on;
       }
+      location /data_api/ {
+        index null;
+        alias /data/;
+        autoindex on;
+        autoindex_format json;
+      }
       location / {
         proxy_pass http://localhost:8182;
       }
