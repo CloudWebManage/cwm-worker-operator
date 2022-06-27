@@ -119,8 +119,18 @@ class CwmApiManager:
             'AuthClientId': config.CWM_API_KEY,
             'AuthSecret': config.CWM_API_SECRET
         }
-        for update in json.loads(requests.get(url, headers=headers, timeout=15).text, strict=False):
-            yield {
-                'worker_id': update['id'],
-                'update_time': common.strptime(update['time'], '%Y-%m-%d %H:%M:%S')
-            }
+        text = requests.get(url, headers=headers, timeout=15).text
+        try:
+            data = json.loads(text, strict=False)
+        except:
+            print(f"text: {text}")
+            raise
+        for update in data:
+            try:
+                yield {
+                    'worker_id': update['id'],
+                    'update_time': common.strptime(update['time'], '%Y-%m-%d %H:%M:%S')
+                }
+            except:
+                print(f"data: {data}")
+                raise
