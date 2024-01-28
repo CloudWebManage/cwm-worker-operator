@@ -13,6 +13,7 @@ updates this redis key to true for all worker nodes and to false for any nodes
 which are not currently listed as worker nodes - so nodes which are removed
 will instantly stop serving.
 """
+from cwm_worker_operator import logs
 from cwm_worker_operator import config
 from cwm_worker_operator.daemon import Daemon
 
@@ -32,6 +33,7 @@ def set_node_healthy_keys(domains_config, deployments_manager):
 
 
 def update_dns_records(deployments_manager, healthy_node_name_ips):
+    logs.debug('update_dns_records', healthy_node_name_ips=healthy_node_name_ips, debug_verbosity=10)
     dns_healthchecks = {}
     dns_records = {}
     # collect node names of existing dns healthchecks / records
@@ -39,16 +41,23 @@ def update_dns_records(deployments_manager, healthy_node_name_ips):
     update_required_healthcheck_node_names = set()
     update_required_records_node_names = set()
     for dns_healthcheck in deployments_manager.iterate_dns_healthchecks():
+        logs.debug('dns_healthcheck', dns_healthcheck=dns_healthcheck, debug_verbosity=10)
         dns_healthchecks[dns_healthcheck['node_name']] = {'id': dns_healthcheck['id'], 'ip': dns_healthcheck['ip']}
         if dns_healthcheck['node_name'] in healthy_node_name_ips and dns_healthcheck['ip'] != healthy_node_name_ips[
             dns_healthcheck['node_name']]:
             deployments_manager.delete_dns_healthcheck(dns_healthcheck['id'])
             update_required_healthcheck_node_names.add(dns_healthcheck['node_name'])
     for dns_record in deployments_manager.iterate_dns_records():
+        logs.debug('dns_record', dns_record=dns_record, debug_verbosity=10)
         dns_records[dns_record['node_name']] = {'id': dns_record['id'], 'ip': dns_record['ip']}
         if dns_record['node_name'] in update_required_healthcheck_node_names or (dns_record['node_name'] in healthy_node_name_ips and dns_record['ip'] != healthy_node_name_ips[dns_record['node_name']]):
             deployments_manager.delete_dns_record(dns_record['id'])
             update_required_records_node_names.add(dns_record['node_name'])
+    logs.debug(
+        'updates', debug_verbosity=10,
+        update_required_records_node_names=update_required_records_node_names,
+        update_required_healthcheck_node_names=update_required_healthcheck_node_names,
+    )
     # set dns healthcheck and record for nodes which are in list of healthy nodes but have a missing healthcheck or record
     for node_name, node_ip in healthy_node_name_ips.items():
         if node_name not in dns_healthchecks or node_name in update_required_healthcheck_node_names:

@@ -88,9 +88,7 @@ jobs:
         if [ "$(uci github actions get-branch-name)" == "main" ]; then
           uci docker tag-push \
             --source-tag-name cwm_worker_operator \
-            --push-tag-name "ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest" &&\
-          sed -i "s/appVersion: latest/appVersion: ${GITHUB_SHA}/g" helm/Chart.yaml &&\
-          bin/helm_publish.sh
+            --push-tag-name "ghcr.io/cloudwebmanage/cwm-worker-operator/cwm_worker_operator:latest"
         fi
 
     - uses: 8398a7/action-slack@v3

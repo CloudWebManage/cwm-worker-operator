@@ -306,11 +306,13 @@ class DeploymentsManager:
 
     def iterate_dns_records(self):
         client = boto3.client('route53')
-        next_record_identifier = None
+        next_record_identifier, next_record_name, next_record_type = None, None, None
         while True:
             res = client.list_resource_record_sets(
                 HostedZoneId=config.AWS_ROUTE53_HOSTEDZONE_ID,
-                **({'StartRecordIdentifier': next_record_identifier} if next_record_identifier is not None else {})
+                **({'StartRecordIdentifier': next_record_identifier} if next_record_identifier is not None else {}),
+                **({'StartRecordName': next_record_name} if next_record_name is not None else {}),
+                **({'StartRecordType': next_record_type} if next_record_type is not None else {}),
             )
             for record in res.get('ResourceRecordSets', []):
                 if record['Type'] == 'A' and record['Name'] == '{}.{}.'.format(config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
@@ -325,7 +327,9 @@ class DeploymentsManager:
                             'ip': record_ip
                         }
             if res['IsTruncated']:
-                next_record_identifier = res['NextRecordIdentifier']
+                next_record_identifier = res.get('NextRecordIdentifier')
+                next_record_name = res.get('NextRecordName')
+                next_record_type = res.get('NextRecordType')
             else:
                 break
 
