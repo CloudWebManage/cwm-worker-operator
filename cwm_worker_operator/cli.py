@@ -176,3 +176,7 @@ def send_agg_metrics(worker_id, minutes_json):
     import json
     from cwm_worker_operator.cwm_api_manager import CwmApiManager
     CwmApiManager().send_agg_metrics(worker_id, json.loads(minutes_json))
+
+
+if __name__ == '__main__':
+    main()

@@ -210,3 +210,59 @@ kubectl port-forward service/cwm-worker-operator-redis-internal 6379
 ```
 
 For more details, refer to the [CI workflow](./.github/workflows/ci.yml).
+
+## Local Development on real cluster
+
+Follow the steps in Local Development section until Start Infrastructure, then continue with the following steps:
+
+```shell
+# Set the cluster env vars depending on the cluster you want to connect to, you should only use dev / testing clusters
+export CLUSTER_NAME=cwmc-eu-v2test
+export CWM_ZONE=eu-test
+export DNS_RECORDS_PREFIX=$CLUSTER_NAME
+
+# Get a fresh token from Vault
+export VAULT_TOKEN=
+
+cd ../cwm-worker-cluster
+eval "$(venv/bin/cwm-worker-cluster cluster connect $CLUSTER_NAME)"
+popd >/dev/null
+
+# Optionally, enable full verbosity debugging
+export DEBUG=yes
+export DEBUG_VERBOSITY=10
+
+# Set env vars to point to the Redis databases (we will start port-forwarding later)
+export INGRESS_REDIS_PORT=6381
+export INTERNAL_REDIS_PORT=6382
+export METRICS_REDIS_PORT=6383
+export INTERNAL_REDIS_DB=0
+export METRICS_REDIS_DB=0
+```
+
+Start port-forwarding to the Redis databases (you can run this multiple times if a forward was stopped):
+
+```shell
+lsof -i:6381 >/dev/null || kubectl -n cwm-worker-ingress port-forward service/cwm-worker-ingress-operator-redis 6381:6379 >/dev/null 2>&1 &
+lsof -i:6382 >/dev/null || kubectl -n cwm-operator port-forward service/cwm-worker-operator-redis-internal 6382:6379 >/dev/null 2>&1 &
+lsof -i:6383 >/dev/null || kubectl -n cwm-operator port-forward service/cwm-worker-operator-redis-metrics 6383:6379 >/dev/null 2>&1 &
+```
+
+Stop the relevant operator daemones running on the cluster to prevent conflicts. First, disable argocd autosync,
+then scale the relevant deployments to 0, for example:
+
+```shell
+kubectl -n cwm-operator scale deployment deployer --replicas=0
+```
+
+Now you can run operator commands for the relevant daemons, for example:
+
+```
+cwm-worker-operator deployer start_daemon --once
+```
+
+When done, terminate the background jobs:
+
+```
+kill $(jobs -p)
+```
