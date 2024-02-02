@@ -340,7 +340,7 @@ class DeploymentsManager:
             CallerReference=caller_reference,
             HealthCheckConfig={
                 "IPAddress": node_ip,
-                "Port": 80,
+                "Port": 12808,
                 "Type": "HTTP",
                 "ResourcePath": "/healthz",
                 "RequestInterval": 30,  # according to AWS docs, when using the recommended regions, it actually does a healthcheck every 2-3 seconds
