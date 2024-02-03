@@ -178,5 +178,14 @@ def send_agg_metrics(worker_id, minutes_json):
     CwmApiManager().send_agg_metrics(worker_id, json.loads(minutes_json))
 
 
+@main.command(short_help="Start Minio Auth Server for development")
+def start_minio_auth_server_devel():
+    """
+    Start Minio Auth Server for development
+    """
+    import uvicorn
+    uvicorn.run('cwm_worker_operator.minio_auth_plugin.app:app', host='0.0.0.0', port=5000, reload=True)
+
+
 if __name__ == '__main__':
     main()
