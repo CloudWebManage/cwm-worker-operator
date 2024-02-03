@@ -150,3 +150,7 @@ THROTTLER_THROTTLE_PERIOD_SECONDS = int(os.environ.get('THROTTLER_THROTTLE_PERIO
 THROTTLER_THROTTLE_MAX_REQUESTS = int(os.environ.get('THROTTLER_THROTTLE_MAX_REQUESTS') or '10000000')
 # period of time during which the maximum number of requests should be reached to throttle
 THROTTLER_CHECK_TTL_SECONDS = int(os.environ.get('THROTTLER_CHECK_TTL_SECONDS') or '60')
+
+MINIO_TENANT_ENDPOINT = os.environ.get('MINIO_TENANT_ENDPOINT')
+MINIO_TENANT_ADMIN_USER = os.environ.get('MINIO_TENANT_ADMIN_USER')
+MINIO_TENANT_ADMIN_PASSWORD = os.environ.get('MINIO_TENANT_ADMIN_PASSWORD')

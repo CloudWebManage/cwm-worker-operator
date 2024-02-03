@@ -17,21 +17,22 @@ from cwm_worker_operator.multiprocessor import Multiprocessor
 
 
 def _check_for_deployment_complete(domains_config, deployments_manager, waiter_metrics, start_time, log_kwargs, namespace_name, flow_manager, worker_id, volume_config):
-    has_hostnames_without_cert_but_with_challenge = False
-    check_hostname_challenge = None
-    for hostname in volume_config.hostnames:
-        if hostname not in volume_config.hostname_certs and hostname in volume_config.hostname_challenges:
-            has_hostnames_without_cert_but_with_challenge = True
-            check_hostname_challenge = {
-                'host': hostname,
-                **volume_config.hostname_challenges[hostname]
-            }
-            break
-    if deployments_manager.is_ready(namespace_name, "minio", minimal_check=has_hostnames_without_cert_but_with_challenge):
-        internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")
+    # has_hostnames_without_cert_but_with_challenge = False
+    # check_hostname_challenge = None
+    # for hostname in volume_config.hostnames:
+    #     if hostname not in volume_config.hostname_certs and hostname in volume_config.hostname_challenges:
+    #         has_hostnames_without_cert_but_with_challenge = True
+    #         check_hostname_challenge = {
+    #             'host': hostname,
+    #             **volume_config.hostname_challenges[hostname]
+    #         }
+    #         break
+    if deployments_manager.is_ready(namespace_name, "minio"):  # , minimal_check=has_hostnames_without_cert_but_with_challenge):
+        # internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")
+        internal_hostname = {'http': '--', 'https': '--'}
         ok = True
-        if config.WAITER_VERIFY_WORKER_ACCESS:
-            ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs, check_hostname_challenge=check_hostname_challenge)
+        # if config.WAITER_VERIFY_WORKER_ACCESS:
+        #     ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs, check_hostname_challenge=check_hostname_challenge)
         if ok:
             flow_manager.set_worker_available(worker_id, internal_hostname)
             if waiter_metrics:

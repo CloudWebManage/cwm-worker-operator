@@ -252,8 +252,8 @@ class VolumeConfig:
                         'payload': hostname['payload']
                     }
         self.primary_hostname = data.get('primary instance')
-        self.client_id = data.get("client_id")
-        self.secret = data.get("secret")
+        self.secret = self.client_id = data.get("client_id")
+        # self.secret = data.get("secret")
         self.cache_enabled = bool(data.get('cache'))
         try:
             self.cache_exclude_extensions = [ext.strip() for ext in data.get('cache-exclude', '').split('|') if ext.strip()]

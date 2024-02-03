@@ -12,6 +12,9 @@ from contextlib import contextmanager
 
 import requests
 from ruamel import yaml
+from minio.minioadmin import MinioAdmin
+from minio.credentials.providers import StaticProvider
+from minio import Minio
 
 from cwm_worker_operator import logs
 from cwm_worker_operator import config
@@ -46,6 +49,17 @@ def parse_datetime_from_kubelet_log_line(line):
     # I0112 14:54:20.399101
     datepart, timepart, *_ = line.split()
     return datetime.datetime.strptime('{}{} {}+00:00'.format(datetime.datetime.now().year, datepart, timepart), '%YI%m%d %H:%M:%S.%f%z')
+
+
+def get_minio_admin():
+    return MinioAdmin(
+        config.MINIO_TENANT_ENDPOINT,
+        StaticProvider(config.MINIO_TENANT_ADMIN_USER, config.MINIO_TENANT_ADMIN_PASSWORD)
+    )
+
+
+def get_minio():
+    return Minio(config.MINIO_TENANT_ENDPOINT, config.MINIO_TENANT_ADMIN_USER, config.MINIO_TENANT_ADMIN_PASSWORD)
 
 
 class NodeCleanupPod:
@@ -151,22 +165,65 @@ class DeploymentsManager:
                 print("Failed to initialize chart cache for version {}".format(version))
 
     def init(self, deployment_config):
-        cwm_worker_deployment.deployment.init(deployment_config)
+        pass
+        # cwm_worker_deployment.deployment.init(deployment_config)
 
     def deploy_external_service(self, deployment_config):
-        cwm_worker_deployment.deployment.deploy_external_service(deployment_config)
+        pass
+        # cwm_worker_deployment.deployment.deploy_external_service(deployment_config)
 
     def deploy_extra_objects(self, deployment_config, extra_objects):
-        cwm_worker_deployment.deployment.deploy_extra_objects(deployment_config, extra_objects)
+        pass
+        # cwm_worker_deployment.deployment.deploy_extra_objects(deployment_config, extra_objects)
 
     def deploy_preprocess_specs(self, specs):
-        return cwm_worker_deployment.deployment.deploy_preprocess_specs(specs)
+        res = {}
+        for key, spec in specs.items():
+            # currently we don't have any preprocess spec, but we should set True to prevent re-preprocessing
+            res[key] = True
+        return res
 
-    def deploy(self, deployment_config, **kwargs):
-        return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
+    def deploy(self, deployment_config, dry_run=False, **kwargs):
+        # return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
+        username = deployment_config['cwm-worker-deployment']['namespace']
+        password = deployment_config['minio']['access_key']
+        if dry_run:
+            return f"username: {username}"
+        else:
+            minio_admin = get_minio_admin()
+            minio_admin.user_add(username, password)
+            with tempfile.NamedTemporaryFile('w') as f:
+                json.dump({
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": ["s3:*"],
+                            "Effect": "Allow",
+                            "Resource": [f"arn:aws:s3:::{username}",f"arn:aws:s3:::{username}/*"]
+                        },
+                        {
+                            "Action": ["s3:DeleteBucket"],
+                            "Effect": "Deny",
+                            "Resource": [f"arn:aws:s3:::{username}"]
+                        },
+                        {
+                            "Action": ["s3:ListAllMyBuckets"],
+                            "Effect": "Allow",
+                            "Resource": ["arn:aws:s3:::*"]
+                        }
+                    ]
+                }, f)
+                f.seek(0)
+                minio_admin.policy_add(username, f.name)
+            minio_admin.policy_set(username, username)
+            minio = get_minio()
+            if not minio.bucket_exists(username):
+                minio.make_bucket(username)
+            return f"OK, username/bucket: {username}"
 
     def is_ready(self, namespace_name, deployment_type, minimal_check=False):
-        return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, minimal_check=minimal_check)
+        #return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, minimal_check=minimal_check)
+        return get_minio().bucket_exists(namespace_name)
 
     def get_health(self, namespace_name, deployment_type):
         return cwm_worker_deployment.deployment.get_health(namespace_name, deployment_type)
@@ -209,8 +266,8 @@ class DeploymentsManager:
         cwm_worker_deployment.deployment.delete(namespace_name, deployment_type, **kwargs)
 
     def iterate_all_releases(self):
-        for release in cwm_worker_deployment.helm.iterate_all_releases("minio"):
-            yield release
+        for user in json.loads(get_minio_admin().user_list()):
+            yield user
 
     def get_prometheus_metrics(self, namespace_name):
         metrics = {}

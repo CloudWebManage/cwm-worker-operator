@@ -14,6 +14,7 @@ from cwm_worker_operator import common
 from cwm_worker_operator.daemon import Daemon
 from cwm_worker_operator.domains_config import DomainsConfig
 from cwm_worker_operator.multiprocessor import Multiprocessor
+from cwm_worker_operator.deployments_manager import DeploymentsManager
 
 
 DATETIME_FORMAT = '%Y%m%dT%H%M%S%z'
@@ -49,14 +50,14 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
             domains_config.set_worker_force_delete(worker_id, allow_cancel=False)
             if updater_metrics:
                 updater_metrics.force_delete(worker_id, start_time)
-        elif instance_update == 'update':
-            msg = "domain force update (from cwm updates api)"
+        elif instance_update in ('update', 'create'):
+            msg = f"domain force {instance_update} (from cwm updates api)"
             logs.debug(msg, debug_verbosity=4, worker_id=worker_id, start_time=start_time)
             domains_config.set_worker_force_update(worker_id)
             if updater_metrics:
                 updater_metrics.not_deployed_force_update(worker_id, start_time)
         else:
-            hours_since_last_update = (common.now() - last_updated).total_seconds() / 60 / 60
+            hours_since_last_update = ((common.now() - last_updated).total_seconds() / 60 / 60)
             volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
             disable_force_delete = volume_config.disable_force_delete
             disable_force_update = volume_config.disable_force_update
@@ -150,12 +151,14 @@ def get_instances_updates(domains_config: DomainsConfig, cwm_api_manager: CwmApi
 
 def update(namespace_name, last_updated, status, revision,
            worker_id, instance_update, start_time,
-           cwm_api_manager=None, domains_config=None, updater_metrics=None):
+           cwm_api_manager=None, domains_config=None, updater_metrics=None, deployments_manager=None):
     if not domains_config:
         domains_config = DomainsConfig()
     if not cwm_api_manager:
         cwm_api_manager = CwmApiManager()
-    last_updated = get_datetime_object(last_updated)
+    if not deployments_manager:
+        deployments_manager = DeploymentsManager()
+    last_updated = get_datetime_object(last_updated) if last_updated else None
     start_time = get_datetime_object(start_time)
     check_update_release(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
                          instance_update, worker_id, start_time)
@@ -196,19 +199,27 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
     multiprocessor = UpdaterMultiprocessor(config.UPDATER_MAX_PARALLEL_DEPLOY_PROCESSES if is_async else 1)
     updater_metrics = metrics
     instances_updates = get_instances_updates(domains_config, cwm_api_manager)
-    all_releases = {release["namespace"]: release for release in deployments_manager.iterate_all_releases()}
-    for release in all_releases.values():
-        namespace_name = release["namespace"]
-        datestr, timestr, *_ = release["updated"].split(" ")
-        last_updated = common.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S")
-        status = release["status"]
-        # app_version = release["app_version"]
-        revision = int(release["revision"])
-        start_time = common.now()
-        worker_id = common.get_worker_id_from_namespace_name(namespace_name)
-        instance_update = instances_updates.get(worker_id)
-        multiprocessor.process(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
-                               worker_id, instance_update, start_time, cwm_api_manager)
+    updated_instances = set()
+    # all_releases = {release["namespace"]: release for release in deployments_manager.iterate_all_releases()}
+    # for release in all_releases.values():
+    #     updated_instances.add(namespace_name)
+    #     namespace_name = release["namespace"]
+    #     datestr, timestr, *_ = release["updated"].split(" ")
+    #     last_updated = common.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S")
+    #     status = release["status"]
+    #     # app_version = release["app_version"]
+    #     revision = int(release["revision"])
+    #     start_time = common.now()
+    #     worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+    #     instance_update = instances_updates.get(worker_id)
+    #     multiprocessor.process(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+    #                            worker_id, instance_update, start_time, cwm_api_manager)
+    for namespace_name, operation in instances_updates.items():
+        if operation == 'update' and namespace_name not in updated_instances:
+            start_time = common.now()
+            worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+            multiprocessor.process(domains_config, updater_metrics, namespace_name, None, None, None,
+                                   worker_id, 'create', start_time, cwm_api_manager)
     multiprocessor.finalize()
 
 
