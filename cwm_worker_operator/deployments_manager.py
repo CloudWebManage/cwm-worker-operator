@@ -266,8 +266,8 @@ class DeploymentsManager:
         cwm_worker_deployment.deployment.delete(namespace_name, deployment_type, **kwargs)
 
     def iterate_all_releases(self):
-        for user in json.loads(get_minio_admin().user_list()):
-            yield user
+        for username, user in json.loads(get_minio_admin().user_list()).items():
+            yield {'username': username, 'user': user}
 
     def get_prometheus_metrics(self, namespace_name):
         metrics = {}

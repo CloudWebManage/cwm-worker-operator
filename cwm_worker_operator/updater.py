@@ -200,20 +200,18 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
     updater_metrics = metrics
     instances_updates = get_instances_updates(domains_config, cwm_api_manager)
     updated_instances = set()
-    # all_releases = {release["namespace"]: release for release in deployments_manager.iterate_all_releases()}
-    # for release in all_releases.values():
-    #     updated_instances.add(namespace_name)
-    #     namespace_name = release["namespace"]
-    #     datestr, timestr, *_ = release["updated"].split(" ")
-    #     last_updated = common.strptime("{}T{}".format(datestr, timestr.split(".")[0]), "%Y-%m-%dT%H:%M:%S")
-    #     status = release["status"]
-    #     # app_version = release["app_version"]
-    #     revision = int(release["revision"])
-    #     start_time = common.now()
-    #     worker_id = common.get_worker_id_from_namespace_name(namespace_name)
-    #     instance_update = instances_updates.get(worker_id)
-    #     multiprocessor.process(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
-    #                            worker_id, instance_update, start_time, cwm_api_manager)
+    all_releases = {release["username"]: release for release in deployments_manager.iterate_all_releases()}
+    for release in all_releases.values():
+        namespace_name = release["username"]
+        updated_instances.add(namespace_name)
+        last_updated = common.strptime(release['user']['updatedAt'].split('.')[0], "%Y-%m-%dT%H:%M:%S")
+        start_time = common.now()
+        worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+        instance_update = instances_updates.get(worker_id)
+        status = 'deployed'
+        revision = 3
+        multiprocessor.process(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
+                               worker_id, instance_update, start_time, cwm_api_manager)
     for namespace_name, operation in instances_updates.items():
         if operation == 'update' and namespace_name not in updated_instances:
             start_time = common.now()
