@@ -1,5 +1,5 @@
 FROM python:3-alpine@sha256:bd7f0719874c7de4ca47418de143ab4de79731dc0b01fdcf2425b8a32f4823ce
-RUN apk update && apk add --no-cache git curl nfs-utils
+RUN apk update && apk add --no-cache git curl nfs-utils libffi-dev build-base
 RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" &&\
     chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl &&\
     kubectl version --client &&\
