@@ -6,3 +6,4 @@ boto3==1.17.49
 click==7.1.2
 uvicorn[standard]==0.27.0.post1
 fastapi==0.109.1
+gunicorn==21.2.0
