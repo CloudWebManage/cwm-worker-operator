@@ -59,7 +59,8 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
         else:
             hours_since_last_update = ((common.now() - last_updated).total_seconds() / 60 / 60)
             volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
-            disable_force_delete = volume_config.disable_force_delete
+            # disable_force_delete = volume_config.disable_force_delete
+            disable_force_delete = True  # the new minio tenant configuration doesn't need forced delete on a schedule
             disable_force_update = volume_config.disable_force_update
             is_deployed = status == "deployed"
             if not is_deployed:
@@ -203,19 +204,19 @@ def run_single_iteration(domains_config, metrics, deployments_manager, cwm_api_m
     all_releases = {release["username"]: release for release in deployments_manager.iterate_all_releases()}
     for release in all_releases.values():
         namespace_name = release["username"]
-        updated_instances.add(namespace_name)
         last_updated = common.strptime(release['user']['updatedAt'].split('.')[0], "%Y-%m-%dT%H:%M:%S")
         start_time = common.now()
         worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+        updated_instances.add(worker_id)
         instance_update = instances_updates.get(worker_id)
         status = 'deployed'
         revision = 3
         multiprocessor.process(domains_config, updater_metrics, namespace_name, last_updated, status, revision,
                                worker_id, instance_update, start_time, cwm_api_manager)
     for namespace_name, operation in instances_updates.items():
-        if operation == 'update' and namespace_name not in updated_instances:
+        worker_id = common.get_worker_id_from_namespace_name(namespace_name)
+        if operation == 'update' and worker_id not in updated_instances:
             start_time = common.now()
-            worker_id = common.get_worker_id_from_namespace_name(namespace_name)
             multiprocessor.process(domains_config, updater_metrics, namespace_name, None, None, None,
                                    worker_id, 'create', start_time, cwm_api_manager)
     multiprocessor.finalize()

@@ -262,8 +262,34 @@ class DeploymentsManager:
         else:
             return True
 
-    def delete(self, namespace_name, deployment_type, **kwargs):
-        cwm_worker_deployment.deployment.delete(namespace_name, deployment_type, **kwargs)
+    def delete(self, namespace_name, deployment_type, delete_data=False, **kwargs):
+        if delete_data:
+            minio_admin = get_minio_admin()
+            failed = False
+            for cmd, args, kwargs in [
+                ('user_remove', [namespace_name], {}),
+                ('policy_unset', [namespace_name], {'user': namespace_name}),
+                ('policy_remove', [namespace_name], {}),
+            ]:
+                try:
+                    getattr(minio_admin, cmd)(*args, **kwargs)
+                except:
+                    failed = True
+                    if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
+                        traceback.print_exc()
+            minio = get_minio()
+            try:
+                if minio.bucket_exists(namespace_name):
+                    for obj in minio.list_objects(namespace_name):
+                        minio.remove_object(namespace_name, obj.object_name)
+                    minio.remove_bucket(namespace_name)
+            except:
+                failed = True
+                if config.DEBUG and config.DEBUG_VERBOSITY >= 3:
+                    traceback.print_exc()
+            if failed:
+                raise Exception("Failed to delete minio data")
+        # cwm_worker_deployment.deployment.delete(namespace_name, deployment_type, **kwargs)
 
     def iterate_all_releases(self):
         for username, user in json.loads(get_minio_admin().user_list()).items():
