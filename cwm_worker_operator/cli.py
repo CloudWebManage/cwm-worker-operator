@@ -1,5 +1,7 @@
 import sys
 import importlib
+import subprocess
+
 import click
 
 
@@ -185,6 +187,16 @@ def start_minio_auth_server_devel():
     """
     import uvicorn
     uvicorn.run('cwm_worker_operator.minio_auth_plugin.app:app', host='0.0.0.0', port=5000, reload=True)
+
+
+@main.command(short_help="Start consecutive daemon run once commands")
+@click.argument('DAEMON_NAME', nargs=-1)
+def multi_run_once(daemon_name):
+    for name in daemon_name:
+        print(f'Running {name} --run-once')
+        subprocess.check_call([
+            'cwm-worker-operator', name, 'start_daemon', '--once'
+        ])
 
 
 if __name__ == '__main__':

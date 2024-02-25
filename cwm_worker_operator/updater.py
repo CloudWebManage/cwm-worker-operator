@@ -138,6 +138,7 @@ def get_instances_updates(domains_config: DomainsConfig, cwm_api_manager: CwmApi
     last_update = None
     instances_updates = {}
     for update in cwm_api_manager.get_cwm_updates(from_datetime):
+        logs.debug(f'get_instances_updates: update={update}', debug_verbosity=10)
         if last_update is None or last_update < update['update_time']:
             last_update = update['update_time']
         if update['worker_id'] not in instances_updates:

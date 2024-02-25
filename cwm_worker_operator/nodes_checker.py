@@ -20,20 +20,25 @@ from cwm_worker_operator.daemon import Daemon
 
 def set_node_healthy_keys(domains_config, deployments_manager):
     healthy_node_name_ips = {}
+    node_name_types = {}
     # set healthy redis key of healthy nodes - so that ingress will report them as healthy
     for node in deployments_manager.iterate_cluster_nodes():
         if node['is_worker']:
+            node_name_types[node['name']] = 'worker'
+        elif node['is_cdn']:
+            node_name_types[node['name']] = 'cdn'
+        if node['name'] in node_name_types:
             healthy_node_name_ips[node['name']] = node['public_ip']
             domains_config.set_node_healthy(node['name'], True)
     # del healthy redis key for nodes which have a key but are not in list of healthy nodes
     for node_name in domains_config.iterate_healthy_node_names():
         if node_name not in healthy_node_name_ips:
             domains_config.set_node_healthy(node_name, False)
-    return healthy_node_name_ips
+    return healthy_node_name_ips, node_name_types
 
 
-def update_dns_records(deployments_manager, healthy_node_name_ips):
-    logs.debug('update_dns_records', healthy_node_name_ips=healthy_node_name_ips, debug_verbosity=10)
+def update_dns_records(deployments_manager, healthy_node_name_ips, node_name_types):
+    logs.debug('update_dns_records', healthy_node_name_ips=healthy_node_name_ips, node_name_types=node_name_types, debug_verbosity=10)
     dns_healthchecks = {}
     dns_records = {}
     # collect node names of existing dns healthchecks / records
@@ -43,8 +48,7 @@ def update_dns_records(deployments_manager, healthy_node_name_ips):
     for dns_healthcheck in deployments_manager.iterate_dns_healthchecks():
         logs.debug('dns_healthcheck', dns_healthcheck=dns_healthcheck, debug_verbosity=10)
         dns_healthchecks[dns_healthcheck['node_name']] = {'id': dns_healthcheck['id'], 'ip': dns_healthcheck['ip']}
-        if dns_healthcheck['node_name'] in healthy_node_name_ips and dns_healthcheck['ip'] != healthy_node_name_ips[
-            dns_healthcheck['node_name']]:
+        if dns_healthcheck['node_name'] in healthy_node_name_ips and dns_healthcheck['ip'] != healthy_node_name_ips[dns_healthcheck['node_name']]:
             deployments_manager.delete_dns_healthcheck(dns_healthcheck['id'])
             update_required_healthcheck_node_names.add(dns_healthcheck['node_name'])
     for dns_record in deployments_manager.iterate_dns_records():
@@ -65,7 +69,7 @@ def update_dns_records(deployments_manager, healthy_node_name_ips):
         else:
             healthcheck_id = dns_healthchecks[node_name]['id']
         if node_name not in dns_records or node_name in update_required_records_node_names:
-            deployments_manager.set_dns_record(node_name, node_ip, healthcheck_id)
+            deployments_manager.set_dns_record(node_name, node_ip, healthcheck_id, node_name_types[node_name])
     return dns_healthchecks, dns_records
 
 
@@ -81,8 +85,8 @@ def delete_dns_records(deployments_manager, healthy_node_name_ips, dns_healthche
 
 
 def run_single_iteration(domains_config, deployments_manager, **_):
-    healthy_node_name_ips = set_node_healthy_keys(domains_config, deployments_manager)
-    dns_healthchecks, dns_records = update_dns_records(deployments_manager, healthy_node_name_ips)
+    healthy_node_name_ips, node_name_types = set_node_healthy_keys(domains_config, deployments_manager)
+    dns_healthchecks, dns_records = update_dns_records(deployments_manager, healthy_node_name_ips, node_name_types)
     delete_dns_records(deployments_manager, healthy_node_name_ips, dns_healthchecks, dns_records)
 
 

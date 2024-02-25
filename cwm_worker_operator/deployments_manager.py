@@ -267,9 +267,9 @@ class DeploymentsManager:
             minio_admin = get_minio_admin()
             failed = False
             for cmd, args, kwargs in [
-                ('user_remove', [namespace_name], {}),
                 ('policy_unset', [namespace_name], {'user': namespace_name}),
                 ('policy_remove', [namespace_name], {}),
+                ('user_remove', [namespace_name], {}),
             ]:
                 try:
                     getattr(minio_admin, cmd)(*args, **kwargs)
@@ -328,9 +328,13 @@ class DeploymentsManager:
                 assert ret == 0, out
                 node = json.loads(out)
                 is_worker = False
+                is_cdn = False
                 for taint in node.get('spec', {}).get('taints', []):
-                    if taint.get('key') == 'cwmc-role'and taint.get('value') == 'worker':
-                        is_worker = True
+                    if taint.get('key') == 'cwmc-role':
+                        if taint.get('value') == 'worker':
+                            is_worker = True
+                        elif taint.get('value') == 'cdn':
+                            is_cdn = True
                         break
                 unschedulable = bool(node.get('spec', {}).get('unschedulable'))
                 public_ip = node.get('status', {}).get('addresses', [{}])[0].get('address', '')
@@ -338,6 +342,7 @@ class DeploymentsManager:
                 yield {
                     'name': node_name,
                     'is_worker': is_worker,
+                    'is_cdn': is_cdn,
                     'unschedulable': unschedulable,
                     'public_ip': public_ip,
                     'cleaner_cordoned': labels.get(NODE_CLEANER_CORDON_LABEL) == 'yes'
@@ -376,12 +381,19 @@ class DeploymentsManager:
                         healthcheck_name = tag['Value']
                         break
                 healthcheck_ip = healthcheck.get('HealthCheckConfig', {}).get('IPAddress') or ''
-                if healthcheck_name and healthcheck_name.startswith(config.DNS_RECORDS_PREFIX + ":"):
-                    yield {
-                        'id': healthcheck_id,
-                        'node_name': healthcheck_name.replace(config.DNS_RECORDS_PREFIX + ":", ""),
-                        'ip': healthcheck_ip
-                    }
+                if healthcheck_name:
+                    if healthcheck_name.startswith(config.DNS_RECORDS_PREFIX + ":"):
+                        yield {
+                            'id': healthcheck_id,
+                            'node_name': healthcheck_name.replace(config.DNS_RECORDS_PREFIX + ":", ""),
+                            'ip': healthcheck_ip
+                        }
+                    elif healthcheck_name.startswith('minio-' + config.DNS_RECORDS_PREFIX + ":"):
+                        yield {
+                            'id': healthcheck_id,
+                            'node_name': healthcheck_name.replace('minio-' + config.DNS_RECORDS_PREFIX + ":", ""),
+                            'ip': healthcheck_ip
+                        }
             if res['IsTruncated']:
                 next_marker = res['NextMarker']
             else:
@@ -398,7 +410,10 @@ class DeploymentsManager:
                 **({'StartRecordType': next_record_type} if next_record_type is not None else {}),
             )
             for record in res.get('ResourceRecordSets', []):
-                if record['Type'] == 'A' and record['Name'] == '{}.{}.'.format(config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN):
+                if record['Type'] == 'A' and (
+                    record['Name'] == '{}.{}.'.format(config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN)
+                    or record['Name'] == 'minio-{}.{}.'.format(config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN)
+                ):
                     if record['SetIdentifier'].startswith(config.DNS_RECORDS_PREFIX+':'):
                         record_ip = ''
                         for value in record.get('ResourceRecords', []):
@@ -423,7 +438,7 @@ class DeploymentsManager:
             CallerReference=caller_reference,
             HealthCheckConfig={
                 "IPAddress": node_ip,
-                "Port": 12808,
+                "Port": 80,
                 "Type": "HTTP",
                 "ResourcePath": "/healthz",
                 "RequestInterval": 30,  # according to AWS docs, when using the recommended regions, it actually does a healthcheck every 2-3 seconds
@@ -440,17 +455,20 @@ class DeploymentsManager:
         )
         return healthcheck_id
 
-    def set_dns_record(self, node_name, node_ip, healthcheck_id):
+    def set_dns_record(self, node_name, node_ip, healthcheck_id, node_type):
         client = boto3.client('route53')
+        prefix = ''
+        if node_type == 'worker':
+            prefix = 'minio-'
         client.change_resource_record_sets(
             HostedZoneId=config.AWS_ROUTE53_HOSTEDZONE_ID,
             ChangeBatch={
-                "Comment": "cwm-worker-operator deployments_manager.set_dns_record({},{})".format(node_name, node_ip),
+                "Comment": "cwm-worker-operator deployments_manager.set_dns_record({}{},{})".format(prefix, node_name, node_ip),
                 "Changes": [
                     {
                         "Action": "CREATE",
                         "ResourceRecordSet": {
-                            "Name": '{}.{}.'.format(config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN),
+                            "Name": '{}{}.{}.'.format(prefix, config.DNS_RECORDS_PREFIX, config.AWS_ROUTE53_HOSTEDZONE_DOMAIN),
                             'Type': 'A',
                             'SetIdentifier': config.DNS_RECORDS_PREFIX + ':' + node_name,
                             'MultiValueAnswer': True,
