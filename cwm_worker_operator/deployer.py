@@ -51,12 +51,12 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
             logs.debug("initializing deployment", debug_verbosity=9, **log_kwargs)
             deployments_manager.init(deployment_config)
             logs.debug("initialized deployment", debug_verbosity=9, **log_kwargs)
-            if config.DEPLOYER_USE_EXTERNAL_SERVICE:
-                deployments_manager.deploy_external_service(deployment_config)
-                logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
-            if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
-                deployments_manager.deploy_extra_objects(deployment_config, extra_objects)
-                logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
+            # if config.DEPLOYER_USE_EXTERNAL_SERVICE:
+            #     deployments_manager.deploy_external_service(deployment_config)
+            #     logs.debug("deployed external service", debug_verbosity=4, **log_kwargs)
+            # if config.DEPLOYER_USE_EXTERNAL_EXTRA_OBJECTS and len(extra_objects) > 0:
+            #     deployments_manager.deploy_extra_objects(deployment_config, extra_objects)
+            #     logs.debug("deployed external extra objects", debug_verbosity=4, **log_kwargs)
             if debug or config.DEPLOYER_WITH_HELM_DRY_RUN or dry_run:
                 print(deployments_manager.deploy(
                     deployment_config, dry_run=True, with_init=False,
@@ -296,7 +296,7 @@ def run_single_iteration(domains_config: domains_config_module.DomainsConfig, me
 
 def start_daemon(once=False, with_prometheus=True, deployer_metrics=None, domains_config=None, extra_minio_extra_configs=None):
     deployments_manager = DeploymentsManager()
-    deployments_manager.init_cache()
+    # deployments_manager.init_cache()
     Daemon(
         name='deployer',
         sleep_time_between_iterations_seconds=config.DEPLOYER_SLEEP_TIME_BETWEEN_ITERATIONS_SECONDS,

@@ -29,7 +29,10 @@ def _check_for_deployment_complete(domains_config, deployments_manager, waiter_m
     #         break
     if deployments_manager.is_ready(namespace_name, "minio"):  # , minimal_check=has_hostnames_without_cert_but_with_challenge):
         # internal_hostname = deployments_manager.get_hostname(namespace_name, "minio")
-        internal_hostname = {'http': '--', 'https': '--'}
+        internal_hostname = {
+            'http': f'nginx.{namespace_name}.svc.cluster.local',
+            'https': f'nginx.{namespace_name}.svc.cluster.local'
+        }
         ok = True
         # if config.WAITER_VERIFY_WORKER_ACCESS:
         #     ok = deployments_manager.verify_worker_access(internal_hostname, log_kwargs, check_hostname_challenge=check_hostname_challenge)

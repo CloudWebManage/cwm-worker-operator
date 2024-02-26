@@ -3,11 +3,13 @@ import uuid
 import json
 import time
 import boto3
+import hashlib
 import urllib3
 import tempfile
 import datetime
 import traceback
 import subprocess
+from textwrap import dedent
 from contextlib import contextmanager
 
 import requests
@@ -18,15 +20,15 @@ from minio import Minio
 
 from cwm_worker_operator import logs
 from cwm_worker_operator import config
-import cwm_worker_deployment.helm
-import cwm_worker_deployment.namespace
+# import cwm_worker_deployment.helm
+# import cwm_worker_deployment.namespace
 from cwm_worker_operator import common
 
-try:
-    import cwm_worker_deployment.deployment
-except Exception as e:
-    if str(e) != 'Could not configure kubernetes python client':
-        raise
+# try:
+#     import cwm_worker_deployment.deployment
+# except Exception as e:
+#     if str(e) != 'Could not configure kubernetes python client':
+#         raise
 
 urllib3.disable_warnings()
 
@@ -34,6 +36,96 @@ urllib3.disable_warnings()
 NODE_CLEANER_CORDON_LABEL = 'cwmc-cleaner-cordon'
 # Pulled Dec 29, 2021
 ALPINE_IMAGE = "alpine:3.15.0@sha256:21a3deaa0d32a8057914f36584b5288d2e5ecc984380bc0118285c70fa8c9300"
+
+
+NGINX_SERVICE = dedent('''
+    apiVersion: v1
+    kind: Service
+    metadata:
+        name: nginx
+    spec:
+        ports:
+          - name: "8080"
+            port: 8080
+            targetPort: 80
+          - name: "8443"
+            port: 8443
+            targetPort: 443
+        selector:
+            app: nginx
+''').strip()
+NGINX_DEPLOYMENT_TEMPLATE = dedent('''
+    kind: Deployment
+    apiVersion: apps/v1
+    metadata:
+        name: nginx
+        labels:
+            app: nginx
+    spec:
+        replicas: 1
+        selector:
+            matchLabels:
+                app: nginx
+        template:
+            metadata:
+                labels:
+                    app: nginx
+                annotations:
+                    updateHash: {update_hash}
+            spec:
+                tolerations:
+                  - key: "cwmc-role"
+                    value: "cdn"
+                    effect: "NoSchedule"
+                containers:
+                  - name: nginx
+                    # Pulled Feb 26, 2024
+                    image: nginx@sha256:c26ae7472d624ba1fafd296e73cecc4f93f853088e6a9c13c0d52f6ca5865107
+                    volumeMounts: {volume_mounts_json}
+                volumes: {volumes_json}
+''').strip()
+NGINX_HOST_BUCKET_HTTP_CONFIGMAP_TEMPLATE = dedent('''
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+        name: {name}
+    data:
+        conf: |
+            server {{
+                listen 80;
+                server_name {server_name};
+                location /{bucket_name} {{
+                    proxy_pass http://cwm-minio.minio-tenant-main.svc.cluster.local;
+                }}
+            }}
+        default_conf: ""
+''').strip()
+NGINX_HOST_BUCKET_HTTPS_CONFIGMAP_TEMPLATE = dedent('''
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+        name: {name}
+    data:
+        conf: |
+            server {{
+                listen 443 ssl;
+                server_name {server_name};
+                ssl_certificate /etc/nginx/ssl/{cert_name}.fullchain;
+                ssl_certificate_key /etc/nginx/ssl/{cert_name}.key;
+                ssl_trusted_certificate /etc/nginx/ssl/{cert_name}.chain;
+                ssl_session_timeout 1d;
+                ssl_session_tickets off;
+                ssl_protocols TLSv1.2 TLSv1.3;
+                ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+                ssl_prefer_server_ciphers on;
+                location /{bucket_name} {{
+                    proxy_pass http://cwm-minio.minio-tenant-main.svc.cluster.local;
+                }}
+            }}
+        fullchain: "{fullchain}"
+        key: "{privkey}"
+        chain: "{chain}"
+''').strip()
 
 
 def kubectl_create(obj, namespace_name='default'):
@@ -155,14 +247,14 @@ class DeploymentsManager:
         self.cache_minio_versions = cache_minio_versions
         self.node_cleanup_pod_class = NodeCleanupPod
 
-    def init_cache(self):
-        for version in self.cache_minio_versions:
-            try:
-                chart_path = cwm_worker_deployment.deployment.chart_cache_init("cwm-worker-deployment-minio", version, "minio")
-                print("Initialized chart cache: {}".format(chart_path), flush=True)
-            except Exception:
-                traceback.print_exc()
-                print("Failed to initialize chart cache for version {}".format(version))
+    # def init_cache(self):
+    #     for version in self.cache_minio_versions:
+    #         try:
+    #             chart_path = cwm_worker_deployment.deployment.chart_cache_init("cwm-worker-deployment-minio", version, "minio")
+    #             print("Initialized chart cache: {}".format(chart_path), flush=True)
+    #         except Exception:
+    #             traceback.print_exc()
+    #             print("Failed to initialize chart cache for version {}".format(version))
 
     def init(self, deployment_config):
         pass
@@ -183,8 +275,8 @@ class DeploymentsManager:
             res[key] = True
         return res
 
-    def deploy(self, deployment_config, dry_run=False, **kwargs):
-        # return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
+
+    def deploy_minio(self, deployment_config, dry_run=False):
         username = deployment_config['cwm-worker-deployment']['namespace']
         password = deployment_config['minio']['access_key']
         if dry_run:
@@ -199,7 +291,7 @@ class DeploymentsManager:
                         {
                             "Action": ["s3:*"],
                             "Effect": "Allow",
-                            "Resource": [f"arn:aws:s3:::{username}",f"arn:aws:s3:::{username}/*"]
+                            "Resource": [f"arn:aws:s3:::{username}", f"arn:aws:s3:::{username}/*"]
                         },
                         {
                             "Action": ["s3:DeleteBucket"],
@@ -219,14 +311,138 @@ class DeploymentsManager:
             minio = get_minio()
             if not minio.bucket_exists(username):
                 minio.make_bucket(username)
+            if deployment_config['minio']['cache']['enabled']:
+                minio.set_bucket_policy(username, json.dumps(
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Principal": {"AWS": ["*"]},
+                                "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+                                "Resource": [f"arn:aws:s3:::{username}"]
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Principal": {"AWS": ["*"]},
+                                "Action": ["s3:GetObject"],
+                                "Resource": [f"arn:aws:s3:::{username}/*"]
+                            }
+                        ]
+                    }
+                ))
+            else:
+                minio.delete_bucket_policy(username)
             return f"OK, username/bucket: {username}"
 
+    def deploy_cdn(self, deployment_config, dry_run=False):
+        out = []
+        namespace_name = deployment_config['cwm-worker-deployment']['namespace']
+        if deployment_config['minio']['cache']['enabled']:
+            if subprocess.call(['kubectl', 'get', 'namespace', namespace_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
+                if dry_run:
+                    out.append(f"create namespace: {namespace_name}")
+                else:
+                    subprocess.check_call(['kubectl', 'create', 'namespace', namespace_name])
+            update_hash = []
+            volumes = []
+            volume_mounts = []
+            for i, hostname in enumerate(deployment_config['minio']['nginx']['hostnames']):
+                id_ = hostname['id']
+                name = hostname['name']
+                configmap_input = NGINX_HOST_BUCKET_HTTP_CONFIGMAP_TEMPLATE.format(
+                    name=f'http-host-{id_}',
+                    server_name=' _' if i == 0 else name,
+                    bucket_name=namespace_name
+                )
+                update_hash.append(configmap_input)
+                if dry_run:
+                    out.append(f"create configmap: http-host-{id_}")
+                    out.append(configmap_input)
+                else:
+                    subprocess.run([
+                        'kubectl', '-n', namespace_name, 'apply', '-f', '-'
+                    ], input=configmap_input.encode())
+                volumes.append({"name": f'http-host-{id_}', "configMap": {"name": f'http-host-{id_}'}})
+                if i == 0:
+                    volume_mounts.append({"name": f'http-host-{id_}', "mountPath": "/etc/nginx/conf.d/default.conf", "subPath": "default_conf"})
+                volume_mounts.append({"name": f'http-host-{id_}', "mountPath": f"/etc/nginx/conf.d/http-host-{id_}.conf", "subPath": "conf"})
+                fullchain = hostname['fullchain']
+                chain = hostname['chain']
+                privkey = hostname['privkey']
+                if fullchain and privkey and chain:
+                    configmap_input = NGINX_HOST_BUCKET_HTTPS_CONFIGMAP_TEMPLATE.format(
+                        name=f'https-host-{id_}',
+                        server_name=name,
+                        bucket_name=namespace_name,
+                        cert_name=f'https-host-{id_}',
+                        fullchain=fullchain.replace('\n', '\\n'),
+                        privkey=privkey.replace('\n', '\\n'),
+                        chain=chain.replace('\n', '\\n'),
+                    )
+                    update_hash.append(configmap_input)
+                    if dry_run:
+                        out.append(f"create configmap: https-host-{id_}")
+                        out.append(configmap_input)
+                    else:
+                        subprocess.run([
+                            'kubectl', '-n', namespace_name, 'apply', '-f', '-'
+                        ], input=configmap_input.encode())
+                    volumes.append({"name": f'https-host-{id_}', "configMap": {"name": f'https-host-{id_}'}})
+                    volume_mounts += [
+                        {"name": f'https-host-{id_}', "mountPath": f"/etc/nginx/conf.d/https-host-{id_}.conf", "subPath": "conf"},
+                        {"name": f'https-host-{id_}', "mountPath": f"/etc/nginx/ssl/https-host-{id_}.fullchain", "subPath": "fullchain"},
+                        {"name": f'https-host-{id_}', "mountPath": f"/etc/nginx/ssl/https-host-{id_}.key", "subPath": "key"},
+                        {"name": f'https-host-{id_}', "mountPath": f"/etc/nginx/ssl/https-host-{id_}.chain", "subPath": "chain"},
+                    ]
+            nginx_input = NGINX_DEPLOYMENT_TEMPLATE.format(
+                volume_mounts_json=json.dumps(volume_mounts),
+                volumes_json=json.dumps(volumes),
+                update_hash=hashlib.md5(json.dumps(update_hash).encode()).hexdigest()
+            )
+            if dry_run:
+                out.append(f"create deployment: nginx")
+                out.append(nginx_input)
+            else:
+                subprocess.run([
+                    'kubectl', '-n', namespace_name, 'apply', '-f', '-'
+                ], input=nginx_input.encode(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            service_input = NGINX_SERVICE
+            if dry_run:
+                out.append(f'create service: nginx')
+                out.append(service_input)
+            else:
+                subprocess.run([
+                    'kubectl', '-n', namespace_name, 'apply', '-f', '-'
+                ], input=service_input.encode(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            if subprocess.call(['kubectl', 'get', 'namespace', namespace_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                if dry_run:
+                    out.append(f"delete namespace: {namespace_name}")
+                else:
+                    subprocess.check_call(['kubectl', 'delete', 'namespace', namespace_name])
+        return '\n'.join(out)
+
+    def deploy(self, deployment_config, dry_run=False, **kwargs):
+        # return cwm_worker_deployment.deployment.deploy(deployment_config, **kwargs)
+        return '\n'.join([
+            self.deploy_minio(deployment_config, dry_run=dry_run),
+            self.deploy_cdn(deployment_config, dry_run=dry_run)
+        ])
+
     def is_ready(self, namespace_name, deployment_type, minimal_check=False):
-        #return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, minimal_check=minimal_check)
-        return get_minio().bucket_exists(namespace_name)
+        # return cwm_worker_deployment.deployment.is_ready(namespace_name, deployment_type, minimal_check=minimal_check)
+        if not get_minio().bucket_exists(namespace_name):
+            return False
+        return 'ListBucketResult' in subprocess.check_output([
+            'kubectl', '-n', namespace_name, 'exec', 'deployment/nginx', '--',
+            'curl', '-s', f'http://localhost/{namespace_name}/'
+        ]).decode()
+
 
     def get_health(self, namespace_name, deployment_type):
-        return cwm_worker_deployment.deployment.get_health(namespace_name, deployment_type)
+        raise NotImplementedError
+        # return cwm_worker_deployment.deployment.get_health(namespace_name, deployment_type)
 
     def get_all_namespaces(self):
         ret, out = subprocess.getstatusoutput("kubectl get ns --no-headers -o=custom-columns=NAME:.metadata.name")
@@ -234,10 +450,11 @@ class DeploymentsManager:
         return [line.strip() for line in out.splitlines() if line.strip()]
 
     def get_hostname(self, namespace_name, deployment_type):
-        return {
-            protocol: cwm_worker_deployment.deployment.get_hostname(namespace_name, deployment_type, protocol)
-            for protocol in ['http', 'https']
-        }
+        raise NotImplementedError
+        # return {
+        #     protocol: cwm_worker_deployment.deployment.get_hostname(namespace_name, deployment_type, protocol)
+        #     for protocol in ['http', 'https']
+        # }
 
     def verify_worker_access(self, internal_hostname, log_kwargs, path='/minio/health/live', check_hostname_challenge=None):
         internal_hostname = internal_hostname['http']
@@ -313,7 +530,8 @@ class DeploymentsManager:
         return metrics
 
     def get_kube_metrics(self, namespace_name):
-        return cwm_worker_deployment.namespace.get_kube_metrics(namespace_name)
+        raise NotImplementedError
+        # return cwm_worker_deployment.namespace.get_kube_metrics(namespace_name)
 
     def iterate_cluster_worker_nodes(self):
         return (node for node in self.iterate_cluster_nodes() if node['is_worker'])
