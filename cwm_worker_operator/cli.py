@@ -69,6 +69,14 @@ for daemon in [
         ], 'help': 'Check and update a single worker, used by workers-checker to run async operations'}
     }},
     {'name': 'throttler'},
+    {
+        'name': 'kafka_streamer',
+        'extra_params': [
+            click.Option(['--topic']),
+            click.Option(['--no-kafka-commit'], is_flag=True),
+            click.Option(['--no-kafka-delete'], is_flag=True),
+        ]
+    },
 ]:
     try:
         daemon_module = importlib.import_module('cwm_worker_operator.{}'.format(daemon['name'].replace('-', '_')))
@@ -81,7 +89,8 @@ for daemon in [
                     name='start_daemon',
                     callback=daemon_module.start_daemon,
                     params=[
-                        *([click.Option(['--once'], is_flag=True)] if daemon.get('with_once') != False else [])
+                        *([click.Option(['--once'], is_flag=True)] if daemon.get('with_once') != False else []),
+                        *(daemon['extra_params'] if 'extra_params' in daemon else []),
                     ]
                 ),
                 **{

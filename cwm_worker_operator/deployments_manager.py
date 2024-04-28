@@ -275,7 +275,6 @@ class DeploymentsManager:
             res[key] = True
         return res
 
-
     def deploy_minio(self, deployment_config, dry_run=False):
         username = deployment_config['cwm-worker-deployment']['namespace']
         password = deployment_config['minio']['access_key']

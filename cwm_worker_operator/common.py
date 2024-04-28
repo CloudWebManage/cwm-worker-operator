@@ -66,6 +66,14 @@ def get_worker_id_from_namespace_name(namespace_name):
     return worker_id
 
 
+@lru_cache(maxsize=9999)
+def get_namespace_name_from_bucket_name(bucket_name):
+    if is_worker_namespace(bucket_name):
+        return bucket_name
+    else:
+        return None
+
+
 def is_worker_namespace(namespace_name):
     return (
         namespace_name.startswith('cwm-worker-')
@@ -74,6 +82,7 @@ def is_worker_namespace(namespace_name):
             'cwm-worker-operator-nas-checker',
         ]
     )
+
 
 def is_hostnames_match(full_hostname, partial_hostname):
     if full_hostname.lower() == partial_hostname.lower():

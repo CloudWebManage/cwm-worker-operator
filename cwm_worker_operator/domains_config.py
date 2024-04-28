@@ -756,6 +756,15 @@ class DomainsConfig:
                 for key in r.keys(base_key + "*")
             }
 
+    def update_deployment_api_metrics(self, namespace_name, data):
+        from .kafka_streamer import DEPLOYMENT_API_METRICS_BASE_DATA
+        assert data.keys() == DEPLOYMENT_API_METRICS_BASE_DATA.keys()
+        base_key = "{}:".format(self.keys.deployment_api_metric._(namespace_name))
+        with self.keys.deployment_api_metric.get_redis() as r:
+            for metric_key, value in data.items():
+                key = f'{base_key}{metric_key}'
+                r.incrby(key, value)
+
     def set_worker_aggregated_metrics(self, worker_id, agg_metrics):
         self.keys.worker_aggregated_metrics.set(worker_id, json.dumps(agg_metrics))
 
@@ -785,6 +794,9 @@ class DomainsConfig:
             if latest_value is None or value > latest_value:
                 latest_value = value
         return latest_value if latest_value else None
+
+    def set_deployment_last_action(self, namespace_name):
+        self.keys.deployment_last_action.set(namespace_name, common.now().strftime("%Y%m%dT%H%M%S"))
 
     def get_key_summary_single_multi_domain(self, r, key_name, key, max_keys_per_summary, is_api=False):
         if isinstance(key, DomainsConfigKeyStatic):
