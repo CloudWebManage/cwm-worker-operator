@@ -70,7 +70,7 @@ for daemon in [
     }},
     {'name': 'throttler'},
     {
-        'name': 'kafka_streamer',
+        'name': 'kafka-streamer',
         'extra_params': [
             click.Option(['--topic']),
             click.Option(['--no-kafka-commit'], is_flag=True),
