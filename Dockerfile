@@ -1,5 +1,5 @@
 # Pulled Apr 28, 2024
-FROM python:3-alpine@sha256:ef097620baf1272e38264207003b0982285da3236a20ed829bf6bbf1e85fe3cb
+FROM python:3.8-alpine@sha256:166faf3661e2b715e122d8203ce65a4e0f55e1bee11d8f10dc4751a2cecf5b9c
 RUN apk update && apk add --no-cache git curl nfs-utils libffi-dev build-base librdkafka-dev
 RUN curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" &&\
     chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl &&\
