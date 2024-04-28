@@ -92,7 +92,7 @@ def delete_records(topic, latest_partition_offset):
         ], env={**os.environ, 'DEBUG': ''})
 
 
-def run_single_iteration(domains_config: DomainsConfig, topic=None, no_kafka_commit=False, no_kafka_delete=False, **_):
+def run_single_iteration(domains_config: DomainsConfig, topic, daemon, no_kafka_commit=False, no_kafka_delete=False, **_):
     start_time = common.now()
     assert topic, "topic is required"
     logs.debug(f"running iteration for topic: {topic}", 8)
@@ -105,7 +105,7 @@ def run_single_iteration(domains_config: DomainsConfig, topic=None, no_kafka_com
     latest_partition_offset = {}
     try:
         agg_data = {}
-        while (common.now() - start_time).total_seconds() < config.KAFKA_STREAMER_POLL_TIME_SECONDS:
+        while (common.now() - start_time).total_seconds() < config.KAFKA_STREAMER_POLL_TIME_SECONDS and not daemon.terminate_requested:
             msg = consumer.poll(timeout=config.KAFKA_STREAMER_CONSUMER_POLL_TIMEOUT_SECONDS)
             if msg is None:
                 # logs.debug("Waiting for messages...", 10)
