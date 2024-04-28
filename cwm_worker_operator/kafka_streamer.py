@@ -94,8 +94,6 @@ def delete_records(topic, latest_partition_offset):
 
 def run_single_iteration(domains_config: DomainsConfig, topic=None, no_kafka_commit=False, no_kafka_delete=False, **_):
     start_time = common.now()
-    if not topic:
-        topic = config.KAFKA_STREAMER_TOPIC
     assert topic, "topic is required"
     logs.debug(f"running iteration for topic: {topic}", 8)
     consumer = Consumer({
@@ -130,6 +128,8 @@ def run_single_iteration(domains_config: DomainsConfig, topic=None, no_kafka_com
 
 
 def start_daemon(once=False, domains_config=None, topic=None, no_kafka_commit=False, no_kafka_delete=False):
+    if not topic:
+        topic = config.KAFKA_STREAMER_TOPIC
     assert topic
     Daemon(
         name=f"kafka_streamer_{topic}",
