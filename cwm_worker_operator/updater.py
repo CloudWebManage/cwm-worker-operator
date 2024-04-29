@@ -59,8 +59,7 @@ def check_update_release(domains_config, updater_metrics, namespace_name, last_u
         else:
             hours_since_last_update = ((common.now() - last_updated).total_seconds() / 60 / 60)
             volume_config = domains_config.get_cwm_api_volume_config(worker_id=worker_id)
-            # disable_force_delete = volume_config.disable_force_delete
-            disable_force_delete = True  # the new minio tenant configuration doesn't need forced delete on a schedule
+            disable_force_delete = volume_config.disable_force_delete
             disable_force_update = volume_config.disable_force_update
             is_deployed = status == "deployed"
             if not is_deployed:
