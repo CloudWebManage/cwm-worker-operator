@@ -35,7 +35,7 @@ def initialize_deploy_worker_args(domains_config, deployer_metrics, deployments_
 
 def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manager=None, worker_id=None, debug=False,
                   extra_minio_extra_configs=None, dry_run=None, flow_manager=None,
-                  preprocess_result=None):
+                  preprocess_result=None, force=False):
     domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs = initialize_deploy_worker_args(
         domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs)
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
@@ -44,7 +44,7 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
         if preprocess_result is None:
             preprocess_result = deploy_worker_preprocess(
                 worker_id, domains_config, deployer_metrics, flow_manager, dry_run, debug, extra_minio_extra_configs,
-                deployments_manager
+                deployments_manager, force=force
             )
         namespace_name, deployment_config, extra_objects, deploy_preprocess_result = preprocess_result
         if deployment_config:
@@ -101,7 +101,7 @@ def deploy_worker(domains_config=None, deployer_metrics=None, deployments_manage
 def deploy_worker_preprocess(worker_id: str, domains_config: domains_config_module.DomainsConfig,
                              deployer_metrics, flow_manager: DeployerDeploymentFlowManager,
                              dry_run: bool, debug: bool, extra_minio_extra_configs,
-                             deployments_manager: DeploymentsManager):
+                             deployments_manager: DeploymentsManager, force=False):
     domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs = initialize_deploy_worker_args(
         domains_config, deployer_metrics, deployments_manager, flow_manager, extra_minio_extra_configs)
     start_time = domains_config.get_worker_ready_for_deployment_start_time(worker_id)
@@ -115,7 +115,7 @@ def deploy_worker_preprocess(worker_id: str, domains_config: domains_config_modu
             logs.debug_info("Failed to get volume config", **log_kwargs)
             flow_manager.set_worker_error(worker_id, domains_config.WORKER_ERROR_FAILED_TO_GET_VOLUME_CONFIG)
             return None, None, None, None
-        if not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
+        if not force and not flow_manager.is_valid_worker_hostnames_for_deployment(worker_id, volume_config.hostnames):
             if not dry_run or not debug:
                 logs.debug_info("flow_manager says that worker_hostnames are not valid for deployment, sorry", **log_kwargs)
                 return namespace_name, None, None, None

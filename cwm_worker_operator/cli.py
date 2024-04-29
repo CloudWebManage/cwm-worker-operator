@@ -27,6 +27,7 @@ for daemon in [
             click.Option(['--extra-minio-extra-configs']),
             click.Option(['--debug'], is_flag=True),
             click.Option(['--dry-run'], is_flag=True),
+            click.Option(['--force'], is_flag=True),
         ], 'help': 'Deploy a single worker, used by deployer to run async operations'}
     }},
     {'name': 'waiter', 'extra_commands': {
