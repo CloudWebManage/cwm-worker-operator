@@ -82,7 +82,61 @@ NGINX_DEPLOYMENT_TEMPLATE = dedent('''
                     # Pulled Feb 26, 2024
                     image: nginx@sha256:c26ae7472d624ba1fafd296e73cecc4f93f853088e6a9c13c0d52f6ca5865107
                     volumeMounts: {volume_mounts_json}
+                  - name: fluentbit
+                    # Pulled Apr 29, 2024
+                    image: cr.fluentbit.io/fluent/fluent-bit:3.0.2@sha256:ed0214b0b0c6bff7474c739d9c8c2e128d378b053769c2b12da06296be883898
+                    args: ["-c", "/fluent-bit/etc/fluent-bit.conf"]
+                    volumeMounts:
+                      - name: fluentbit-config
+                        mountPath: /fluent-bit/etc/cwmparsers.conf
+                        subPath: cwmparsers.conf
+                      - name: fluentbit-config
+                        mountPath: /fluent-bit/etc/fluent-bit.conf
+                        subPath: fluent-bit.conf
+                      - name: access-logs
+                        mountPath: /var/log/nginx/cwm-access-logs
                 volumes: {volumes_json}
+''').strip()
+NGINX_INCLUDES_CONFIGMAP_TEMPLATE = dedent('''
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+        name: nginx-includes
+    data:
+        cache_location.conf: |
+            proxy_cache minio;
+            
+            # Buffering is required to enable cache
+            proxy_buffering on;
+            
+            # Sets the number and size of the buffers used for reading a response from the
+            # proxied server, for a single connection.
+            proxy_buffers 8 16k;
+            
+            # Sets the size of the buffer used for reading the first part of the response
+            # received from the proxied server. This part usually contains a small response
+            # header.
+            proxy_buffer_size 16k;
+            
+            # When buffering of responses from the proxied server is enabled, limits the
+            # total size of buffers that can be busy sending a response to the client while
+            # the response is not yet fully read. In the meantime, the rest of the buffers
+            # can be used for reading the response and, if needed, buffering part of the
+            # response to a temporary file.
+            proxy_busy_buffers_size 32k;
+            
+            proxy_cache_valid 200 1m;
+            
+            # the following lines are required to fix handling of HEAD requests by minio
+            proxy_cache_convert_head off;
+            proxy_cache_key  "$request_method$request_uri$is_args$args";
+            proxy_cache_methods GET HEAD;
+            
+            # when caching is enabled some headers are not passed, we need to explicitly pass them
+            proxy_set_header If-Match $http_if_match;
+            proxy_set_header Range $http_range;
+            
+            add_header X-Cache-Status $upstream_cache_status;
 ''').strip()
 NGINX_HOST_BUCKET_HTTP_CONFIGMAP_TEMPLATE = dedent('''
     apiVersion: v1
@@ -90,15 +144,32 @@ NGINX_HOST_BUCKET_HTTP_CONFIGMAP_TEMPLATE = dedent('''
     metadata:
         name: {name}
     data:
-        conf: |
+        default_conf: |
+            proxy_cache_path /var/cache/nginx/minio/cache levels=1:2 keys_zone=minio:10m max_size=1g inactive=1m use_temp_path=on;
+            proxy_temp_path /var/cache/nginx/minio/temp;
+            log_format json escape=json '{{'
+                '"bytes_sent": "$bytes_sent", '
+                '"request_length": "$request_length", '
+                '"request": "$request", '
+                '"status": "$status", '
+                '"server_name": "$server_name", '
+                '"scheme": "$scheme", '
+                '"https": "$https", '
+                '"hostname": "$hostname", '
+                '"host": "$host", '
+                '"upstream_cache_status": "$upstream_cache_status", '
+                '"request_time": "$request_time"'
+            '}}';
+        conf: |    
             server {{
                 listen 80;
                 server_name {server_name};
                 location /{bucket_name} {{
                     proxy_pass http://cwm-minio.minio-tenant-main.svc.cluster.local;
+                    include /etc/nginx/includes/cache_location.conf;
                 }}
+                access_log syslog:server=unix:/var/log/nginx/cwm-access-logs/syslog.sock json;
             }}
-        default_conf: ""
 ''').strip()
 NGINX_HOST_BUCKET_HTTPS_CONFIGMAP_TEMPLATE = dedent('''
     apiVersion: v1
@@ -120,11 +191,34 @@ NGINX_HOST_BUCKET_HTTPS_CONFIGMAP_TEMPLATE = dedent('''
                 ssl_prefer_server_ciphers on;
                 location /{bucket_name} {{
                     proxy_pass http://cwm-minio.minio-tenant-main.svc.cluster.local;
+                    include /etc/nginx/includes/cache_location.conf;
                 }}
+                access_log syslog:server=unix:/var/log/nginx/cwm-access-logs/syslog.sock json;
             }}
         fullchain: "{fullchain}"
         key: "{privkey}"
         chain: "{chain}"
+''').strip()
+FLUENT_BIT_CONFIGMAP_TEMPLATE = dedent('''
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+        name: {name}
+    data:
+        fluent-bit.conf: |
+            [SERVICE]
+                Parsers_File parsers.conf
+                Parsers_File cwmparsers.conf
+            
+            [INPUT]
+                Name syslog
+                Path /var/log/nginx/cwm-access-logs/syslog.sock
+                Unix_Perm 0666
+            
+            [OUTPUT]
+                Name kafka
+                Brokers {kafka_brokers}
+                Topics {kafka_topic}
 ''').strip()
 
 
@@ -343,9 +437,44 @@ class DeploymentsManager:
                     out.append(f"create namespace: {namespace_name}")
                 else:
                     subprocess.check_call(['kubectl', 'create', 'namespace', namespace_name])
-            update_hash = []
-            volumes = []
-            volume_mounts = []
+            from .kafka_streamer import MINIO_TENANT_MAIN_AUDIT_LOGS_TOPIC
+            configmap_input = FLUENT_BIT_CONFIGMAP_TEMPLATE.format(
+                name='fluentbit-config',
+                kafka_brokers='minio-audit-kafka-bootstrap.strimzi.svc.cluster.local:9092',
+                kafka_topic=MINIO_TENANT_MAIN_AUDIT_LOGS_TOPIC
+            )
+            if dry_run:
+                out.append(f"create configmap: fluentbit-config")
+                out.append(configmap_input)
+            else:
+                subprocess.run([
+                    'kubectl', '-n', namespace_name, 'apply', '-f', '-'
+                ], input=configmap_input.encode())
+            update_hash = [
+                configmap_input
+            ]
+            configmap_input = NGINX_INCLUDES_CONFIGMAP_TEMPLATE.format()
+            if dry_run:
+                out.append(f"create configmap: nginx-includes")
+                out.append(configmap_input)
+            else:
+                subprocess.run([
+                    'kubectl', '-n', namespace_name, 'apply', '-f', '-'
+                ], input=configmap_input.encode())
+            update_hash.append(configmap_input)
+            volumes = [
+                {'name': 'access-logs', 'emptyDir': {}},
+                {'name': 'fluentbit-config', 'configMap': {'name': 'fluentbit-config'}},
+                {'name': 'nginx-includes', 'configMap': {'name': 'nginx-includes'}},
+                {'name': 'nginx-cache', 'emptyDir': {}},
+                {'name': 'nginx-cache-temp', 'emptyDir': {}},
+            ]
+            volume_mounts = [
+                {"name": "access-logs", "mountPath": "/var/log/nginx/cwm-access-logs"},
+                {'name': 'nginx-includes', 'mountPath': '/etc/nginx/includes'},
+                {'name': 'nginx-cache', 'mountPath': '/var/cache/nginx/minio/cache'},
+                {'name': 'nginx-cache-temp', 'mountPath': '/var/cache/nginx/minio/temp'},
+            ]
             for i, hostname in enumerate(deployment_config['minio']['nginx']['hostnames']):
                 id_ = hostname['id']
                 name = hostname['name']
