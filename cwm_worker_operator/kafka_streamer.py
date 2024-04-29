@@ -95,6 +95,7 @@ def delete_records(topic, latest_partition_offset):
 def run_single_iteration(domains_config: DomainsConfig, topic, daemon, no_kafka_commit=False, no_kafka_delete=False, **_):
     start_time = common.now()
     assert topic, "topic is required"
+    assert config.KAFKA_STREAMER_BOOTSTRAP_SERVERS
     logs.debug(f"running iteration for topic: {topic}", 8)
     consumer = Consumer({
         'bootstrap.servers': config.KAFKA_STREAMER_BOOTSTRAP_SERVERS,
