@@ -608,6 +608,8 @@ class DeploymentsManager:
             return True
 
     def delete(self, namespace_name, deployment_type, delete_data=False, **kwargs):
+        if subprocess.call(['kubectl', 'get', 'namespace', namespace_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+            subprocess.check_call(['kubectl', 'delete', 'namespace', namespace_name])
         if delete_data:
             minio_admin = get_minio_admin()
             failed = False
@@ -634,7 +636,6 @@ class DeploymentsManager:
                     traceback.print_exc()
             if failed:
                 raise Exception("Failed to delete minio data")
-        # cwm_worker_deployment.deployment.delete(namespace_name, deployment_type, **kwargs)
 
     def iterate_all_releases(self):
         for username, user in json.loads(get_minio_admin().user_list()).items():
