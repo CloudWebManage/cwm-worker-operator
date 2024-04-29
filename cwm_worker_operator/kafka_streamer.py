@@ -95,6 +95,7 @@ def commit(topic, consumer, domains_config, agg_data, no_kafka_commit=False):
         raise NotImplementedError(f"topic {topic} is not supported")
     if not no_kafka_commit:
         consumer.commit()
+    agg_data.clear()
 
 
 def delete_records(topic, latest_partition_offset):
